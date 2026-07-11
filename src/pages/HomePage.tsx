@@ -18,20 +18,36 @@ export function HomePage() {
   const [groupName, setGroupName] = useState('')
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!pseudo.trim()) return setError('Choisis un pseudo pour continuer.')
     if (!groupName.trim()) return setError('Donne un nom à ton groupe.')
-    createGroup(groupName, pseudo)
-    navigate('/quiz')
+    setError('')
+    setSubmitting(true)
+    try {
+      await createGroup(groupName, pseudo)
+      navigate('/quiz')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Une erreur est survenue.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!pseudo.trim()) return setError('Choisis un pseudo pour continuer.')
     if (!code.trim()) return setError('Entre le code du groupe.')
-    const result = joinGroup(code, pseudo)
-    if ('error' in result) return setError(result.error)
-    navigate('/quiz')
+    setError('')
+    setSubmitting(true)
+    try {
+      await joinGroup(code, pseudo)
+      navigate('/quiz')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Une erreur est survenue.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -99,10 +115,10 @@ export function HomePage() {
                     <Field label="Nom du groupe" value={groupName} onChange={setGroupName} placeholder="Les Inséparables" />
                     <Field label="Ton pseudo" value={pseudo} onChange={setPseudo} placeholder="Alex" />
                     {error && <p className="text-sm text-pink-400">{error}</p>}
-                    <Button fullWidth onClick={handleCreate} className="mt-1">
-                      Créer et commencer
+                    <Button fullWidth onClick={handleCreate} disabled={submitting} className="mt-1">
+                      {submitting ? 'Création…' : 'Créer et commencer'}
                     </Button>
-                    <Button fullWidth variant="ghost" onClick={() => setMode('landing')}>
+                    <Button fullWidth variant="ghost" onClick={() => setMode('landing')} disabled={submitting}>
                       ← Retour
                     </Button>
                   </div>
@@ -130,10 +146,10 @@ export function HomePage() {
                     />
                     <Field label="Ton pseudo" value={pseudo} onChange={setPseudo} placeholder="Sam" />
                     {error && <p className="text-sm text-pink-400">{error}</p>}
-                    <Button fullWidth onClick={handleJoin} className="mt-1">
-                      Rejoindre et commencer
+                    <Button fullWidth onClick={handleJoin} disabled={submitting} className="mt-1">
+                      {submitting ? 'Connexion…' : 'Rejoindre et commencer'}
                     </Button>
-                    <Button fullWidth variant="ghost" onClick={() => setMode('landing')}>
+                    <Button fullWidth variant="ghost" onClick={() => setMode('landing')} disabled={submitting}>
                       ← Retour
                     </Button>
                   </div>

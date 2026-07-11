@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Runtime data (created on first server start)
+server/data/db.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -5,6 +5,7 @@ import { Card } from '../components/Card'
 import { RadarChart } from '../components/RadarChart'
 import { TraitGauge } from '../components/TraitGauge'
 import { useAppStore } from '../store/useAppStore'
+import { useGroupPolling } from '../hooks/useGroupPolling'
 import { ARCHETYPES } from '../data/archetypes'
 import { TRAITS } from '../data/traits'
 import { generateDescription, sortedTraits } from '../lib/scoring'
@@ -14,6 +15,7 @@ export function ProfilePage() {
   const member = useAppStore((s) => s.currentMember())
   const group = useAppStore((s) => s.currentGroup())
   const [copied, setCopied] = useState(false)
+  useGroupPolling()
 
   if (!member || !member.scores) return null
 
@@ -80,6 +82,9 @@ export function ProfilePage() {
               </div>
               <span className="text-sm text-fuchsia-300 font-semibold">{copied ? 'Copié ✓' : 'Copier'}</span>
             </button>
+            <p className="text-xs text-white/40 text-center mt-3">
+              {group.members.filter((m) => m.finishedAt).length} / {group.members.length} ont terminé le quiz
+            </p>
           </Card>
         )}
 

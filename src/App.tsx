@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from './store/useAppStore'
 import { BottomNav } from './components/BottomNav'
 import { HomePage } from './pages/HomePage'
@@ -9,15 +9,34 @@ import { ProfilePage } from './pages/ProfilePage'
 import { GroupPage } from './pages/GroupPage'
 import { DebatesPage } from './pages/DebatesPage'
 
+function Splash() {
+  return (
+    <div className="app-shell flex-1 flex flex-col items-center justify-center gap-3">
+      <motion.div
+        animate={{ scale: [1, 1.08, 1] }}
+        transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+        className="text-5xl"
+      >
+        🧠
+      </motion.div>
+      <p className="text-white/40 text-sm">Chargement…</p>
+    </div>
+  )
+}
+
 function RequireMember({ children }: { children: ReactNode }) {
+  const identity = useAppStore((s) => s.identity)
   const member = useAppStore((s) => s.currentMember())
-  if (!member) return <Navigate to="/" replace />
+  if (!identity) return <Navigate to="/" replace />
+  if (!member) return <Splash />
   return <>{children}</>
 }
 
 function RequireFinished({ children }: { children: ReactNode }) {
+  const identity = useAppStore((s) => s.identity)
   const member = useAppStore((s) => s.currentMember())
-  if (!member) return <Navigate to="/" replace />
+  if (!identity) return <Navigate to="/" replace />
+  if (!member) return <Splash />
   if (!member.scores) return <Navigate to="/quiz" replace />
   return <>{children}</>
 }
@@ -74,10 +93,33 @@ function AnimatedRoutes() {
   )
 }
 
+function AppBootstrap() {
+  const identity = useAppStore((s) => s.identity)
+  const group = useAppStore((s) => s.group)
+  const refreshGroup = useAppStore((s) => s.refreshGroup)
+  const leaveGroup = useAppStore((s) => s.leaveGroup)
+  const [bootstrapped, setBootstrapped] = useState(!identity)
+
+  useEffect(() => {
+    if (!identity || group) {
+      setBootstrapped(true)
+      return
+    }
+    refreshGroup().finally(() => {
+      const stillMissing = !useAppStore.getState().group
+      if (stillMissing) leaveGroup()
+      setBootstrapped(true)
+    })
+  }, [])
+
+  if (!bootstrapped) return <Splash />
+  return <AnimatedRoutes />
+}
+
 function App() {
   return (
     <HashRouter>
-      <AnimatedRoutes />
+      <AppBootstrap />
     </HashRouter>
   )
 }

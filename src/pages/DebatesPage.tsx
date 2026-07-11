@@ -2,11 +2,13 @@ import { PageTransition } from '../components/PageTransition'
 import { Card } from '../components/Card'
 import { Avatar } from '../components/Avatar'
 import { useAppStore } from '../store/useAppStore'
+import { useGroupPolling } from '../hooks/useGroupPolling'
 import { finishedMembers } from '../lib/groupAnalysis'
 import { generateDebates } from '../lib/debates'
 
 export function DebatesPage() {
   const group = useAppStore((s) => s.currentGroup())
+  useGroupPolling()
   if (!group) return null
 
   const finished = finishedMembers(group.members)

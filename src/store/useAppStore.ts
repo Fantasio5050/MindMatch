@@ -1,33 +1,27 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Group, Member } from '../types'
-import { computeScores, getArchetypeId } from '../lib/scoring'
+import { apiCreateGroup, apiJoinGroup, apiGetGroup, apiSaveAnswer, apiFinish, ApiError } from '../lib/api'
 
-const MEMBER_COLORS = ['#f472b6', '#60a5fa', '#fb923c', '#34d399', '#a78bfa', '#fbbf24', '#38bdf8', '#f87171']
-
-function randomCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let out = ''
-  for (let i = 0; i < 5; i++) out += chars[Math.floor(Math.random() * chars.length)]
-  return out
-}
-
-function makeId(): string {
-  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
+interface Identity {
+  groupId: string
+  memberId: string
+  memberToken: string
 }
 
 interface AppState {
-  groups: Group[]
-  currentGroupId: string | null
-  currentMemberId: string | null
+  identity: Identity | null
+  group: Group | null
+  loading: boolean
+  error: string | null
 
-  createGroup: (groupName: string, pseudo: string) => { groupId: string; memberId: string }
-  joinGroup: (code: string, pseudo: string) => { groupId: string; memberId: string } | { error: string }
-  saveAnswer: (questionId: string, optionId: string) => void
-  finishQuestionnaire: () => void
-  resetQuestionnaire: () => void
+  createGroup: (groupName: string, pseudo: string) => Promise<void>
+  joinGroup: (code: string, pseudo: string) => Promise<void>
+  refreshGroup: () => Promise<void>
+  saveAnswer: (questionId: string, optionId: string) => Promise<void>
+  finishQuestionnaire: () => Promise<void>
   leaveGroup: () => void
-  setCurrentMember: (groupId: string, memberId: string) => void
+  clearError: () => void
 
   currentGroup: () => Group | null
   currentMember: () => Member | null
@@ -36,131 +30,80 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      groups: [],
-      currentGroupId: null,
-      currentMemberId: null,
+      identity: null,
+      group: null,
+      loading: false,
+      error: null,
 
-      createGroup: (groupName, pseudo) => {
-        const groupId = makeId()
-        const memberId = makeId()
-        const member: Member = {
-          id: memberId,
-          pseudo: pseudo.trim(),
-          color: MEMBER_COLORS[0],
-          answers: {},
-          scores: null,
-          archetypeId: null,
-          finishedAt: null,
+      createGroup: async (groupName, pseudo) => {
+        set({ loading: true, error: null })
+        try {
+          const { group, memberId, memberToken } = await apiCreateGroup(groupName, pseudo)
+          set({ identity: { groupId: group.id, memberId, memberToken }, group, loading: false })
+        } catch (e) {
+          set({ loading: false, error: e instanceof ApiError ? e.message : 'Une erreur est survenue.' })
+          throw e
         }
-        const group: Group = {
-          id: groupId,
-          code: randomCode(),
-          name: groupName.trim() || 'Mon groupe',
-          createdAt: Date.now(),
-          members: [member],
+      },
+
+      joinGroup: async (code, pseudo) => {
+        set({ loading: true, error: null })
+        try {
+          const { group, memberId, memberToken } = await apiJoinGroup(code, pseudo)
+          set({ identity: { groupId: group.id, memberId, memberToken }, group, loading: false })
+        } catch (e) {
+          set({ loading: false, error: e instanceof ApiError ? e.message : 'Une erreur est survenue.' })
+          throw e
         }
-        set((s) => ({
-          groups: [...s.groups, group],
-          currentGroupId: groupId,
-          currentMemberId: memberId,
-        }))
-        return { groupId, memberId }
       },
 
-      joinGroup: (code, pseudo) => {
-        const normalized = code.trim().toUpperCase()
-        const group = get().groups.find((g) => g.code === normalized)
-        if (!group) return { error: 'Code introuvable. Vérifie et réessaie.' }
-        if (group.members.some((m) => m.pseudo.toLowerCase() === pseudo.trim().toLowerCase())) {
-          return { error: 'Ce pseudo est déjà pris dans ce groupe.' }
+      refreshGroup: async () => {
+        const { identity } = get()
+        if (!identity) return
+        try {
+          const group = await apiGetGroup(identity.groupId, identity.memberId, identity.memberToken)
+          set({ group, error: null })
+        } catch (e) {
+          set({ error: e instanceof ApiError ? e.message : 'Une erreur est survenue.' })
         }
-        const memberId = makeId()
-        const member: Member = {
-          id: memberId,
-          pseudo: pseudo.trim(),
-          color: MEMBER_COLORS[group.members.length % MEMBER_COLORS.length],
-          answers: {},
-          scores: null,
-          archetypeId: null,
-          finishedAt: null,
-        }
-        set((s) => ({
-          groups: s.groups.map((g) => (g.id === group.id ? { ...g, members: [...g.members, member] } : g)),
-          currentGroupId: group.id,
-          currentMemberId: memberId,
-        }))
-        return { groupId: group.id, memberId }
       },
 
-      saveAnswer: (questionId, optionId) => {
-        const { currentGroupId, currentMemberId } = get()
-        if (!currentGroupId || !currentMemberId) return
-        set((s) => ({
-          groups: s.groups.map((g) =>
-            g.id !== currentGroupId
-              ? g
-              : {
-                  ...g,
-                  members: g.members.map((m) =>
-                    m.id !== currentMemberId ? m : { ...m, answers: { ...m.answers, [questionId]: optionId } },
-                  ),
-                },
-          ),
-        }))
+      saveAnswer: async (questionId, optionId) => {
+        const { identity, group } = get()
+        if (!identity || !group) return
+
+        set({
+          group: {
+            ...group,
+            members: group.members.map((m) =>
+              m.id !== identity.memberId ? m : { ...m, answers: { ...m.answers, [questionId]: optionId } },
+            ),
+          },
+        })
+
+        await apiSaveAnswer(identity.groupId, identity.memberId, identity.memberToken, questionId, optionId)
       },
 
-      finishQuestionnaire: () => {
-        const { currentGroupId, currentMemberId } = get()
-        if (!currentGroupId || !currentMemberId) return
-        set((s) => ({
-          groups: s.groups.map((g) =>
-            g.id !== currentGroupId
-              ? g
-              : {
-                  ...g,
-                  members: g.members.map((m) => {
-                    if (m.id !== currentMemberId) return m
-                    const scores = computeScores(m.answers)
-                    return { ...m, scores, archetypeId: getArchetypeId(scores), finishedAt: Date.now() }
-                  }),
-                },
-          ),
-        }))
+      finishQuestionnaire: async () => {
+        const { identity } = get()
+        if (!identity) return
+        const group = await apiFinish(identity.groupId, identity.memberId, identity.memberToken)
+        set({ group })
       },
 
-      resetQuestionnaire: () => {
-        const { currentGroupId, currentMemberId } = get()
-        if (!currentGroupId || !currentMemberId) return
-        set((s) => ({
-          groups: s.groups.map((g) =>
-            g.id !== currentGroupId
-              ? g
-              : {
-                  ...g,
-                  members: g.members.map((m) =>
-                    m.id !== currentMemberId
-                      ? m
-                      : { ...m, answers: {}, scores: null, archetypeId: null, finishedAt: null },
-                  ),
-                },
-          ),
-        }))
-      },
+      leaveGroup: () => set({ identity: null, group: null, error: null }),
+      clearError: () => set({ error: null }),
 
-      leaveGroup: () => set({ currentGroupId: null, currentMemberId: null }),
-
-      setCurrentMember: (groupId, memberId) => set({ currentGroupId: groupId, currentMemberId: memberId }),
-
-      currentGroup: () => {
-        const { groups, currentGroupId } = get()
-        return groups.find((g) => g.id === currentGroupId) ?? null
-      },
+      currentGroup: () => get().group,
       currentMember: () => {
-        const { groups, currentGroupId, currentMemberId } = get()
-        const group = groups.find((g) => g.id === currentGroupId)
-        return group?.members.find((m) => m.id === currentMemberId) ?? null
+        const { group, identity } = get()
+        if (!group || !identity) return null
+        return group.members.find((m) => m.id === identity.memberId) ?? null
       },
     }),
-    { name: 'mindmatch-storage' },
+    {
+      name: 'mindmatch-storage',
+      partialize: (state) => ({ identity: state.identity }),
+    },
   ),
 )

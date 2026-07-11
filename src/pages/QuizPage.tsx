@@ -13,6 +13,10 @@ const CATEGORY_LABEL: Record<string, string> = {
   preference: 'Préférence',
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export function QuizPage() {
   const navigate = useNavigate()
   const member = useAppStore((s) => s.currentMember())
@@ -27,21 +31,13 @@ export function QuizPage() {
 
   const [index, setIndex] = useState(startIndex)
   const [direction, setDirection] = useState(1)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState('')
 
   if (!member) return null
 
   const question = questions[index]
   const selected = member.answers[question.id]
-
-  const goNext = () => {
-    if (index >= questions.length - 1) {
-      finishQuestionnaire()
-      navigate('/profile')
-      return
-    }
-    setDirection(1)
-    setIndex((i) => i + 1)
-  }
 
   const goBack = () => {
     if (index === 0) return
@@ -49,9 +45,24 @@ export function QuizPage() {
     setIndex((i) => i - 1)
   }
 
-  const handleSelect = (optionId: string) => {
-    saveAnswer(question.id, optionId)
-    setTimeout(goNext, 260)
+  const handleSelect = async (optionId: string) => {
+    if (pending) return
+    setPending(true)
+    setError('')
+    try {
+      await Promise.all([saveAnswer(question.id, optionId), wait(260)])
+      if (index >= questions.length - 1) {
+        await finishQuestionnaire()
+        navigate('/profile')
+        return
+      }
+      setDirection(1)
+      setIndex((i) => i + 1)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "La réponse n'a pas pu être enregistrée, réessaie.")
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
@@ -83,6 +94,8 @@ export function QuizPage() {
               </span>
               <h2 className="text-2xl font-bold leading-snug mb-6">{question.prompt}</h2>
 
+              {error && <p className="text-sm text-pink-400 mb-4">{error}</p>}
+
               <div className="flex flex-col gap-3">
                 {question.options.map((option, i) => {
                   const isSelected = selected === option.id
@@ -90,11 +103,12 @@ export function QuizPage() {
                     <motion.button
                       key={option.id}
                       onClick={() => handleSelect(option.id)}
+                      disabled={pending}
                       initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.05 * i, duration: 0.3 }}
                       whileTap={{ scale: 0.97 }}
-                      className={`flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition-colors ${
+                      className={`flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition-colors disabled:opacity-60 ${
                         isSelected
                           ? 'bg-gradient-to-r from-fuchsia-500/20 to-purple-500/20 border-fuchsia-400/60'
                           : 'bg-white/6 border-white/10 active:bg-white/10'

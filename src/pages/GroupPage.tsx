@@ -3,6 +3,7 @@ import { Card } from '../components/Card'
 import { Avatar } from '../components/Avatar'
 import { RadarChart } from '../components/RadarChart'
 import { useAppStore } from '../store/useAppStore'
+import { useGroupPolling } from '../hooks/useGroupPolling'
 import { finishedMembers, topSimilarities, topDifferences, computeRankings, traitLabel } from '../lib/groupAnalysis'
 import { TRAIT_MAP } from '../data/traits'
 import { ARCHETYPES } from '../data/archetypes'
@@ -12,6 +13,7 @@ const MEMBER_CHART_COLORS = ['#c084fc', '#f472b6', '#60a5fa', '#34d399', '#fbbf2
 
 export function GroupPage() {
   const group = useAppStore((s) => s.currentGroup())
+  useGroupPolling()
   if (!group) return null
 
   const finished = finishedMembers(group.members)
