@@ -74,9 +74,14 @@ npm run preview   # prévisualise juste le frontend buildé, sans API (utile pou
 Sur un hébergement mutualisé, il n'y a pas d'accès root/SSH complet : le Node.js est géré par **Passenger** via l'interface cPanel ("Setup Node.js App" / "Node.js Selector"), qui attend un simple fichier `.js` exécutable directement — pas `tsx`. Le projet fournit donc un build serveur "bundlé" en un seul fichier, sans dépendance à `tsx` :
 
 ```bash
-npm install
-npm run build          # frontend -> dist/
-npm run build:server   # backend  -> dist-server/index.mjs (fichier JS autonome, plain Node)
+npm install --include=dev   # certains environnements cPanel sautent les devDependencies par défaut (NODE_ENV=production) — ce flag force leur installation, indispensable pour builder
+npm run build                # frontend -> dist/
+npm run build:server         # backend  -> dist-server/index.mjs (fichier JS autonome, plain Node)
+```
+
+Si `npm run build` échoue avec `tsc : commande introuvable` alors que `typescript` est bien dans les devDependencies (bug d'installation observé sur certains mutualisés — le paquet `esbuild` s'installe mais pas `typescript`), utilise la variante sans vérification de types, qui produit exactement le même `dist/` :
+```bash
+npm run build:no-typecheck
 ```
 
 Dans cPanel :
