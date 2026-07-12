@@ -86,7 +86,7 @@ function IntroScreen() {
         <p>🤔 La cible boit, ou dit "tu bluffes !" si elle doute.</p>
         <p>🃏 En cas de doute, un seul essai pour montrer la bonne carte, de mémoire.</p>
         <p>🎭 Bonne carte = double pour qui doutait. Mauvaise carte (ou bluff) = double pour le/la distributeur·rice.</p>
-        <p>🧠 À la fin, retrouvez l'ordre de vos cartes pour des gorgées bonus !</p>
+        <p>🧠 À la fin, récitez vos cartes dans l'ordre (valeur ET signe) : 1 gorgée à distribuer par bonne réponse !</p>
       </div>
       <p className="text-white/30 text-lg mt-8">L'hôte va lancer la mémorisation…</p>
     </div>
@@ -210,19 +210,24 @@ function RecitationScreen({ state, members }: { state: PyramidClientState; membe
       <span className="text-6xl mb-4 block">🧠</span>
       <h1 className="text-4xl font-extrabold shimmer-text mb-4">Récitation finale</h1>
       <p className="text-white/50 text-xl mb-8">
-        Chacun tente de retrouver l'ordre de ses cartes sur son téléphone…
+        Chacun récite ses cartes de mémoire (valeur + signe, dans l'ordre) sur son téléphone…
       </p>
       <p className="text-white/70 text-2xl mb-8 tabular-nums">
         {done} / {members.length} ont terminé
       </p>
       <div className="flex flex-wrap gap-3 justify-center">
-        {members.map((m) => (
-          <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-3 py-1.5">
-            <Avatar pseudo={m.pseudo} color={m.color} size={28} />
-            <span className="text-sm font-medium">{m.pseudo}</span>
-            <span className="text-sm">{state.recitation[m.id] ? '✅' : '⏳'}</span>
-          </div>
-        ))}
+        {members.map((m) => {
+          const entry = state.recitation[m.id]
+          return (
+            <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-3 py-1.5">
+              <Avatar pseudo={m.pseudo} color={m.color} size={28} photoUrl={m.photoUrl} />
+              <span className="text-sm font-medium">{m.pseudo}</span>
+              <span className="text-sm">
+                {entry ? `✅ ${entry.score}/${entry.actualHand.length * 2}` : '⏳'}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

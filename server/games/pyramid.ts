@@ -41,11 +41,26 @@ interface Accusation {
   status: AccusationStatus
 }
 
+interface RecitationGuess {
+  rank: number
+  suit: number
+}
+
+interface RecitationCardResult {
+  rankCorrect: boolean
+  suitCorrect: boolean
+}
+
 interface RecitationEntry {
+  guesses: RecitationGuess[]
+  /** The player's real hand, revealed publicly once they've recited (like flipping your cards). */
+  actualHand: Card[]
+  perCard: RecitationCardResult[]
   score: number
   bonusSips: number
-  distributed: boolean
-  targetId: string | null
+  /** Bonus sips not yet handed out — distributed one at a time so they can be split freely. */
+  remaining: number
+  given: Record<string, number>
 }
 
 interface PyramidState {
@@ -184,11 +199,12 @@ export const pyramid: GameModule = {
       return { session: { ...session, status: 'ended', phase: 'ended' }, xpAwards }
     }
 
-    // 5) Normal card-to-card advance. Reaching the recitation unhides the hands: the minigame is
-    // to retrieve the ORDER of your (visible) cards, so the faces come back at this point only.
+    // 5) Normal card-to-card advance. The hands STAY hidden through the recitation — the minigame
+    // is to recite each card's value and suit blind, in order; a player's real cards only get
+    // revealed (inside their recitation entry) once they've submitted, like flipping your cards.
     const nextIndex = state.currentIndex + 1
     if (nextIndex >= state.pyramid.length) {
-      return { session: { ...session, phase: 'recitation', roundData: { ...state, handsHidden: false } } }
+      return { session: { ...session, phase: 'recitation', roundData: state } }
     }
     const nextPyramid = state.pyramid.map((c, i) => (i === nextIndex ? { ...c, revealed: true } : c))
     return {
@@ -280,38 +296,62 @@ export const pyramid: GameModule = {
       }
     }
 
+    // Recite each of your (still hidden) cards, in order: value + suit per slot. Every correct
+    // value earns 1 sip to distribute, every correct suit too — up to hand size × 2.
     if (action.type === 'submitRecitation' && session.phase === 'recitation') {
       if (state.recitation[memberId]) return { session }
-      const payload = action.payload as { order?: string[] } | null
-      const order = payload?.order
+      const payload = action.payload as { guesses?: { rank?: number; suit?: number }[] } | null
+      const rawGuesses = payload?.guesses
       const hand = state.hands[memberId] ?? []
-      if (!order || order.length !== hand.length) return { session }
-      const validIds = new Set(hand.map((c) => c.id))
-      if (new Set(order).size !== order.length || !order.every((id) => validIds.has(id))) return { session }
-
-      let score = 0
-      for (let i = 0; i < hand.length; i++) {
-        const guessed = hand.find((c) => c.id === order[i])
-        const truth = hand[i]
-        if (!guessed) continue
-        if (guessed.rank === truth.rank) score++
-        if (guessed.suit === truth.suit) score++
+      if (!Array.isArray(rawGuesses) || rawGuesses.length !== hand.length) return { session }
+      if (
+        !rawGuesses.every(
+          (g) =>
+            typeof g?.rank === 'number' && g.rank >= 1 && g.rank <= 13 && typeof g?.suit === 'number' && g.suit >= 0 && g.suit <= 3,
+        )
+      ) {
+        return { session }
       }
+      const guesses = rawGuesses as RecitationGuess[]
 
-      const nextRecitation = { ...state.recitation, [memberId]: { score, bonusSips: score, distributed: false, targetId: null } }
-      return { session: { ...session, roundData: { ...state, recitation: nextRecitation } } }
+      const perCard: RecitationCardResult[] = hand.map((truth, i) => ({
+        rankCorrect: guesses[i].rank === truth.rank,
+        suitCorrect: guesses[i].suit === truth.suit,
+      }))
+      const score = perCard.reduce((sum, c) => sum + (c.rankCorrect ? 1 : 0) + (c.suitCorrect ? 1 : 0), 0)
+
+      const entry: RecitationEntry = {
+        guesses,
+        actualHand: hand,
+        perCard,
+        score,
+        bonusSips: score,
+        remaining: score,
+        given: {},
+      }
+      return { session: { ...session, roundData: { ...state, recitation: { ...state.recitation, [memberId]: entry } } } }
     }
 
+    // Hand out bonus sips ONE at a time so they can be split across several players.
     if (action.type === 'distributeRecitationBonus' && session.phase === 'recitation') {
       const entry = state.recitation[memberId]
       const payload = action.payload as { targetMemberId?: string } | null
       const targetMemberId = payload?.targetMemberId
-      if (!entry || entry.distributed || !targetMemberId || targetMemberId === memberId) return { session }
+      if (!entry || entry.remaining <= 0 || !targetMemberId || targetMemberId === memberId) return { session }
       if (!group.members.some((m) => m.id === targetMemberId)) return { session }
 
-      const nextRecitation = { ...state.recitation, [memberId]: { ...entry, distributed: true, targetId: targetMemberId } }
-      const totals = entry.bonusSips > 0 ? addSips(state.totalSipsReceived, targetMemberId, entry.bonusSips) : state.totalSipsReceived
-      return { session: { ...session, roundData: { ...state, recitation: nextRecitation, totalSipsReceived: totals } } }
+      const nextEntry: RecitationEntry = {
+        ...entry,
+        remaining: entry.remaining - 1,
+        given: { ...entry.given, [targetMemberId]: (entry.given[targetMemberId] ?? 0) + 1 },
+      }
+      const totals = addSips(state.totalSipsReceived, targetMemberId, 1)
+      return {
+        session: {
+          ...session,
+          roundData: { ...state, recitation: { ...state.recitation, [memberId]: nextEntry }, totalSipsReceived: totals },
+        },
+      }
     }
 
     return { session }

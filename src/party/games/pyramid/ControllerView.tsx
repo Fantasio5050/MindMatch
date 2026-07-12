@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { usePartyStore } from '../../../store/usePartyStore'
@@ -7,8 +7,8 @@ import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
 import { CardFace } from './CardFace'
-import { sipLabel } from './types'
-import type { PyramidClientState, Accusation, HandCard } from './types'
+import { sipLabel, rankLabel, SUITS } from './types'
+import type { PyramidClientState, Accusation, RecitationGuess } from './types'
 import type { Member } from '../../../types'
 
 function memberNameFactory(members: Member[]) {
@@ -30,15 +30,6 @@ function accusationLabel(a: Accusation, memberName: (id: string) => string): str
     case 'contested-right':
       return `${accuser} bluffait → boit double !`
   }
-}
-
-function shuffle<T>(items: T[]): T[] {
-  const arr = [...items]
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr
 }
 
 export function PyramidController() {
@@ -136,7 +127,7 @@ export function PyramidController() {
         members={members}
         selfId={currentMember.id}
         isHost={isHost}
-        onSubmit={(order) => sendAction('submitRecitation', { order })}
+        onSubmit={(guesses) => sendAction('submitRecitation', { guesses })}
         onDistribute={(targetMemberId) => sendAction('distributeRecitationBonus', { targetMemberId })}
         onAdvance={() => hostAdvance()}
       />
@@ -159,7 +150,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
     ['🃏', 'Si on doute de toi, tu as UN SEUL essai pour montrer, de mémoire, laquelle de tes 4 cartes correspond.'],
     ['✅', 'Bonne carte → la personne qui doutait boit double.'],
     ['🎭', 'Mauvaise carte (ou bluff) → c\'est toi qui bois double.'],
-    ['🧠', 'À la fin, retrouve l\'ordre de tes cartes de mémoire : gorgées bonus à la clé !'],
+    ['🧠', 'À la fin, récite tes cartes dans l\'ordre (valeur ET signe) : 1 gorgée à distribuer par bonne réponse, à répartir comme tu veux !'],
   ] as const
 
   return (
@@ -400,6 +391,8 @@ function MatchingView({
   )
 }
 
+const RANKS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+
 function RecitationView({
   state,
   members,
@@ -413,87 +406,164 @@ function RecitationView({
   members: Member[]
   selfId: string
   isHost: boolean
-  onSubmit: (order: string[]) => void
+  onSubmit: (guesses: RecitationGuess[]) => void
   onDistribute: (targetMemberId: string) => void
   onAdvance: () => void
 }) {
-  // Shuffle once on mount so the display order doesn't jump around as room:update ticks in.
-  const shuffled = useMemo(() => shuffle(state.yourHand), [])
-  const [order, setOrder] = useState<string[]>([])
+  const handSize = state.yourHand.length
+  const [guesses, setGuesses] = useState<RecitationGuess[]>([])
+  const [pendingRank, setPendingRank] = useState<number | null>(null)
   const entry = state.recitation[selfId]
+  const currentSlot = guesses.length
 
-  const toggleCard = (id: string) => {
-    setOrder((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < shuffled.length ? [...prev, id] : prev))
+  const pickRank = (rank: number) => setPendingRank(rank)
+  const pickSuit = (suit: number) => {
+    if (pendingRank === null) return
+    setGuesses((prev) => [...prev, { rank: pendingRank, suit }])
+    setPendingRank(null)
   }
-
-  const cardById = (id: string): HandCard | undefined => shuffled.find((c) => c.id === id)
+  const restart = () => {
+    setGuesses([])
+    setPendingRank(null)
+  }
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
       <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Récitation finale</p>
-      <h1 className="text-xl font-extrabold text-center mb-4">🧠 Retrouve l'ordre de tes cartes</h1>
+      <h1 className="text-xl font-extrabold text-center mb-4">🧠 Récite tes cartes, dans l'ordre</h1>
 
       {!entry ? (
         <>
           <Card className="mb-4">
             <p className="text-xs text-white/50 mb-3 text-center">
-              Touche tes cartes dans l'ordre où tu penses les avoir reçues.
+              Tes cartes sont toujours cachées : donne la valeur ET le signe de chacune, dans l'ordre du départ. 1
+              gorgée à distribuer par bonne réponse !
             </p>
-            <div className="flex justify-center gap-2 mb-4 min-h-[70px]">
-              {order.length === 0 && <p className="text-white/30 text-xs self-center">Aucune carte sélectionnée</p>}
-              {order.map((id, i) => {
-                const c = cardById(id)
-                if (!c) return null
+
+            <div className="flex justify-center gap-2 mb-4">
+              {Array.from({ length: handSize }).map((_, i) => {
+                const g = guesses[i]
                 return (
-                  <div key={id} className="flex flex-col items-center gap-1">
-                    <CardFace rank={c.rank} suit={c.suit} size={44} selected />
+                  <div key={i} className="flex flex-col items-center gap-1">
+                    {g ? (
+                      <CardFace rank={g.rank} suit={g.suit} size={44} selected />
+                    ) : (
+                      <div className={i === currentSlot ? 'ring-2 ring-fuchsia-400 rounded-lg' : ''}>
+                        <CardFace faceDown size={44} />
+                      </div>
+                    )}
                     <span className="text-[10px] text-white/40">{i + 1}</span>
                   </div>
                 )
               })}
             </div>
-            <div className="flex justify-center gap-2">
-              {shuffled.map((c) => (
-                <button key={c.id} onClick={() => toggleCard(c.id)} className="disabled:opacity-30" disabled={order.includes(c.id)}>
-                  <CardFace rank={c.rank} suit={c.suit} size={48} selected={order.includes(c.id)} />
-                </button>
+
+            {currentSlot < handSize && (
+              <>
+                <p className="text-sm font-semibold text-center mb-2">
+                  Carte {currentSlot + 1} : {pendingRank === null ? 'quelle valeur ?' : 'quel signe ?'}
+                </p>
+                {pendingRank === null ? (
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {RANKS.map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => pickRank(r)}
+                        className="glass-card rounded-xl py-2 text-sm font-bold active:bg-white/15"
+                      >
+                        {rankLabel(r)}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex justify-center gap-2">
+                    {SUITS.map((s, suit) => (
+                      <button
+                        key={suit}
+                        onClick={() => pickSuit(suit)}
+                        className={`glass-card rounded-xl w-14 h-14 text-2xl active:bg-white/15 ${s.red ? 'text-red-400' : 'text-white'}`}
+                      >
+                        {s.symbol}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {guesses.length > 0 && (
+              <button onClick={restart} className="block mx-auto mt-3 text-xs text-white/40 underline">
+                Recommencer
+              </button>
+            )}
+          </Card>
+          <Button fullWidth disabled={guesses.length !== handSize} onClick={() => onSubmit(guesses)}>
+            Valider ma récitation
+          </Button>
+        </>
+      ) : (
+        <>
+          <Card className="mb-4">
+            <p className="text-center font-bold mb-3">
+              {entry.score > 0 ? `🎉 ${entry.score}/${handSize * 2} — ${entry.score} gorgée${entry.score > 1 ? 's' : ''} à distribuer !` : `😅 0/${handSize * 2} — mémoire à travailler !`}
+            </p>
+            <div className="flex justify-center gap-3">
+              {entry.actualHand.map((c, i) => (
+                <div key={c.id} className="flex flex-col items-center gap-1">
+                  <CardFace rank={c.rank} suit={c.suit} size={48} />
+                  <span className="text-[10px]">
+                    <span className={entry.perCard[i]?.rankCorrect ? 'text-emerald-300' : 'text-pink-300'}>
+                      {entry.perCard[i]?.rankCorrect ? '✓' : '✗'} val
+                    </span>{' '}
+                    <span className={entry.perCard[i]?.suitCorrect ? 'text-emerald-300' : 'text-pink-300'}>
+                      {entry.perCard[i]?.suitCorrect ? '✓' : '✗'} signe
+                    </span>
+                  </span>
+                </div>
               ))}
             </div>
           </Card>
-          <Button fullWidth disabled={order.length !== shuffled.length} onClick={() => onSubmit(order)}>
-            Valider mon rappel
-          </Button>
+
+          {entry.remaining > 0 ? (
+            <Card>
+              <p className="text-center text-white/50 text-sm mb-3">
+                Touche un joueur pour lui donner 1 gorgée — reste{' '}
+                <b className="text-fuchsia-300">{entry.remaining}</b> à distribuer (tu peux répartir !)
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {members
+                  .filter((m) => m.id !== selfId)
+                  .map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => onDistribute(m.id)}
+                      className="glass-card rounded-2xl p-3 flex flex-col items-center gap-1.5 relative"
+                    >
+                      <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
+                      <span className="text-xs font-medium truncate w-full text-center">{m.pseudo}</span>
+                      {(entry.given[m.id] ?? 0) > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-fuchsia-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                          {entry.given[m.id]}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+              </div>
+            </Card>
+          ) : (
+            <Card className="text-center">
+              <p className="text-2xl mb-1">✅</p>
+              {entry.bonusSips > 0 && (
+                <p className="text-white/50 text-xs mb-1">
+                  {Object.entries(entry.given)
+                    .map(([id, n]) => `${n} → ${members.find((m) => m.id === id)?.pseudo ?? '?'}`)
+                    .join(' · ')}
+                </p>
+              )}
+              <p className="text-white/60 text-sm">En attente des autres…</p>
+            </Card>
+          )}
         </>
-      ) : !entry.distributed ? (
-        entry.bonusSips > 0 ? (
-          <Card>
-            <p className="text-center font-bold mb-1">🎉 {entry.bonusSips} gorgée{entry.bonusSips > 1 ? 's' : ''} bonus !</p>
-            <p className="text-center text-white/50 text-sm mb-4">À qui les distribues-tu ?</p>
-            <div className="grid grid-cols-3 gap-2">
-              {members
-                .filter((m) => m.id !== selfId)
-                .map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => onDistribute(m.id)}
-                    className="glass-card rounded-2xl p-3 flex flex-col items-center gap-1.5"
-                  >
-                    <Avatar pseudo={m.pseudo} color={m.color} size={36} />
-                    <span className="text-xs font-medium truncate w-full text-center">{m.pseudo}</span>
-                  </button>
-                ))}
-            </div>
-          </Card>
-        ) : (
-          <Card className="text-center">
-            <p className="text-white/60 text-sm">Pas de bonus cette fois — mémoire à travailler ! 😅</p>
-          </Card>
-        )
-      ) : (
-        <Card className="text-center">
-          <p className="text-2xl mb-1">✅</p>
-          <p className="text-white/60 text-sm">En attente des autres…</p>
-        </Card>
       )}
 
       <div className="mt-auto pt-6">

@@ -24,11 +24,20 @@ export interface PyramidCard {
   revealed: boolean
 }
 
+export interface RecitationGuess {
+  rank: number
+  suit: number
+}
+
 export interface RecitationEntry {
+  guesses: RecitationGuess[]
+  /** Real hand, revealed once recited (public — like flipping your cards on the table). */
+  actualHand: { id: string; rank: number; suit: number }[]
+  perCard: { rankCorrect: boolean; suitCorrect: boolean }[]
   score: number
   bonusSips: number
-  distributed: boolean
-  targetId: string | null
+  remaining: number
+  given: Record<string, number>
 }
 
 export interface PyramidClientState {
