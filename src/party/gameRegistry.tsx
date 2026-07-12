@@ -17,6 +17,8 @@ import { PalmierController } from './games/palmier/ControllerView'
 import { PalmierScreen } from './games/palmier/ScreenView'
 import { AutorouteController } from './games/autoroute/ControllerView'
 import { AutorouteScreen } from './games/autoroute/ScreenView'
+import { PmuController } from './games/pmu/ControllerView'
+import { PmuScreen } from './games/pmu/ScreenView'
 
 interface ClientGameEntry {
   Controller: ComponentType
@@ -33,4 +35,5 @@ export const CLIENT_GAME_REGISTRY: Record<string, ClientGameEntry> = {
   'guess-my-answer': { Controller: GuessMyAnswerController, Screen: GuessMyAnswerScreen },
   palmier: { Controller: PalmierController, Screen: PalmierScreen },
   autoroute: { Controller: AutorouteController, Screen: AutorouteScreen },
+  pmu: { Controller: PmuController, Screen: PmuScreen },
 }

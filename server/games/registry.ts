@@ -8,6 +8,7 @@ import { whoWroteIt } from './whoWroteIt'
 import { guessMyAnswer } from './guessMyAnswer'
 import { palmier } from './palmier'
 import { autoroute } from './autoroute'
+import { pmu } from './pmu'
 
 export const GAME_REGISTRY: Record<string, GameModule> = {
   [whoIsMostLikely.id]: whoIsMostLikely,
@@ -19,6 +20,7 @@ export const GAME_REGISTRY: Record<string, GameModule> = {
   [guessMyAnswer.id]: guessMyAnswer,
   [palmier.id]: palmier,
   [autoroute.id]: autoroute,
+  [pmu.id]: pmu,
 }
 
 export function getGame(gameId: string): GameModule | null {

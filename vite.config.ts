@@ -20,12 +20,13 @@ export default defineConfig({
   },
   build: {
     cssCodeSplit: false,
+    // Code splitting activé : three.js (~170 KB gzip) part dans un chunk séparé, chargé en lazy
+    // uniquement quand la TV affiche la scène 3D du PMU — les téléphones ne le téléchargent jamais.
     rollupOptions: {
       output: {
-        inlineDynamicImports: true,
-        entryFileNames: 'assets/app.js',
-        chunkFileNames: 'assets/app.js',
-        assetFileNames: 'assets/app[extname]',
+        entryFileNames: 'assets/app-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/app-[hash][extname]',
       },
     },
   },
