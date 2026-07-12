@@ -44,6 +44,9 @@ export interface Member {
   xp: number
   badges: string[]
   gameStats: Record<string, number>
+  /** Data URL (small, client-compressed) of a user-chosen profile photo, or null for the default
+   * initials avatar. */
+  photoUrl: string | null
 }
 
 export type PartyStatus = 'lobby' | 'playing' | 'ended'

@@ -2,7 +2,28 @@ function initials(pseudo: string): string {
   return pseudo.trim().slice(0, 2).toUpperCase()
 }
 
-export function Avatar({ pseudo, color, size = 40 }: { pseudo: string; color: string; size?: number }) {
+export function Avatar({
+  pseudo,
+  color,
+  size = 40,
+  photoUrl,
+}: {
+  pseudo: string
+  color: string
+  size?: number
+  photoUrl?: string | null
+}) {
+  if (photoUrl) {
+    return (
+      <img
+        src={photoUrl}
+        alt={pseudo}
+        className="rounded-full object-cover shrink-0"
+        style={{ width: size, height: size, boxShadow: `0 4px 14px ${color}55` }}
+      />
+    )
+  }
+
   return (
     <div
       className="flex items-center justify-center rounded-full font-bold text-white shrink-0"

@@ -3,7 +3,16 @@ import cors from 'cors'
 import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createGroup, joinGroup, getGroup, saveAnswer, finishMember, findAuthorizedMember, isApiError } from './store'
+import {
+  createGroup,
+  joinGroup,
+  getGroup,
+  saveAnswer,
+  finishMember,
+  updateMemberPhoto,
+  findAuthorizedMember,
+  isApiError,
+} from './store'
 import { attachRealtime } from './realtime'
 import { readDb, getRecentGameHistory } from './db'
 
@@ -13,7 +22,8 @@ const DIST_DIR = path.join(__dirname, '..', 'dist')
 
 const app = express()
 app.use(cors())
-app.use(express.json())
+// Default 100kb is too small for a (client-compressed) profile photo data URL.
+app.use(express.json({ limit: '2mb' }))
 
 const httpServer = http.createServer(app)
 const { broadcastRoom } = attachRealtime(httpServer)
@@ -68,6 +78,18 @@ api.post('/groups/:groupId/members/:memberId/finish', (req, res) => {
     return res.status(400).json({ error: 'memberToken est requis.' })
   }
   const result = finishMember(groupId, memberId, memberToken)
+  if (isApiError(result)) return res.status(result.status).json({ error: result.error })
+  broadcastRoom(groupId)
+  res.json(result)
+})
+
+api.put('/groups/:groupId/members/:memberId/photo', (req, res) => {
+  const { groupId, memberId } = req.params
+  const { memberToken, photoUrl } = req.body ?? {}
+  if (typeof memberToken !== 'string' || (photoUrl !== null && typeof photoUrl !== 'string')) {
+    return res.status(400).json({ error: 'memberToken et photoUrl (ou null) sont requis.' })
+  }
+  const result = updateMemberPhoto(groupId, memberId, memberToken, photoUrl)
   if (isApiError(result)) return res.status(result.status).json({ error: result.error })
   broadcastRoom(groupId)
   res.json(result)

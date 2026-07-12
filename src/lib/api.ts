@@ -60,6 +60,19 @@ export async function apiFinish(groupId: string, memberId: string, memberToken: 
   return group
 }
 
+export async function apiUpdatePhoto(
+  groupId: string,
+  memberId: string,
+  memberToken: string,
+  photoUrl: string | null,
+): Promise<Group> {
+  const { group } = await request<{ group: Group }>(`/groups/${groupId}/members/${memberId}/photo`, {
+    method: 'PUT',
+    body: JSON.stringify({ memberToken, photoUrl }),
+  })
+  return group
+}
+
 export async function apiGetGameHistory(
   groupId: string,
   memberId: string,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageTransition } from '../components/PageTransition'
 import { Card } from '../components/Card'
@@ -8,7 +8,8 @@ import { useAppStore } from '../store/useAppStore'
 import { usePartyStore } from '../store/usePartyStore'
 import { levelProgress } from '../lib/xp'
 import { BADGE_MAP } from '../data/badges'
-import { apiGetGameHistory } from '../lib/api'
+import { apiGetGameHistory, apiUpdatePhoto, ApiError } from '../lib/api'
+import { compressImage } from '../lib/compressImage'
 import { GAME_META } from '../data/gameMeta'
 import type { Group, GameHistoryEntry } from '../types'
 
@@ -49,6 +50,9 @@ export function LobbyPage() {
   const [dilemmaPack, setDilemmaPack] = useState<DilemmaPackChoice>('classic')
   const [partyCardsPack, setPartyCardsPack] = useState<PartyCardsPackChoice>('classic')
   const [history, setHistory] = useState<GameHistoryEntry[]>([])
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!identity) return
@@ -105,6 +109,22 @@ export function LobbyPage() {
     navigate('/')
   }
 
+  const handlePhotoPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !identity) return
+    setPhotoError(null)
+    setUploadingPhoto(true)
+    try {
+      const dataUrl = await compressImage(file)
+      await apiUpdatePhoto(identity.groupId, identity.memberId, identity.memberToken, dataUrl)
+    } catch (err) {
+      setPhotoError(err instanceof ApiError ? err.message : "Impossible d'envoyer la photo.")
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
   return (
     <PageTransition>
       <div className="px-6 pt-10 pb-10 safe-top">
@@ -152,10 +172,25 @@ export function LobbyPage() {
             {group.members.map((m) => {
               const progress = levelProgress(m.xp)
               const online = onlinePlayerIds.includes(m.id)
+              const isMe = m.id === identity.memberId
               return (
                 <div key={m.id} className="flex items-center gap-3">
                   <div className="relative">
-                    <Avatar pseudo={m.pseudo} color={m.color} size={40} />
+                    {isMe ? (
+                      <button
+                        onClick={() => photoInputRef.current?.click()}
+                        disabled={uploadingPhoto}
+                        className="relative block"
+                        aria-label="Changer ma photo de profil"
+                      >
+                        <Avatar pseudo={m.pseudo} color={m.color} size={40} photoUrl={m.photoUrl} />
+                        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 active:opacity-100 transition-opacity text-xs">
+                          {uploadingPhoto ? '…' : '📷'}
+                        </span>
+                      </button>
+                    ) : (
+                      <Avatar pseudo={m.pseudo} color={m.color} size={40} photoUrl={m.photoUrl} />
+                    )}
                     <span
                       className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#14101f] ${online ? 'bg-emerald-400' : 'bg-white/20'}`}
                     />
@@ -176,6 +211,15 @@ export function LobbyPage() {
               )
             })}
           </div>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handlePhotoPick}
+          />
+          {photoError && <p className="text-xs text-pink-300 mt-2">{photoError}</p>}
+          <p className="text-[11px] text-white/30 mt-2">Touche ton avatar pour changer ta photo de profil.</p>
         </Card>
 
         {history.length > 0 && (

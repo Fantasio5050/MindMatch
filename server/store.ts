@@ -123,6 +123,7 @@ export function createGroup(groupName: string, pseudo: string): { group: Group; 
     badges: [],
     gameStats: {},
     token,
+    photoUrl: null,
   }
 
   const group: StoredGroup = {
@@ -177,6 +178,7 @@ export function joinGroup(
     badges: [],
     gameStats: {},
     token,
+    photoUrl: null,
   }
   group.members.push(member)
   writeDb(db)
@@ -233,6 +235,29 @@ export function saveAnswer(
   result.member.answers[questionId] = optionId
   writeDb(db)
   return { ok: true }
+}
+
+const MAX_PHOTO_LENGTH = 500_000 // ~500KB of base64, plenty for a client-compressed avatar photo
+
+export function updateMemberPhoto(
+  groupId: string,
+  memberId: string,
+  memberToken: string,
+  photoUrl: string | null,
+): { group: Group } | ApiError {
+  const db = readDb()
+  const result = findAuthorizedMember(db, groupId, memberId, memberToken)
+  if (isApiError(result)) return result
+
+  if (photoUrl !== null) {
+    if (typeof photoUrl !== 'string' || !photoUrl.startsWith('data:image/') || photoUrl.length > MAX_PHOTO_LENGTH) {
+      return { error: 'Photo invalide ou trop volumineuse.', status: 400 }
+    }
+  }
+
+  result.member.photoUrl = photoUrl
+  writeDb(db)
+  return { group: sanitizeGroup(result.group, memberId) }
 }
 
 export function finishMember(

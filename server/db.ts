@@ -43,7 +43,8 @@ sqlite.exec(`
     xp INTEGER NOT NULL DEFAULT 0,
     badges TEXT NOT NULL DEFAULT '[]',
     game_stats TEXT NOT NULL DEFAULT '{}',
-    token TEXT NOT NULL
+    token TEXT NOT NULL,
+    photo_url TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_members_group ON members(group_id);
 
@@ -64,6 +65,11 @@ sqlite.exec(`
 const groupColumns = sqlite.prepare('PRAGMA table_info(groups)').all() as { name: string }[]
 if (!groupColumns.some((c) => c.name === 'party_participant_ids')) {
   sqlite.exec("ALTER TABLE groups ADD COLUMN party_participant_ids TEXT NOT NULL DEFAULT '[]'")
+}
+
+const memberColumns = sqlite.prepare('PRAGMA table_info(members)').all() as { name: string }[]
+if (!memberColumns.some((c) => c.name === 'photo_url')) {
+  sqlite.exec('ALTER TABLE members ADD COLUMN photo_url TEXT')
 }
 
 interface GroupRow {
@@ -94,6 +100,7 @@ interface MemberRow {
   badges: string
   game_stats: string
   token: string
+  photo_url: string | null
 }
 
 function rowToMember(row: MemberRow): StoredMember {
@@ -109,6 +116,7 @@ function rowToMember(row: MemberRow): StoredMember {
     badges: JSON.parse(row.badges),
     gameStats: JSON.parse(row.game_stats),
     token: row.token,
+    photoUrl: row.photo_url,
   }
 }
 
@@ -166,8 +174,8 @@ const upsertGroup = sqlite.prepare(`
 `)
 
 const upsertMember = sqlite.prepare(`
-  INSERT INTO members (id, group_id, pseudo, color, answers, scores, archetype_id, finished_at, xp, badges, game_stats, token)
-  VALUES (@id, @group_id, @pseudo, @color, @answers, @scores, @archetype_id, @finished_at, @xp, @badges, @game_stats, @token)
+  INSERT INTO members (id, group_id, pseudo, color, answers, scores, archetype_id, finished_at, xp, badges, game_stats, token, photo_url)
+  VALUES (@id, @group_id, @pseudo, @color, @answers, @scores, @archetype_id, @finished_at, @xp, @badges, @game_stats, @token, @photo_url)
   ON CONFLICT(id) DO UPDATE SET
     pseudo = excluded.pseudo,
     color = excluded.color,
@@ -178,7 +186,8 @@ const upsertMember = sqlite.prepare(`
     xp = excluded.xp,
     badges = excluded.badges,
     game_stats = excluded.game_stats,
-    token = excluded.token
+    token = excluded.token,
+    photo_url = excluded.photo_url
 `)
 
 const writeTx = sqlite.transaction((db: Database) => {
@@ -211,6 +220,7 @@ const writeTx = sqlite.transaction((db: Database) => {
         badges: JSON.stringify(member.badges),
         game_stats: JSON.stringify(member.gameStats),
         token: member.token,
+        photo_url: member.photoUrl,
       })
     }
   }
