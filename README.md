@@ -68,3 +68,26 @@ Points importants pour la prod :
 npm run build
 npm run preview   # prévisualise juste le frontend buildé, sans API (utile pour vérifier le rendu)
 ```
+
+## Déployer sur un hébergement mutualisé (o2switch et autres cPanel/Passenger)
+
+Sur un hébergement mutualisé, il n'y a pas d'accès root/SSH complet : le Node.js est géré par **Passenger** via l'interface cPanel ("Setup Node.js App" / "Node.js Selector"), qui attend un simple fichier `.js` exécutable directement — pas `tsx`. Le projet fournit donc un build serveur "bundlé" en un seul fichier, sans dépendance à `tsx` :
+
+```bash
+npm install
+npm run build          # frontend -> dist/
+npm run build:server   # backend  -> dist-server/index.mjs (fichier JS autonome, plain Node)
+```
+
+Dans cPanel :
+
+1. **Sous-domaine** — crée `mindmatch.tondomaine.fr` dans "Sous-domaines" (ou "Domaines" selon la version de cPanel).
+2. **Setup Node.js App** — crée une application : version Node ≥ 18, "Application root" = le dossier où tu as déployé le repo, "Application URL" = ton sous-domaine, **"Application startup file" = `dist-server/index.mjs`**.
+3. Dépose les fichiers (Git Version Control dans cPanel, ou upload manuel/FTP du repo), puis lance `npm install` et les deux commandes de build ci-dessus depuis le terminal cPanel (ou le bouton "Run NPM Install" + une commande custom si le terminal n'est pas dispo).
+4. Variable d'environnement `PORT` — Passenger la définit lui-même automatiquement, le serveur la lit déjà (`process.env.PORT`), rien à faire.
+5. **SSL** — active AutoSSL (Let's Encrypt) sur le sous-domaine depuis "SSL/TLS Status".
+6. Redémarre l'app depuis l'interface Node.js Selector après chaque déploiement (bouton "Restart").
+
+**Point d'attention WebSocket** : selon la configuration exacte du proxy devant Passenger, les WebSockets natifs ne passent pas toujours parfaitement sur du mutualisé. Ce n'est pas bloquant : le client est déjà configuré pour retomber automatiquement sur du long-polling HTTP si le WebSocket échoue (`src/lib/socket.ts`), donc l'app reste fonctionnelle même dans ce cas — juste un peu moins instantanée sur les votes/révélations en direct. Teste en conditions réelles (2 téléphones + écran TV) une fois en ligne pour vérifier la fluidité.
+
+**Persistance des données** : comme pour un VPS, tout est dans `server/data/db.json` — pense à le sauvegarder (le gestionnaire de fichiers cPanel ou une tâche cron avec `cp` suffit).
