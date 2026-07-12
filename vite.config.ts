@@ -11,6 +11,11 @@ export default defineConfig({
         target: `http://localhost:${process.env.PORT || 3001}`,
         changeOrigin: true,
       },
+      '/socket.io': {
+        target: `http://localhost:${process.env.PORT || 3001}`,
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   build: {

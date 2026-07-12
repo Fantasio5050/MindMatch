@@ -1,21 +1,28 @@
-# MindMatch 🧠
+# MindMatch Party 🧠🎉
 
-MindMatch est une application de personnalité entre amis. Créez un groupe, partagez un code, répondez chacun à un questionnaire de 36 questions, puis découvrez votre profil de personnalité, comparez-vous à vos amis et débattez de vos plus grandes différences.
+MindMatch Party est une plateforme de soirée sociale entre amis. Créez une salle privée, partagez un code, chacun rejoint depuis son téléphone : répondez au quiz de personnalité MindMatch (36 questions → profil, archétype, comparaisons de groupe, débats), puis enchaînez sur des jeux de soirée synchronisés en temps réel, avec un mode "écran partagé" à afficher sur une TV.
 
-Les groupes et réponses sont partagés en temps quasi réel entre tous les membres via un petit serveur — il suffit d'un seul déploiement pour que tout le monde (sur son propre téléphone) puisse rejoindre le même groupe avec un code.
+Les salles, réponses et parties sont partagées en temps réel entre tous les membres via un petit serveur (REST + WebSocket) — un seul déploiement suffit pour que tout le monde (sur son propre téléphone) rejoigne la même salle avec un code.
 
 ## Fonctionnalités
 
-- **Accueil** — créer un groupe ou en rejoindre un avec un code, choix du pseudo.
-- **Questionnaire** — 36 questions (personnalité, valeurs, dilemmes, préférences), cartes animées et barre de progression. La progression est sauvegardée côté serveur (tu peux fermer l'app et reprendre plus tard).
-- **Profil** — archétype de personnalité, description personnalisée, radar chart et jauges sur 7 traits (créativité, logique, ambition, empathie, indépendance, sociabilité, organisation).
-- **Groupe** — radar comparatif, points communs, plus grandes différences, classements amusants (le/la plus créatif·ve, organisé·e, aventurier·ère, empathique, ambitieux·se, sociable, stratège, indépendant·e). Se met à jour automatiquement quand tes amis terminent le quiz.
-- **Débats** — sujets de débat générés automatiquement à partir des plus grands écarts de personnalité entre membres du groupe.
+**Profil de personnalité** (le cœur historique de MindMatch, inchangé) :
+- **Questionnaire** — 36 questions (personnalité, valeurs, dilemmes, préférences), cartes animées et barre de progression. Sauvegardé côté serveur.
+- **Profil** — archétype, description personnalisée, radar chart et jauges sur 7 traits (créativité, logique, ambition, empathie, indépendance, sociabilité, organisation).
+- **Groupe** — radar comparatif, points communs, différences, classements amusants.
+- **Débats** — sujets générés à partir des plus grands écarts de personnalité.
+
+**Plateforme de soirée (nouveau)** :
+- **Salle live** — création/jointure par code (existant), liste des joueurs connectés en direct, avatars, niveaux.
+- **XP, niveaux, badges** — chaque partie fait progresser les joueurs (XP, niveaux) et peut débloquer des badges (Le Créatif, Le Leader, Le Chaos Ambulant...). Les résultats des jeux peuvent aussi ajuster légèrement les scores de personnalité (ex. gagner "Qui est le plus créatif ?" pousse un peu le trait Créativité).
+- **Moteur de jeu modulaire** (`server/games/`, `src/party/games/`) — chaque jeu est un module indépendant avec ses propres phases, actions et récompenses XP, prêt à accueillir de futurs jeux (Devine ma réponse, Dilemmes & Débats, Cartes de soirée, Qui a écrit ça, Profil secret...).
+- **Qui est le plus ?** — premier jeu livré : vote anonyme sur une question ("Qui est le/la plus susceptible de...?"), révélation animée avec confettis, classement en direct.
+- **Mode écran partagé ("Party Screen")** — page `/screen/:code` pensée pour une TV : questions, votes en direct, révélations et classement en grand format, pendant que les téléphones ne servent qu'à répondre.
 
 ## Stack
 
-- **Frontend** — React 19 + TypeScript + Vite, Tailwind CSS v4, Framer Motion, React Router (HashRouter), Zustand.
-- **Backend** — Node.js + Express, stockage dans un fichier JSON (`server/data/db.json`), aucune dépendance externe ni compte tiers à créer.
+- **Frontend** — React 19 + TypeScript + Vite, Tailwind CSS v4, Framer Motion, React Router (HashRouter), Zustand, Socket.IO client.
+- **Backend** — Node.js + Express + Socket.IO, stockage dans un fichier JSON (`server/data/db.json`), aucune dépendance externe ni compte tiers à créer.
 
 ## Développement local
 

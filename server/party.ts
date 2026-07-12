@@ -1,0 +1,130 @@
+import { readDb, writeDb } from './db'
+import type { StoredGroup } from './types'
+import type { Group, PartySession } from '../src/types'
+import { findAuthorizedMember, sanitizeGroup, isApiError, type ApiError } from './store'
+import { getGame } from './games/registry'
+import { evaluateBadges } from './badges'
+import type { XpAward } from './games/types'
+
+const TRAIT_NUDGE = 4
+
+function applyXpAwards(group: StoredGroup, awards: XpAward[] | undefined): void {
+  if (!awards) return
+  for (const award of awards) {
+    const member = group.members.find((m) => m.id === award.memberId)
+    if (!member) continue
+
+    member.xp += award.amount
+    if (award.trait && member.scores) {
+      const current = member.scores[award.trait]
+      member.scores[award.trait] = Math.max(0, Math.min(100, current + TRAIT_NUDGE))
+    }
+    if (award.statIncrements) {
+      for (const [key, amount] of Object.entries(award.statIncrements)) {
+        member.gameStats[key] = (member.gameStats[key] ?? 0) + amount
+      }
+    }
+    member.badges = evaluateBadges(member)
+  }
+}
+
+function emptySession(hostMemberId: string, gameId: string | null): PartySession {
+  return { status: 'lobby', hostMemberId, currentGameId: gameId, phase: null, round: 0, roundData: null }
+}
+
+export function startGame(
+  groupId: string,
+  memberId: string,
+  memberToken: string,
+  gameId: string,
+): { group: Group } | ApiError {
+  const db = readDb()
+  const result = findAuthorizedMember(db, groupId, memberId, memberToken)
+  if (isApiError(result)) return result
+  const { group } = result
+
+  if (group.party.hostMemberId !== memberId) {
+    return { error: "Seul·e l'hôte peut lancer une partie.", status: 403 }
+  }
+  const game = getGame(gameId)
+  if (!game) return { error: 'Jeu introuvable.', status: 404 }
+  if (group.members.length < game.minPlayers) {
+    return { error: `Il faut au moins ${game.minPlayers} joueurs pour ce jeu.`, status: 400 }
+  }
+
+  const { session, xpAwards } = game.initRound(group, emptySession(group.party.hostMemberId, gameId))
+  applyXpAwards(group, xpAwards)
+  group.party = session
+  writeDb(db)
+
+  return { group: sanitizeGroup(group, memberId) }
+}
+
+export function submitAction(
+  groupId: string,
+  memberId: string,
+  memberToken: string,
+  actionType: string,
+  payload: unknown,
+): { group: Group } | ApiError {
+  const db = readDb()
+  const result = findAuthorizedMember(db, groupId, memberId, memberToken)
+  if (isApiError(result)) return result
+  const { group } = result
+
+  const game = group.party.currentGameId ? getGame(group.party.currentGameId) : null
+  if (!game) return { error: 'Aucune partie en cours.', status: 400 }
+
+  const actionResult = game.handleAction(group, group.party, memberId, { type: actionType, payload })
+  applyXpAwards(group, actionResult.xpAwards)
+  group.party = actionResult.session
+
+  if (game.isRoundComplete(group, group.party)) {
+    const resolved = game.resolveRound(group, group.party)
+    applyXpAwards(group, resolved.xpAwards)
+    group.party = resolved.session
+  }
+
+  writeDb(db)
+  return { group: sanitizeGroup(group, memberId) }
+}
+
+export function hostAdvance(groupId: string, memberId: string, memberToken: string): { group: Group } | ApiError {
+  const db = readDb()
+  const result = findAuthorizedMember(db, groupId, memberId, memberToken)
+  if (isApiError(result)) return result
+  const { group } = result
+
+  if (group.party.hostMemberId !== memberId) {
+    return { error: "Seul·e l'hôte peut faire avancer la partie.", status: 403 }
+  }
+  const game = group.party.currentGameId ? getGame(group.party.currentGameId) : null
+  if (!game) return { error: 'Aucune partie en cours.', status: 400 }
+
+  if (group.party.phase === 'voting') {
+    const resolved = game.resolveRound(group, group.party)
+    applyXpAwards(group, resolved.xpAwards)
+    group.party = resolved.session
+  } else {
+    const next = game.initRound(group, group.party)
+    applyXpAwards(group, next.xpAwards)
+    group.party = next.session
+  }
+
+  writeDb(db)
+  return { group: sanitizeGroup(group, memberId) }
+}
+
+export function endGame(groupId: string, memberId: string, memberToken: string): { group: Group } | ApiError {
+  const db = readDb()
+  const result = findAuthorizedMember(db, groupId, memberId, memberToken)
+  if (isApiError(result)) return result
+  const { group } = result
+
+  if (group.party.hostMemberId !== memberId) {
+    return { error: "Seul·e l'hôte peut terminer la partie.", status: 403 }
+  }
+  group.party = emptySession(group.party.hostMemberId, null)
+  writeDb(db)
+  return { group: sanitizeGroup(group, memberId) }
+}

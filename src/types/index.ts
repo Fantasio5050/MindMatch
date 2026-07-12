@@ -41,6 +41,20 @@ export interface Member {
   scores: TraitScores | null
   archetypeId: string | null
   finishedAt: number | null
+  xp: number
+  badges: string[]
+  gameStats: Record<string, number>
+}
+
+export type PartyStatus = 'lobby' | 'playing' | 'ended'
+
+export interface PartySession {
+  status: PartyStatus
+  hostMemberId: string
+  currentGameId: string | null
+  phase: string | null
+  round: number
+  roundData: unknown
 }
 
 export interface Group {
@@ -49,4 +63,5 @@ export interface Group {
   name: string
   createdAt: number
   members: Member[]
+  party: PartySession
 }

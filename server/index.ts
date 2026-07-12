@@ -1,8 +1,10 @@
 import express from 'express'
 import cors from 'cors'
+import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createGroup, joinGroup, getGroup, saveAnswer, finishMember, isApiError } from './store'
+import { attachRealtime } from './realtime'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT) || 3001
@@ -11,6 +13,9 @@ const DIST_DIR = path.join(__dirname, '..', 'dist')
 const app = express()
 app.use(cors())
 app.use(express.json())
+
+const httpServer = http.createServer(app)
+const { broadcastRoom } = attachRealtime(httpServer)
 
 const api = express.Router()
 
@@ -30,6 +35,7 @@ api.post('/groups/join', (req, res) => {
   }
   const result = joinGroup(code, pseudo)
   if (isApiError(result)) return res.status(result.status).json({ error: result.error })
+  broadcastRoom(result.group.id)
   res.status(201).json(result)
 })
 
@@ -50,6 +56,7 @@ api.put('/groups/:groupId/members/:memberId/answer', (req, res) => {
   }
   const result = saveAnswer(groupId, memberId, memberToken, questionId, optionId)
   if (isApiError(result)) return res.status(result.status).json({ error: result.error })
+  broadcastRoom(groupId)
   res.json(result)
 })
 
@@ -61,6 +68,7 @@ api.post('/groups/:groupId/members/:memberId/finish', (req, res) => {
   }
   const result = finishMember(groupId, memberId, memberToken)
   if (isApiError(result)) return res.status(result.status).json({ error: result.error })
+  broadcastRoom(groupId)
   res.json(result)
 })
 
@@ -73,6 +81,6 @@ app.get(/^(?!\/api).*/, (_req, res) => {
   })
 })
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`MindMatch server listening on http://localhost:${PORT}`)
 })

@@ -8,6 +8,9 @@ import { QuizPage } from './pages/QuizPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { GroupPage } from './pages/GroupPage'
 import { DebatesPage } from './pages/DebatesPage'
+import { LobbyPage } from './pages/LobbyPage'
+import { PlayPage } from './pages/PlayPage'
+import { ScreenPage } from './pages/ScreenPage'
 
 function Splash() {
   return (
@@ -44,7 +47,7 @@ function RequireFinished({ children }: { children: ReactNode }) {
 function AnimatedRoutes() {
   const location = useLocation()
   const member = useAppStore((s) => s.currentMember())
-  const showNav = !!member?.scores && ['/profile', '/group', '/debates'].includes(location.pathname)
+  const showNav = !!member?.scores && ['/profile', '/group', '/debates', '/lobby'].includes(location.pathname)
 
   return (
     <div className="app-shell flex-1 flex flex-col">
@@ -84,6 +87,23 @@ function AnimatedRoutes() {
                 </RequireFinished>
               }
             />
+            <Route
+              path="/lobby"
+              element={
+                <RequireMember>
+                  <LobbyPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/play"
+              element={
+                <RequireMember>
+                  <PlayPage />
+                </RequireMember>
+              }
+            />
+            <Route path="/screen/:code?" element={<ScreenPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AnimatePresence>

@@ -1,0 +1,74 @@
+import { useCallback, useEffect, useState } from 'react'
+
+const STORAGE_KEY = 'mindmatch-sound-muted'
+
+type SoundName = 'vote' | 'reveal' | 'win' | 'tick'
+
+let audioCtx: AudioContext | null = null
+
+function getCtx(): AudioContext | null {
+  if (typeof window === 'undefined') return null
+  if (!audioCtx) {
+    const Ctor = window.AudioContext
+    if (!Ctor) return null
+    audioCtx = new Ctor()
+  }
+  return audioCtx
+}
+
+function beep(freq: number, duration: number, delay = 0): void {
+  const ctx = getCtx()
+  if (!ctx) return
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.type = 'sine'
+  osc.frequency.value = freq
+  const start = ctx.currentTime + delay
+  gain.gain.setValueAtTime(0.0001, start)
+  gain.gain.exponentialRampToValueAtTime(0.15, start + 0.02)
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration)
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(start)
+  osc.stop(start + duration + 0.05)
+}
+
+function playSound(sound: SoundName): void {
+  const ctx = getCtx()
+  if (!ctx) return
+  if (ctx.state === 'suspended') void ctx.resume()
+  switch (sound) {
+    case 'vote':
+      beep(660, 0.08)
+      break
+    case 'tick':
+      beep(440, 0.05)
+      break
+    case 'reveal':
+      beep(523, 0.1)
+      beep(659, 0.12, 0.1)
+      beep(784, 0.16, 0.2)
+      break
+    case 'win':
+      beep(784, 0.1)
+      beep(988, 0.12, 0.1)
+      beep(1175, 0.2, 0.2)
+      break
+  }
+}
+
+export function useSound() {
+  const [muted, setMuted] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem(STORAGE_KEY) === '1'
+  })
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, muted ? '1' : '0')
+  }, [muted])
+
+  const play = useCallback((sound: SoundName) => !muted && playSound(sound), [muted])
+  const toggleMuted = useCallback(() => setMuted((m) => !m), [])
+
+  return { play, muted, toggleMuted }
+}

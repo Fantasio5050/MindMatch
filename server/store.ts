@@ -1,6 +1,6 @@
 import { readDb, writeDb } from './db'
 import type { StoredGroup, StoredMember } from './types'
-import type { Group, Member } from '../src/types'
+import type { Group, Member, PartySession } from '../src/types'
 import { computeScores, getArchetypeId } from '../src/lib/scoring'
 import { questions } from '../src/data/questions'
 
@@ -44,10 +44,30 @@ export function sanitizeMember(member: StoredMember, isSelf: boolean): Member {
   }
 }
 
+/**
+ * Hides the raw voter -> choice map from any in-progress or resolved vote so votes stay
+ * anonymous to everyone except the requester's own choice. Any game module that stores its
+ * live votes under `roundData.votes: Record<memberId, choice>` gets this for free.
+ */
+function sanitizeParty(party: PartySession, requestingMemberId: string | null): PartySession {
+  const roundData = party.roundData
+  if (!roundData || typeof roundData !== 'object' || !('votes' in roundData)) return party
+  const { votes, ...rest } = roundData as { votes: Record<string, string> } & Record<string, unknown>
+  return {
+    ...party,
+    roundData: {
+      ...rest,
+      votedCount: Object.keys(votes).length,
+      yourVote: requestingMemberId ? (votes[requestingMemberId] ?? null) : null,
+    },
+  }
+}
+
 export function sanitizeGroup(group: StoredGroup, requestingMemberId: string | null): Group {
   return {
     ...group,
     members: group.members.map((m) => sanitizeMember(m, m.id === requestingMemberId)),
+    party: sanitizeParty(group.party, requestingMemberId),
   }
 }
 
@@ -65,6 +85,9 @@ export function createGroup(groupName: string, pseudo: string): { group: Group; 
     scores: null,
     archetypeId: null,
     finishedAt: null,
+    xp: 0,
+    badges: [],
+    gameStats: {},
     token,
   }
 
@@ -74,6 +97,14 @@ export function createGroup(groupName: string, pseudo: string): { group: Group; 
     name: groupName.trim().slice(0, 40) || 'Mon groupe',
     createdAt: Date.now(),
     members: [member],
+    party: {
+      status: 'lobby',
+      hostMemberId: memberId,
+      currentGameId: null,
+      phase: null,
+      round: 0,
+      roundData: null,
+    },
   }
 
   db.groups.push(group)
@@ -106,6 +137,9 @@ export function joinGroup(
     scores: null,
     archetypeId: null,
     finishedAt: null,
+    xp: 0,
+    badges: [],
+    gameStats: {},
     token,
   }
   group.members.push(member)
@@ -114,7 +148,7 @@ export function joinGroup(
   return { group: sanitizeGroup(group, memberId), memberId, memberToken: token }
 }
 
-function findAuthorizedMember(
+export function findAuthorizedMember(
   db: { groups: StoredGroup[] },
   groupId: string,
   memberId: string,

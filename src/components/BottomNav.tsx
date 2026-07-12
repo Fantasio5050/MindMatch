@@ -6,6 +6,7 @@ const items = [
   { to: '/profile', label: 'Profil', icon: '👤' },
   { to: '/group', label: 'Groupe', icon: '👥' },
   { to: '/debates', label: 'Débats', icon: '💬' },
+  { to: '/lobby', label: 'Salle', icon: '🎉' },
 ]
 
 export function BottomNav() {

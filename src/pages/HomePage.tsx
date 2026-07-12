@@ -27,7 +27,7 @@ export function HomePage() {
     setSubmitting(true)
     try {
       await createGroup(groupName, pseudo)
-      navigate('/quiz')
+      navigate('/lobby')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Une erreur est survenue.')
     } finally {
@@ -42,7 +42,7 @@ export function HomePage() {
     setSubmitting(true)
     try {
       await joinGroup(code, pseudo)
-      navigate('/quiz')
+      navigate('/lobby')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Une erreur est survenue.')
     } finally {
@@ -62,9 +62,9 @@ export function HomePage() {
           >
             🧠
           </motion.div>
-          <h1 className="text-4xl font-extrabold tracking-tight shimmer-text">MindMatch</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight shimmer-text">MindMatch Party</h1>
           <p className="text-white/60 text-base max-w-xs">
-            Découvre ta personnalité et compare-toi à tes amis, en quelques minutes.
+            Ton profil de personnalité + des jeux de soirée synchronisés entre amis, en direct.
           </p>
         </div>
 
@@ -97,6 +97,9 @@ export function HomePage() {
                   }}
                 >
                   🔑 Rejoindre avec un code
+                </Button>
+                <Button fullWidth variant="ghost" onClick={() => navigate('/screen')}>
+                  📺 Afficher sur un écran (TV)
                 </Button>
               </motion.div>
             )}
@@ -160,7 +163,7 @@ export function HomePage() {
         </div>
 
         <p className="text-center text-xs text-white/30 mt-10">
-          30 questions · 5 minutes · résultats instantanés
+          Quiz de personnalité · jeux de soirée · XP & badges entre amis
         </p>
       </div>
     </PageTransition>
