@@ -1,140 +1,100 @@
-import { getAudioContext } from './audioContext'
+/** Background music player built on real audio files (public/audio/*.mp3), one per ambiance:
+ * "menu" for home/lobby/menus and "game" during an active party game. Tracks loop forever and
+ * switching ambiance crossfades between two <audio> elements instead of hard-cutting. */
 
-/** A tasteful, purely-generative ambient loop (no audio files, no licensing to worry about) —
- * four sustained pad chords with a soft pulsing bass note, in A minor. Built the same way as the
- * SFX beeps in useSound.ts: raw oscillators + gain envelopes, nothing external to load. */
+export type MusicTrack = 'menu' | 'game'
 
-interface Chord {
-  pad: number[] // Hz, played together as a soft sustained pad
-  bass: number // Hz, one octave down from the root
+const TRACK_SRC: Record<MusicTrack, string> = {
+  menu: '/audio/menu.mp3',
+  game: '/audio/ingame.mp3',
 }
 
-const CHORDS: Chord[] = [
-  { pad: [220.0, 261.63, 329.63], bass: 110.0 }, // A minor
-  { pad: [174.61, 220.0, 261.63], bass: 87.31 }, // F major
-  { pad: [261.63, 329.63, 392.0], bass: 130.81 }, // C major
-  { pad: [196.0, 246.94, 293.66], bass: 98.0 }, // G major
-]
+const FADE_MS = 900
+const FADE_STEP_MS = 50
 
-const CHORD_DURATION = 3.2
-const LOOP_DURATION = CHORDS.length * CHORD_DURATION
-const LOOKAHEAD_MS = 300
+const elements: Partial<Record<MusicTrack, HTMLAudioElement>> = {}
+const fadeTimers: Partial<Record<MusicTrack, ReturnType<typeof setInterval>>> = {}
 
-let masterGain: GainNode | null = null
-let filter: BiquadFilterNode | null = null
-let loopTimer: ReturnType<typeof setTimeout> | null = null
-let nextLoopStart = 0
+let currentTrack: MusicTrack = 'menu'
+let playing = false
 let targetVolume = 0.45
 
-function ensureGraph(): { ctx: AudioContext; gain: GainNode; filter: BiquadFilterNode } | null {
-  const ctx = getAudioContext()
-  if (!ctx) return null
-  if (!masterGain || !filter) {
-    filter = ctx.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.value = 1400
-    masterGain = ctx.createGain()
-    masterGain.gain.value = targetVolume * 0.35
-    filter.connect(masterGain)
-    masterGain.connect(ctx.destination)
+function getElement(track: MusicTrack): HTMLAudioElement | null {
+  if (typeof window === 'undefined') return null
+  let el = elements[track]
+  if (!el) {
+    el = new Audio(TRACK_SRC[track])
+    el.loop = true
+    el.preload = 'auto'
+    el.volume = 0
+    elements[track] = el
   }
-  return { ctx, gain: masterGain, filter }
+  return el
 }
 
-function schedulePad(ctx: AudioContext, destination: AudioNode, freq: number, start: number, duration: number): void {
-  const osc = ctx.createOscillator()
-  const gain = ctx.createGain()
-  osc.type = 'triangle'
-  osc.frequency.value = freq
-  const attack = 0.7
-  const release = 0.6
-  const peak = 0.16
-  gain.gain.setValueAtTime(0, start)
-  gain.gain.linearRampToValueAtTime(peak, start + attack)
-  gain.gain.setValueAtTime(peak, start + duration - release)
-  gain.gain.linearRampToValueAtTime(0, start + duration)
-  osc.connect(gain)
-  gain.connect(destination)
-  osc.start(start)
-  osc.stop(start + duration + 0.05)
+/** Ramps one element's volume to `to`, pausing it at the end of a fade-out. Replaces any fade
+ * already running on that element so rapid track flips don't fight each other. */
+function fadeTo(track: MusicTrack, to: number): void {
+  const el = elements[track]
+  if (!el) return
+  const existing = fadeTimers[track]
+  if (existing) clearInterval(existing)
+
+  const from = el.volume
+  const steps = Math.max(1, Math.round(FADE_MS / FADE_STEP_MS))
+  let step = 0
+  fadeTimers[track] = setInterval(() => {
+    step++
+    el.volume = Math.min(1, Math.max(0, from + (to - from) * (step / steps)))
+    if (step >= steps) {
+      clearInterval(fadeTimers[track])
+      delete fadeTimers[track]
+      if (to === 0) el.pause()
+    }
+  }, FADE_STEP_MS)
 }
 
-function scheduleBass(ctx: AudioContext, destination: AudioNode, freq: number, start: number): void {
-  const osc = ctx.createOscillator()
-  const gain = ctx.createGain()
-  osc.type = 'sine'
-  osc.frequency.value = freq
-  gain.gain.setValueAtTime(0.0001, start)
-  gain.gain.exponentialRampToValueAtTime(0.3, start + 0.08)
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + 1.6)
-  osc.connect(gain)
-  gain.connect(destination)
-  osc.start(start)
-  osc.stop(start + 1.7)
-}
-
-function scheduleLoopIteration(startAt: number): void {
-  const graph = ensureGraph()
-  if (!graph) return
-  const { ctx, filter: dest } = graph
-
-  CHORDS.forEach((chord, i) => {
-    const chordStart = startAt + i * CHORD_DURATION
-    for (const freq of chord.pad) schedulePad(ctx, dest, freq, chordStart, CHORD_DURATION)
-    scheduleBass(ctx, dest, chord.bass, chordStart)
-    scheduleBass(ctx, dest, chord.bass, chordStart + CHORD_DURATION / 2)
-  })
-}
-
-function tick(): void {
-  const graph = ensureGraph()
-  if (!graph) return
-  const { ctx } = graph
-  while (nextLoopStart < ctx.currentTime + LOOKAHEAD_MS / 1000) {
-    scheduleLoopIteration(nextLoopStart)
-    nextLoopStart += LOOP_DURATION
-  }
-  loopTimer = setTimeout(tick, LOOKAHEAD_MS)
+function playCurrent(): void {
+  const el = getElement(currentTrack)
+  if (!el) return
+  // play() can reject (autoplay policy, file missing) — music is decorative, never crash for it.
+  el.play().catch(() => {})
+  fadeTo(currentTrack, targetVolume)
 }
 
 export function startMusic(volume: number): void {
-  const graph = ensureGraph()
-  if (!graph || loopTimer) return
-  targetVolume = volume
-  const now = graph.ctx.currentTime
-  graph.gain.gain.cancelScheduledValues(now)
-  graph.gain.gain.setValueAtTime(0, now)
-  graph.gain.gain.linearRampToValueAtTime(targetVolume * 0.35, now + 1.2)
-  nextLoopStart = now + 0.1
-  tick()
+  targetVolume = Math.min(1, Math.max(0, volume))
+  if (playing) return
+  playing = true
+  playCurrent()
 }
 
 export function stopMusic(): void {
-  if (loopTimer) {
-    clearTimeout(loopTimer)
-    loopTimer = null
-  }
-  if (masterGain) {
-    const ctx = getAudioContext()
-    if (ctx) {
-      const now = ctx.currentTime
-      masterGain.gain.cancelScheduledValues(now)
-      masterGain.gain.setValueAtTime(masterGain.gain.value, now)
-      masterGain.gain.linearRampToValueAtTime(0, now + 0.4)
-    }
-  }
+  playing = false
+  for (const track of Object.keys(elements) as MusicTrack[]) fadeTo(track, 0)
 }
 
 export function isMusicPlaying(): boolean {
-  return loopTimer !== null
+  return playing
 }
 
 export function setMusicVolume(volume: number): void {
-  targetVolume = volume
-  if (masterGain) {
-    const ctx = getAudioContext()
-    const now = ctx?.currentTime ?? 0
-    masterGain.gain.cancelScheduledValues(now)
-    masterGain.gain.linearRampToValueAtTime(targetVolume * 0.35, now + 0.2)
-  }
+  targetVolume = Math.min(1, Math.max(0, volume))
+  if (!playing) return
+  const el = elements[currentTrack]
+  // Only adjust if no fade is in flight — an active fade already targets the right destination
+  // via playCurrent/fadeTo, and volume-slider drags shouldn't restart a long ramp each tick.
+  if (el && !fadeTimers[currentTrack]) el.volume = targetVolume
+  else if (el) fadeTo(currentTrack, targetVolume)
+}
+
+/** Switches ambiance (menu ↔ in-game). If music is playing, crossfades; otherwise just records
+ * the choice so the next startMusic() picks the right file. */
+export function setMusicTrack(track: MusicTrack): void {
+  if (track === currentTrack) return
+  const previous = currentTrack
+  currentTrack = track
+  if (!playing) return
+  fadeTo(previous, 0)
+  playCurrent()
 }

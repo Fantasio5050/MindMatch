@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from './store/useAppStore'
+import { usePartyStore } from './store/usePartyStore'
+import { setMusicTrack } from './lib/music'
 import { BottomNav } from './components/BottomNav'
 import { AmbientBackground } from './components/AmbientBackground'
 import { AudioControls } from './components/AudioControls'
@@ -44,6 +46,22 @@ function RequireFinished({ children }: { children: ReactNode }) {
   if (!member) return <Splash />
   if (!member.scores) return <Navigate to="/quiz" replace />
   return <>{children}</>
+}
+
+/** Picks the background-music ambiance: the in-game track while a party game is actually running
+ * (controller or TV screen), the menu track everywhere else. Rendered inside HashRouter, outside
+ * the animated routes, so it survives page transitions without restarting the music. */
+function MusicDirector() {
+  const location = useLocation()
+  const partyStatus = usePartyStore((s) => s.group?.party.status)
+  const onGameRoute = location.pathname === '/play' || location.pathname.startsWith('/screen')
+  const inGame = onGameRoute && partyStatus === 'playing'
+
+  useEffect(() => {
+    setMusicTrack(inGame ? 'game' : 'menu')
+  }, [inGame])
+
+  return null
 }
 
 function AnimatedRoutes() {
@@ -144,6 +162,7 @@ function App() {
     <HashRouter>
       <AmbientBackground />
       <AudioControls />
+      <MusicDirector />
       <AppBootstrap />
     </HashRouter>
   )

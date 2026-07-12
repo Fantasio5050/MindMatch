@@ -1,0 +1,17 @@
+{
+  "name": "MindMatch Party",
+  "short_name": "MindMatch",
+  "description": "Quiz de personnalité et jeux de soirée synchronisés entre amis, en direct.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0714",
+  "theme_color": "#0b0714",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
