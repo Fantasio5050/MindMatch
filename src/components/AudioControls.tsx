@@ -35,7 +35,15 @@ export function AudioControls() {
             transition={{ duration: 0.18 }}
             className="glass-card rounded-2xl p-3.5 w-56 absolute right-0 top-12 shadow-xl shadow-black/30"
           >
-            <ToggleRow label="Musique" icon="🎵" active={!music.muted} onToggle={music.toggleMuted} />
+            <ToggleRow
+              label="Musique"
+              icon="🎵"
+              active={!music.muted}
+              onToggle={() => {
+                sound.play('pop')
+                music.toggleMuted()
+              }}
+            />
             {!music.muted && (
               <input
                 type="range"
@@ -55,7 +63,10 @@ export function AudioControls() {
 
       <motion.button
         whileTap={{ scale: 0.9 }}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          sound.play('pop')
+          setOpen((o) => !o)
+        }}
         className="w-10 h-10 rounded-full glass-card flex items-center justify-center text-lg"
         aria-label="Réglages audio"
       >

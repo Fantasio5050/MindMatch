@@ -1,4 +1,5 @@
-export type AutorouteDirection = 'higher' | 'lower'
+export type AutorouteQuestionKind = 'higher-lower' | 'red-black' | 'inter-exter'
+export type AutorouteChoice = 'higher' | 'lower' | 'red' | 'black' | 'inter' | 'exter'
 
 export interface AutorouteCard {
   id: string
@@ -6,30 +7,51 @@ export interface AutorouteCard {
   suit: number
 }
 
-export interface AutorouteRoundResultEntry {
-  prediction: AutorouteDirection
+export type AutorouteTrackCell = { type: 'question'; kind: AutorouteQuestionKind } | { type: 'toll' }
+
+export interface AutoroutePlayerRoundResult {
+  choice: AutorouteChoice
+  kind: AutorouteQuestionKind
+  drawnCard: AutorouteCard
   correct: boolean
-  sipsOwed: number
-  newProgress: number
-  lapCompleted: boolean
+  faultSips: number
+  tollSips: number
+  newPosition: number
+  finished: boolean
 }
 
 export interface AutorouteHistoryEntry {
-  referenceCard: AutorouteCard
-  drawnCard: AutorouteCard
-  tie: boolean
-  results: Record<string, AutorouteRoundResultEntry>
+  results: Record<string, AutoroutePlayerRoundResult>
 }
 
 export interface AutorouteClientState {
-  referenceCard: AutorouteCard | null
-  progress: Record<string, number>
-  laps: Record<string, number>
+  track: AutorouteTrackCell[]
+  positions: Record<string, number>
+  finished: Record<string, boolean>
+  finishOrder: string[]
+  recentCards: Record<string, AutorouteCard[]>
   totalSipsReceived: Record<string, number>
-  totalRounds: number
   history: AutorouteHistoryEntry[]
   votedCount: number
-  yourVote: AutorouteDirection | null
+  yourVote: AutorouteChoice | null
 }
 
-export const ROAD_LENGTH = 5
+export const QUESTION_META: Record<AutorouteQuestionKind, { title: string; options: [AutorouteChoice, AutorouteChoice] }> = {
+  'higher-lower': { title: 'Plus haut ou plus bas ?', options: ['higher', 'lower'] },
+  'red-black': { title: 'Rouge ou noir ?', options: ['red', 'black'] },
+  'inter-exter': { title: 'Inter ou Exter ?', options: ['inter', 'exter'] },
+}
+
+export const CHOICE_META: Record<AutorouteChoice, { label: string; emoji: string }> = {
+  higher: { label: 'Plus haut', emoji: '⬆️' },
+  lower: { label: 'Plus bas', emoji: '⬇️' },
+  red: { label: 'Rouge', emoji: '🟥' },
+  black: { label: 'Noir', emoji: '⬛' },
+  inter: { label: 'Inter', emoji: '↔️' },
+  exter: { label: 'Exter', emoji: '↕️' },
+}
+
+export function choiceLabel(choice: AutorouteChoice): string {
+  const meta = CHOICE_META[choice]
+  return `${meta.emoji} ${meta.label}`
+}

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { PageTransition } from '../components/PageTransition'
 import { usePartyStore } from '../store/usePartyStore'
 import { PartyGameShell } from '../party/PartyGameShell'
+import { EmoteOverlay, EmoteBar } from '../components/EmoteLayer'
+import { useSound } from '../hooks/useSound'
 
 export function PlayPage() {
   const navigate = useNavigate()
@@ -11,12 +13,14 @@ export function PlayPage() {
   const isHost = usePartyStore((s) => s.isHost())
   const code = usePartyStore((s) => s.group?.code)
   const [copied, setCopied] = useState(false)
+  const { play } = useSound()
 
   useEffect(() => {
     connectAsPlayer()
   }, [connectAsPlayer])
 
   const handleBack = () => {
+    play('pop')
     // Party state stays "playing" until the host explicitly ends it — otherwise the lobby's
     // own redirect (playing -> bounce back to /play) fights any attempt to just navigate away.
     if (isHost) endGame()
@@ -56,6 +60,8 @@ export function PlayPage() {
           )}
         </div>
         <PartyGameShell mode="controller" />
+        <EmoteOverlay />
+        <EmoteBar />
       </div>
     </PageTransition>
   )

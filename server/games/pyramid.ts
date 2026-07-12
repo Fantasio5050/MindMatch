@@ -50,6 +50,9 @@ interface RecitationEntry {
 
 interface PyramidState {
   hands: Record<string, Card[]>
+  /** Once the memorize window closes, hands are masked in every payload (rank/suit stripped by
+   * the sanitizer) — players must genuinely play from memory, even by inspecting the network. */
+  handsHidden: boolean
   pyramid: PyramidCardState[]
   currentIndex: number
   accusations: Accusation[]
@@ -104,6 +107,7 @@ function getState(session: PartySession): PyramidState {
   return (
     (session.roundData as PyramidState | null) ?? {
       hands: {},
+      handsHidden: false,
       pyramid: [],
       currentIndex: -1,
       accusations: [],
@@ -135,6 +139,7 @@ export const pyramid: GameModule = {
       const pyramidCards = buildPyramid(deck.splice(0, totalPyramidCount()))
       const newState: PyramidState = {
         hands,
+        handsHidden: false,
         pyramid: pyramidCards,
         currentIndex: -1,
         accusations: [],
@@ -151,10 +156,16 @@ export const pyramid: GameModule = {
     }
 
     // 3) Memorize window is over (host advances, timer or manual "C'est parti !") -> reveal card 1.
+    // From here on the hands go face-down for good: play from memory only.
     if (session.phase === 'memorize') {
       const nextPyramid = state.pyramid.map((c, i) => (i === 0 ? { ...c, revealed: true } : c))
       return {
-        session: { ...session, phase: 'matching', round: 1, roundData: { ...state, pyramid: nextPyramid, currentIndex: 0 } },
+        session: {
+          ...session,
+          phase: 'matching',
+          round: 1,
+          roundData: { ...state, handsHidden: true, pyramid: nextPyramid, currentIndex: 0 },
+        },
       }
     }
 
@@ -173,10 +184,11 @@ export const pyramid: GameModule = {
       return { session: { ...session, status: 'ended', phase: 'ended' }, xpAwards }
     }
 
-    // 5) Normal card-to-card advance.
+    // 5) Normal card-to-card advance. Reaching the recitation unhides the hands: the minigame is
+    // to retrieve the ORDER of your (visible) cards, so the faces come back at this point only.
     const nextIndex = state.currentIndex + 1
     if (nextIndex >= state.pyramid.length) {
-      return { session: { ...session, phase: 'recitation', roundData: state } }
+      return { session: { ...session, phase: 'recitation', roundData: { ...state, handsHidden: false } } }
     }
     const nextPyramid = state.pyramid.map((c, i) => (i === nextIndex ? { ...c, revealed: true } : c))
     return {

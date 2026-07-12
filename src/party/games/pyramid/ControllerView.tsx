@@ -51,11 +51,41 @@ export function PyramidController() {
   const { play } = useSound()
   const lastPhase = useRef<string | null>(null)
   const phase = group?.party.phase ?? null
+  const selfId = currentMember?.id ?? null
+  const preState = group?.party.roundData as PyramidClientState | null
+  const resolvedKey = preState?.accusations
+    .filter((a) => a.status !== 'pending' && a.status !== 'awaiting-proof')
+    .map((a) => `${a.id}:${a.status}`)
+    .join('|')
+  const seenResolved = useRef(new Set<string>())
 
   useEffect(() => {
     if (phase === 'matching' && lastPhase.current !== 'matching' && lastPhase.current !== null) play('tick')
     lastPhase.current = phase
   }, [phase, play])
+
+  // Personal jingle when a distribution involving me resolves: sad if I end up drinking, victory
+  // fanfare if my bluff call (or my proof) makes the other one drink double.
+  useEffect(() => {
+    if (!preState || !selfId) return
+    for (const a of preState.accusations) {
+      if (a.status === 'pending' || a.status === 'awaiting-proof') continue
+      const key = `${a.id}:${a.status}`
+      if (seenResolved.current.has(key)) continue
+      seenResolved.current.add(key)
+      const iDrink =
+        (a.status === 'accepted' && a.targetId === selfId) ||
+        (a.status === 'contested-wrong' && a.targetId === selfId) ||
+        (a.status === 'contested-right' && a.accuserId === selfId)
+      const iWin =
+        (a.status === 'contested-wrong' && a.accuserId === selfId) ||
+        (a.status === 'contested-right' && a.targetId === selfId)
+      if (iDrink) play('lose')
+      else if (iWin) play('win')
+    }
+    // resolvedKey is the memoized fingerprint of the accusation list used above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedKey, selfId, play])
 
   if (!group || !currentMember) return null
   const { party, members } = group
@@ -290,12 +320,13 @@ function MatchingView({
             <b>{memberName(myProofNeeded.targetId)}</b> pense que tu bluffes !
           </p>
           <p className="text-xs text-white/50 text-center mb-3">
-            Montre, de mémoire, laquelle de tes cartes correspond — un seul essai !
+            Tes cartes sont face cachée : pointe, de mémoire, celle qui correspond — un seul essai !
           </p>
           <div className="flex justify-center gap-2">
             {state.yourHand.map((c, i) => (
-              <button key={c.id} onClick={() => onProveCard(myProofNeeded.id, i)}>
-                <CardFace rank={c.rank} suit={c.suit} size={48} />
+              <button key={c.id} onClick={() => onProveCard(myProofNeeded.id, i)} className="flex flex-col items-center gap-1">
+                <CardFace faceDown size={48} />
+                <span className="text-[10px] text-white/40">{i + 1}</span>
               </button>
             ))}
           </div>
@@ -355,10 +386,13 @@ function MatchingView({
       </div>
 
       <div className="mt-4 pt-4 border-t border-white/10">
-        <p className="text-xs text-white/40 mb-2 text-center">Ta main</p>
+        <p className="text-xs text-white/40 mb-2 text-center">Ta main (face cachée — souviens-toi !)</p>
         <div className="flex justify-center gap-2">
-          {state.yourHand.map((c) => (
-            <CardFace key={c.id} rank={c.rank} suit={c.suit} size={40} />
+          {state.yourHand.map((c, i) => (
+            <div key={c.id} className="flex flex-col items-center gap-1">
+              <CardFace faceDown size={40} />
+              <span className="text-[10px] text-white/30">{i + 1}</span>
+            </div>
           ))}
         </div>
       </div>

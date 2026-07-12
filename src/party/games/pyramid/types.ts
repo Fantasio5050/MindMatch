@@ -1,7 +1,8 @@
 export interface HandCard {
   id: string
-  rank: number
-  suit: number
+  /** Absent while the server masks the hand (post-memorize) — see `handsHidden`. */
+  rank?: number
+  suit?: number
 }
 
 export type AccusationStatus = 'pending' | 'accepted' | 'awaiting-proof' | 'contested-wrong' | 'contested-right'
@@ -37,6 +38,8 @@ export interface PyramidClientState {
   totalSipsReceived: Record<string, number>
   recitation: Record<string, RecitationEntry>
   yourHand: HandCard[]
+  /** True from the end of the memorize window until the recitation — your cards stay face-down. */
+  handsHidden?: boolean
 }
 
 export const SUITS: { symbol: string; red: boolean }[] = [

@@ -7,13 +7,13 @@ export function CardFace({
   faceDown = false,
   selected = false,
 }: {
-  rank: number
+  rank?: number
   suit?: number
   size?: number
   faceDown?: boolean
   selected?: boolean
 }) {
-  if (faceDown) {
+  if (faceDown || rank === undefined) {
     return (
       <div
         className="rounded-lg border-2 border-white/10 bg-gradient-to-br from-fuchsia-500/30 to-purple-600/30 flex items-center justify-center"

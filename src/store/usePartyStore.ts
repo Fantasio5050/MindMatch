@@ -1,8 +1,11 @@
 import { create } from 'zustand'
 import type { Socket } from 'socket.io-client'
 import type { Group, Member } from '../types'
+import type { EmoteEvent } from '../data/emotes'
 import { useAppStore } from './useAppStore'
 import { connectSocket, disconnectSocket } from '../lib/socket'
+
+const EMOTE_LIFETIME_MS = 4000
 
 interface PartyState {
   socket: Socket | null
@@ -11,12 +14,15 @@ interface PartyState {
   onlinePlayerIds: string[]
   isSpectator: boolean
   error: string | null
+  /** Live emoji reactions currently floating on screen — each auto-expires after a few seconds. */
+  emotes: EmoteEvent[]
 
   connectAsPlayer: () => void
   connectAsSpectator: (code: string) => void
   disconnect: () => void
   startGame: (gameId: string, config?: unknown) => void
   sendAction: (type: string, payload: unknown) => void
+  sendEmote: (emoji: string) => void
   hostAdvance: () => void
   endGame: () => void
   setAdultMode: (enabled: boolean) => void
@@ -34,6 +40,10 @@ export const usePartyStore = create<PartyState>((set, get) => {
       set({ group: msg.group, onlinePlayerIds: msg.onlinePlayerIds }),
     )
     socket.on('party:error', (msg: { error: string }) => set({ error: msg.error }))
+    socket.on('party:emote', (msg: EmoteEvent) => {
+      set((s) => ({ emotes: [...s.emotes, msg] }))
+      setTimeout(() => set((s) => ({ emotes: s.emotes.filter((e) => e.id !== msg.id) })), EMOTE_LIFETIME_MS)
+    })
   }
 
   return {
@@ -43,6 +53,7 @@ export const usePartyStore = create<PartyState>((set, get) => {
     onlinePlayerIds: [],
     isSpectator: false,
     error: null,
+    emotes: [],
 
     connectAsPlayer: () => {
       if (get().socket && !get().isSpectator) return // already connected, reused across party pages
@@ -65,11 +76,12 @@ export const usePartyStore = create<PartyState>((set, get) => {
 
     disconnect: () => {
       disconnectSocket()
-      set({ socket: null, connected: false, group: null })
+      set({ socket: null, connected: false, group: null, emotes: [] })
     },
 
     startGame: (gameId, config) => get().socket?.emit('party:start', { gameId, config }),
     sendAction: (type, payload) => get().socket?.emit('party:action', { type, payload }),
+    sendEmote: (emoji) => get().socket?.emit('party:emote', { emoji }),
     hostAdvance: () => get().socket?.emit('party:hostAdvance'),
     endGame: () => get().socket?.emit('party:endGame'),
     setAdultMode: (enabled) => get().socket?.emit('party:setAdultMode', { enabled }),

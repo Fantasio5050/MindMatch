@@ -5,6 +5,7 @@ import { PageTransition } from '../components/PageTransition'
 import { ProgressBar } from '../components/ProgressBar'
 import { questions } from '../data/questions'
 import { useAppStore } from '../store/useAppStore'
+import { useSound } from '../hooks/useSound'
 
 const CATEGORY_LABEL: Record<string, string> = {
   personality: 'Personnalité',
@@ -33,6 +34,7 @@ export function QuizPage() {
   const [direction, setDirection] = useState(1)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
+  const { play } = useSound()
 
   if (!member) return null
 
@@ -47,12 +49,14 @@ export function QuizPage() {
 
   const handleSelect = async (optionId: string) => {
     if (pending) return
+    play('pop')
     setPending(true)
     setError('')
     try {
       await Promise.all([saveAnswer(question.id, optionId), wait(260)])
       if (index >= questions.length - 1) {
         await finishQuestionnaire()
+        play('win')
         navigate('/profile')
         return
       }

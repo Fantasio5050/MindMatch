@@ -6,6 +6,7 @@ import { Button } from '../components/Button'
 import { Avatar } from '../components/Avatar'
 import { useAppStore } from '../store/useAppStore'
 import { usePartyStore } from '../store/usePartyStore'
+import { useSound } from '../hooks/useSound'
 import { levelProgress } from '../lib/xp'
 import { BADGE_MAP } from '../data/badges'
 import { apiGetGameHistory, apiUpdatePhoto, ApiError } from '../lib/api'
@@ -49,10 +50,13 @@ export function LobbyPage() {
   const [confirmingLeave, setConfirmingLeave] = useState(false)
   const [dilemmaPack, setDilemmaPack] = useState<DilemmaPackChoice>('classic')
   const [partyCardsPack, setPartyCardsPack] = useState<PartyCardsPackChoice>('classic')
+  const [autorouteCycles, setAutorouteCycles] = useState(3)
   const [history, setHistory] = useState<GameHistoryEntry[]>([])
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const { play } = useSound()
+  const prevMemberCount = useRef<number | null>(null)
 
   useEffect(() => {
     if (!identity) return
@@ -61,8 +65,20 @@ export function LobbyPage() {
   }, [identity, refreshGroup, connectAsPlayer])
 
   useEffect(() => {
-    if (partyGroup?.party.status === 'playing') navigate('/play')
-  }, [partyGroup?.party.status, navigate])
+    if (partyGroup?.party.status === 'playing') {
+      play('start')
+      navigate('/play')
+    }
+  }, [partyGroup?.party.status, navigate, play])
+
+  // Little chime whenever someone new walks into the room.
+  const memberCount = partyGroup?.members.length ?? null
+  useEffect(() => {
+    if (memberCount !== null && prevMemberCount.current !== null && memberCount > prevMemberCount.current) {
+      play('join')
+    }
+    prevMemberCount.current = memberCount
+  }, [memberCount, play])
 
   useEffect(() => {
     if (!identity) return
@@ -94,6 +110,7 @@ export function LobbyPage() {
   const adultMode = group.adultModeEnabled
 
   const copyCode = async () => {
+    play('pop')
     try {
       await navigator.clipboard.writeText(group.code)
       setCopied(true)
@@ -104,6 +121,7 @@ export function LobbyPage() {
   }
 
   const handleLeave = () => {
+    play('pop')
     disconnect()
     leaveGroup()
     navigate('/')
@@ -387,14 +405,34 @@ export function LobbyPage() {
                 <span className="text-3xl">🛣️</span>
                 <div className="flex-1">
                   <p className="font-semibold text-sm">Autoroute</p>
-                  <p className="text-xs text-white/40">Plus haut ou plus bas — rate et tu bois</p>
+                  <p className="text-xs text-white/40">Plus haut/bas, rouge/noir, inter/exter — et des péages</p>
                 </div>
               </div>
+              {isHost && (
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-white/50">Longueur de l'autoroute</span>
+                    <span className="text-xs font-bold text-fuchsia-300">
+                      {autorouteCycles} cycles · {autorouteCycles * 4 - 1} cases
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={2}
+                    max={6}
+                    step={1}
+                    value={autorouteCycles}
+                    onChange={(e) => setAutorouteCycles(Number(e.target.value))}
+                    className="w-full accent-fuchsia-400"
+                    aria-label="Nombre de cycles de l'autoroute"
+                  />
+                </div>
+              )}
               {isHost ? (
                 <Button
                   fullWidth
                   disabled={!canPlayAutoroute}
-                  onClick={() => startGame('autoroute')}
+                  onClick={() => startGame('autoroute', { cycles: autorouteCycles })}
                   className="!py-2.5 text-sm"
                 >
                   {canPlayAutoroute ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}

@@ -73,9 +73,15 @@ function sanitizeParty(party: PartySession, requestingMemberId: string | null): 
 
   if (roundData && typeof roundData === 'object' && 'hands' in roundData) {
     const { hands, ...rest } = roundData as { hands: Record<string, unknown> } & Record<string, unknown>
+    let yourHand = requestingMemberId ? (hands[requestingMemberId] ?? []) : []
+    // `handsHidden: true` (e.g. Pyramide after the memorize window) keeps even the owner blind:
+    // only card ids/slot count survive, so peeking at the network payload reveals nothing.
+    if (rest.handsHidden && Array.isArray(yourHand)) {
+      yourHand = yourHand.map((c: { id: string }) => ({ id: c.id }))
+    }
     roundData = {
       ...rest,
-      yourHand: requestingMemberId ? (hands[requestingMemberId] ?? []) : [],
+      yourHand,
     }
   }
 

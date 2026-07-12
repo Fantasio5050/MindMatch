@@ -3,6 +3,9 @@ import type { Server as HttpServer } from 'node:http'
 import { readDb } from './db'
 import { findAuthorizedMember, sanitizeGroup, isApiError } from './store'
 import { startGame, submitAction, hostAdvance, endGame, setAdultMode } from './party'
+import { EMOTES } from '../src/data/emotes'
+
+const EMOTE_COOLDOWN_MS = 400
 
 interface HandshakeAuth {
   groupId?: string
@@ -125,6 +128,23 @@ export function attachRealtime(httpServer: HttpServer): { broadcastRoom: (groupI
         return
       }
       broadcastRoom(groupId)
+    })
+
+    // Ephemeral emoji reactions: broadcast straight to the room, never persisted — they're pure
+    // ambiance, so no db write, no room:update, just a fire-and-forget event with a cooldown.
+    let lastEmoteAt = 0
+    socket.on('party:emote', (payload: { emoji?: string }) => {
+      if (!socket.data.memberId) return
+      const emoji = payload?.emoji
+      if (!emoji || !(EMOTES as readonly string[]).includes(emoji)) return
+      const now = Date.now()
+      if (now - lastEmoteAt < EMOTE_COOLDOWN_MS) return
+      lastEmoteAt = now
+      io.to(groupId).emit('party:emote', {
+        id: `em-${now}-${Math.random().toString(36).slice(2, 7)}`,
+        memberId: socket.data.memberId,
+        emoji,
+      })
     })
 
     socket.on('party:endGame', () => {
