@@ -94,6 +94,10 @@ export const whoIsMostLikely: GameModule = {
     return Object.keys(state.votes).length >= group.members.length
   },
 
+  isAwaitingInput(_group, session) {
+    return session.phase === 'voting'
+  },
+
   resolveRound(_group, session) {
     const state = getState(session)
     const tally: Record<string, number> = {}

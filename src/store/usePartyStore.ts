@@ -15,10 +15,11 @@ interface PartyState {
   connectAsPlayer: () => void
   connectAsSpectator: (code: string) => void
   disconnect: () => void
-  startGame: (gameId: string) => void
+  startGame: (gameId: string, config?: unknown) => void
   sendAction: (type: string, payload: unknown) => void
   hostAdvance: () => void
   endGame: () => void
+  setAdultMode: (enabled: boolean) => void
   clearError: () => void
 
   currentMember: () => Member | null
@@ -67,10 +68,11 @@ export const usePartyStore = create<PartyState>((set, get) => {
       set({ socket: null, connected: false, group: null })
     },
 
-    startGame: (gameId) => get().socket?.emit('party:start', { gameId }),
+    startGame: (gameId, config) => get().socket?.emit('party:start', { gameId, config }),
     sendAction: (type, payload) => get().socket?.emit('party:action', { type, payload }),
     hostAdvance: () => get().socket?.emit('party:hostAdvance'),
     endGame: () => get().socket?.emit('party:endGame'),
+    setAdultMode: (enabled) => get().socket?.emit('party:setAdultMode', { enabled }),
     clearError: () => set({ error: null }),
 
     currentMember: () => {

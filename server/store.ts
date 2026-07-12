@@ -45,22 +45,35 @@ export function sanitizeMember(member: StoredMember, isSelf: boolean): Member {
 }
 
 /**
- * Hides the raw voter -> choice map from any in-progress or resolved vote so votes stay
- * anonymous to everyone except the requester's own choice. Any game module that stores its
- * live votes under `roundData.votes: Record<memberId, choice>` gets this for free.
+ * Hides per-player secret state from everyone except its owner, following two platform-wide
+ * conventions any game module can opt into just by naming its roundData fields this way:
+ *  - `roundData.votes: Record<memberId, choice>` -> replaced with `votedCount` + `yourVote`
+ *    (keeps votes anonymous while resolved).
+ *  - `roundData.hands: Record<memberId, card[]>` -> replaced with `yourHand` (keeps card hands
+ *    private to their owner, e.g. for Pyramide).
  */
 function sanitizeParty(party: PartySession, requestingMemberId: string | null): PartySession {
-  const roundData = party.roundData
-  if (!roundData || typeof roundData !== 'object' || !('votes' in roundData)) return party
-  const { votes, ...rest } = roundData as { votes: Record<string, string> } & Record<string, unknown>
-  return {
-    ...party,
-    roundData: {
+  let roundData = party.roundData
+  if (!roundData || typeof roundData !== 'object') return party
+
+  if ('votes' in roundData) {
+    const { votes, ...rest } = roundData as { votes: Record<string, string> } & Record<string, unknown>
+    roundData = {
       ...rest,
       votedCount: Object.keys(votes).length,
       yourVote: requestingMemberId ? (votes[requestingMemberId] ?? null) : null,
-    },
+    }
   }
+
+  if (roundData && typeof roundData === 'object' && 'hands' in roundData) {
+    const { hands, ...rest } = roundData as { hands: Record<string, unknown> } & Record<string, unknown>
+    roundData = {
+      ...rest,
+      yourHand: requestingMemberId ? (hands[requestingMemberId] ?? []) : [],
+    }
+  }
+
+  return { ...party, roundData }
 }
 
 export function sanitizeGroup(group: StoredGroup, requestingMemberId: string | null): Group {
@@ -105,6 +118,7 @@ export function createGroup(groupName: string, pseudo: string): { group: Group; 
       round: 0,
       roundData: null,
     },
+    adultModeEnabled: false,
   }
 
   db.groups.push(group)

@@ -2,7 +2,7 @@ import { Server, type Socket } from 'socket.io'
 import type { Server as HttpServer } from 'node:http'
 import { readDb } from './db'
 import { findAuthorizedMember, sanitizeGroup, isApiError } from './store'
-import { startGame, submitAction, hostAdvance, endGame } from './party'
+import { startGame, submitAction, hostAdvance, endGame, setAdultMode } from './party'
 
 interface HandshakeAuth {
   groupId?: string
@@ -87,9 +87,19 @@ export function attachRealtime(httpServer: HttpServer): { broadcastRoom: (groupI
     socket.join(groupId)
     broadcastRoom(groupId)
 
-    socket.on('party:start', (payload: { gameId?: string }) => {
+    socket.on('party:start', (payload: { gameId?: string; config?: unknown }) => {
       if (!socket.data.memberId) return
-      const result = startGame(groupId, socket.data.memberId, memberToken, payload?.gameId ?? '')
+      const result = startGame(groupId, socket.data.memberId, memberToken, payload?.gameId ?? '', payload?.config)
+      if (isApiError(result)) {
+        socket.emit('party:error', { error: result.error })
+        return
+      }
+      broadcastRoom(groupId)
+    })
+
+    socket.on('party:setAdultMode', (payload: { enabled?: boolean }) => {
+      if (!socket.data.memberId) return
+      const result = setAdultMode(groupId, socket.data.memberId, memberToken, !!payload?.enabled)
       if (isApiError(result)) {
         socket.emit('party:error', { error: result.error })
         return

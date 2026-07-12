@@ -9,14 +9,16 @@ import { useAppStore } from '../store/useAppStore'
 import { usePartyStore } from '../store/usePartyStore'
 import { levelProgress } from '../lib/xp'
 import { BADGE_MAP } from '../data/badges'
+import type { Group } from '../types'
 
 const UPCOMING_GAMES = [
   { icon: '🕵️', name: 'Devine ma réponse' },
-  { icon: '⚖️', name: 'Dilemmes & Débats' },
   { icon: '🃏', name: 'Cartes de soirée' },
   { icon: '✍️', name: 'Qui a écrit ça ?' },
   { icon: '🔍', name: 'Profil secret' },
 ]
+
+type DilemmaPackChoice = 'classic' | 'trash' | 'mixed'
 
 export function LobbyPage() {
   const navigate = useNavigate()
@@ -26,6 +28,7 @@ export function LobbyPage() {
 
   const connectAsPlayer = usePartyStore((s) => s.connectAsPlayer)
   const startGame = usePartyStore((s) => s.startGame)
+  const setAdultMode = usePartyStore((s) => s.setAdultMode)
   const partyGroup = usePartyStore((s) => s.group)
   const onlinePlayerIds = usePartyStore((s) => s.onlinePlayerIds)
   const isHost = usePartyStore((s) => s.isHost())
@@ -33,6 +36,8 @@ export function LobbyPage() {
   const clearError = usePartyStore((s) => s.clearError)
 
   const [copied, setCopied] = useState(false)
+  const [confirmingAdultMode, setConfirmingAdultMode] = useState(false)
+  const [dilemmaPack, setDilemmaPack] = useState<DilemmaPackChoice>('classic')
 
   useEffect(() => {
     if (!identity) return
@@ -56,6 +61,8 @@ export function LobbyPage() {
   const me = group.members.find((m) => m.id === identity.memberId)
   const quizDone = !!me?.scores
   const canPlayMostLikely = group.members.length >= 3
+  const canPlayPyramid = group.members.length >= 2
+  const adultMode = group.adultModeEnabled
 
   const copyCode = async () => {
     try {
@@ -122,6 +129,19 @@ export function LobbyPage() {
           </div>
         </Card>
 
+        <AdultModeCard
+          adultMode={adultMode}
+          isHost={isHost}
+          confirming={confirmingAdultMode}
+          onRequestEnable={() => setConfirmingAdultMode(true)}
+          onCancel={() => setConfirmingAdultMode(false)}
+          onConfirm={() => {
+            setAdultMode(true)
+            setConfirmingAdultMode(false)
+          }}
+          onDisable={() => setAdultMode(false)}
+        />
+
         <h3 className="text-sm font-bold text-white/70 mb-3 px-1">Activités</h3>
         <div className="flex flex-col gap-3 mb-4">
           <Card delay={0.1}>
@@ -165,6 +185,64 @@ export function LobbyPage() {
             )}
           </Card>
 
+          <Card delay={0.2}>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-3xl">⚖️</span>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">Dilemmes & Débats</p>
+                <p className="text-xs text-white/40">Le groupe vote, on regarde qui penche où</p>
+              </div>
+            </div>
+            <div className="flex gap-1.5 mb-3">
+              <PackPill label="Classique" active={dilemmaPack === 'classic'} onClick={() => setDilemmaPack('classic')} />
+              <PackPill
+                label="Trash 18+"
+                active={dilemmaPack === 'trash'}
+                locked={!adultMode}
+                onClick={() => adultMode && setDilemmaPack('trash')}
+              />
+              <PackPill
+                label="Mixte"
+                active={dilemmaPack === 'mixed'}
+                locked={!adultMode}
+                onClick={() => adultMode && setDilemmaPack('mixed')}
+              />
+            </div>
+            {isHost ? (
+              <Button fullWidth onClick={() => startGame('dilemmas', { pack: dilemmaPack })} className="!py-2.5 text-sm">
+                Lancer la partie
+              </Button>
+            ) : (
+              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
+            )}
+          </Card>
+
+          {adultMode ? (
+            <Card delay={0.25}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-3xl">🍻</span>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">Pyramide</p>
+                  <p className="text-xs text-white/40">Cartes, gorgées et cul sec au sommet 🥃</p>
+                </div>
+              </div>
+              {isHost ? (
+                <Button
+                  fullWidth
+                  disabled={!canPlayPyramid}
+                  onClick={() => startGame('pyramid')}
+                  className="!py-2.5 text-sm"
+                >
+                  {canPlayPyramid ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
+                </Button>
+              ) : (
+                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
+              )}
+            </Card>
+          ) : (
+            <LockedGameCard icon="🍻" name="Pyramide" note="Jeu à boire — active le mode 18+" />
+          )}
+
           {UPCOMING_GAMES.map((g, i) => (
             <motion.div
               key={g.name}
@@ -184,7 +262,7 @@ export function LobbyPage() {
           ))}
         </div>
 
-        <Card delay={0.2} className="text-center">
+        <Card delay={0.3} className="text-center">
           <p className="text-sm font-semibold mb-1">📺 Mode écran partagé</p>
           <p className="text-xs text-white/40 mb-3">
             Sur une TV ou un ordinateur, ouvre l'appli et entre le code <b>{group.code}</b> dans "Afficher sur un
@@ -196,5 +274,109 @@ export function LobbyPage() {
         </Card>
       </div>
     </PageTransition>
+  )
+}
+
+function PackPill({
+  label,
+  active,
+  locked,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  locked?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={locked}
+      className={`flex-1 rounded-full py-2 text-xs font-semibold transition-colors ${
+        active ? 'bg-fuchsia-500/30 text-white border border-fuchsia-400/50' : 'bg-white/6 text-white/50 border border-white/10'
+      } ${locked ? 'opacity-40' : ''}`}
+    >
+      {locked ? `🔒 ${label}` : label}
+    </button>
+  )
+}
+
+function LockedGameCard({ icon, name, note }: { icon: string; name: string; note: string }) {
+  return (
+    <div className="glass-card rounded-3xl p-5 opacity-50">
+      <div className="flex items-center gap-3">
+        <span className="text-3xl grayscale">{icon}</span>
+        <div className="flex-1">
+          <p className="font-semibold text-sm">{name}</p>
+          <p className="text-xs text-white/40">{note}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AdultModeCard({
+  adultMode,
+  isHost,
+  confirming,
+  onRequestEnable,
+  onCancel,
+  onConfirm,
+  onDisable,
+}: {
+  adultMode: Group['adultModeEnabled']
+  isHost: boolean
+  confirming: boolean
+  onRequestEnable: () => void
+  onCancel: () => void
+  onConfirm: () => void
+  onDisable: () => void
+}) {
+  if (confirming) {
+    return (
+      <Card className="mb-4 border-pink-500/30">
+        <p className="text-sm font-bold mb-2">🔞 Activer le contenu 18+ ?</p>
+        <p className="text-xs text-white/60 leading-relaxed mb-4">
+          Cette salle va inclure de l'humour cru et un jeu à boire (Pyramide). Buvez avec modération, restez
+          maîtres de votre soirée, ne prenez jamais le volant après avoir bu, et remplacez l'alcool par de l'eau
+          ou une boisson sans alcool si vous préférez. L'objectif reste de s'amuser ensemble.
+        </p>
+        <div className="flex gap-2">
+          <Button variant="ghost" fullWidth onClick={onCancel} className="!py-2.5 text-sm">
+            Annuler
+          </Button>
+          <Button fullWidth onClick={onConfirm} className="!py-2.5 text-sm">
+            J'ai compris, activer
+          </Button>
+        </div>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="mb-4 flex items-center gap-3">
+      <span className="text-2xl">🔞</span>
+      <div className="flex-1">
+        <p className="text-sm font-semibold">Mode 18+</p>
+        <p className="text-xs text-white/40">
+          {adultMode ? 'Activé — contenu trash et jeu à boire débloqués' : 'Débloque les packs trash et le jeu à boire'}
+        </p>
+      </div>
+      {isHost ? (
+        adultMode ? (
+          <button onClick={onDisable} className="text-xs text-white/40 underline shrink-0">
+            Désactiver
+          </button>
+        ) : (
+          <Button onClick={onRequestEnable} className="!px-4 !py-2 text-sm shrink-0">
+            Activer
+          </Button>
+        )
+      ) : (
+        <span className={`text-xs shrink-0 ${adultMode ? 'text-emerald-400' : 'text-white/30'}`}>
+          {adultMode ? '✓ actif' : '—'}
+        </span>
+      )}
+    </Card>
   )
 }

@@ -64,4 +64,6 @@ export interface Group {
   createdAt: number
   members: Member[]
   party: PartySession
+  /** Host-controlled setting unlocking 18+ content packs and drinking games for the whole room. */
+  adultModeEnabled: boolean
 }

@@ -15,8 +15,11 @@ Les salles, réponses et parties sont partagées en temps réel entre tous les m
 **Plateforme de soirée (nouveau)** :
 - **Salle live** — création/jointure par code (existant), liste des joueurs connectés en direct, avatars, niveaux.
 - **XP, niveaux, badges** — chaque partie fait progresser les joueurs (XP, niveaux) et peut débloquer des badges (Le Créatif, Le Leader, Le Chaos Ambulant...). Les résultats des jeux peuvent aussi ajuster légèrement les scores de personnalité (ex. gagner "Qui est le plus créatif ?" pousse un peu le trait Créativité).
-- **Moteur de jeu modulaire** (`server/games/`, `src/party/games/`) — chaque jeu est un module indépendant avec ses propres phases, actions et récompenses XP, prêt à accueillir de futurs jeux (Devine ma réponse, Dilemmes & Débats, Cartes de soirée, Qui a écrit ça, Profil secret...).
-- **Qui est le plus ?** — premier jeu livré : vote anonyme sur une question ("Qui est le/la plus susceptible de...?"), révélation animée avec confettis, classement en direct.
+- **Moteur de jeu modulaire** (`server/games/`, `src/party/games/`) — chaque jeu est un module indépendant avec ses propres phases, actions et récompenses XP, prêt à accueillir de futurs jeux (Devine ma réponse, Cartes de soirée, Qui a écrit ça, Profil secret...).
+- **Mode 18+** — réglage activable par l'hôte (avec un rappel à la modération) qui débloque le pack de contenu trash et le jeu à boire.
+- **Qui est le plus ?** — vote anonyme sur une question ("Qui est le/la plus susceptible de...?"), révélation animée avec confettis, classement en direct.
+- **Dilemmes & Débats** — le groupe vote sur des dilemmes à choix binaire (pack Classique toujours dispo, packs Trash 18+ et Mixte une fois le mode 18+ activé), révélation du split du groupe en direct.
+- **Pyramide** 🍻 — jeu à boire : chaque joueur reçoit une main de cartes privée (jamais visible des autres), une pyramide de 15 cartes est révélée une à une (bas = 1 gorgée, sommet = cul sec), les joueurs qui ont une carte correspondante distribuent des gorgées. Classement final + rappel à la modération.
 - **Mode écran partagé ("Party Screen")** — page `/screen/:code` pensée pour une TV : questions, votes en direct, révélations et classement en grand format, pendant que les téléphones ne servent qu'à répondre.
 
 ## Stack
