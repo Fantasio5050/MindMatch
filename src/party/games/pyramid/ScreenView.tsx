@@ -5,30 +5,40 @@ import { useSound } from '../../../hooks/useSound'
 import { Avatar } from '../../../components/Avatar'
 import { Confetti } from '../../../components/Confetti'
 import { CardFace } from './CardFace'
-import type { PyramidClientState } from './types'
+import { sipLabel } from './types'
+import type { PyramidClientState, Accusation } from './types'
 import type { Member } from '../../../types'
 
-function sipLabel(sips: number | 'culsec'): string {
-  if (sips === 'culsec') return 'CUL SEC 🥃'
-  return `${sips} gorgée${sips > 1 ? 's' : ''}`
+function accusationLabel(a: Accusation, memberName: (id: string) => string): string {
+  const accuser = memberName(a.accuserId)
+  const target = memberName(a.targetId)
+  switch (a.status) {
+    case 'pending':
+      return `${accuser} accuse ${target}…`
+    case 'accepted':
+      return `${target} boit`
+    case 'contested-wrong':
+      return `${target} conteste à tort → boit double`
+    case 'contested-right':
+      return `${accuser} bluffait → boit double`
+  }
 }
 
 export function PyramidScreen() {
   const group = usePartyStore((s) => s.group)
   const { play } = useSound()
-  const lastPhase = useRef<string | null>(null)
+  const lastStatus = useRef<string | null>(null)
   const [confettiTrigger, setConfettiTrigger] = useState(0)
   const phase = group?.party.phase ?? null
   const status = group?.party.status ?? null
 
   useEffect(() => {
-    if (phase === 'revealed' && lastPhase.current !== 'revealed') play('reveal')
-    if (status === 'ended' && lastPhase.current !== 'ended-fx') {
+    if (status === 'ended' && lastStatus.current !== 'ended') {
       play('win')
       setConfettiTrigger((n) => n + 1)
     }
-    lastPhase.current = status === 'ended' ? 'ended-fx' : phase
-  }, [phase, status, play])
+    lastStatus.current = status
+  }, [status, play])
 
   if (!group) {
     return (
@@ -45,57 +55,84 @@ export function PyramidScreen() {
     <div className="min-h-svh flex flex-col items-center justify-center px-12 py-10">
       <Confetti trigger={confettiTrigger} />
 
-      {status === 'ended' ? (
-        <FinalPodium members={group.members} totals={state?.totalSipsReceived ?? {}} />
-      ) : state ? (
-        <div className="flex items-center gap-16 w-full max-w-6xl">
-          <PyramidVisual state={state} />
+      {status === 'ended' && <FinalPodium members={group.members} totals={state?.totalSipsReceived ?? {}} />}
 
-          <div className="flex-1 flex flex-col items-center">
-            <AnimatePresence mode="wait">
-              {group.party.phase === 'matching' && (
-                <motion.div key="matching" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
-                  <p className="text-white/40 text-lg uppercase tracking-widest mb-2">Carte révélée</p>
-                  <p className="text-3xl font-extrabold mb-4">{sipLabel(state.pyramid[state.currentIndex]?.sips)}</p>
-                  <p className="text-white/40 text-lg">Regardez vos téléphones 📱</p>
-                </motion.div>
-              )}
+      {status !== 'ended' && phase === 'intro' && <IntroScreen />}
 
-              {group.party.phase === 'revealed' && (
-                <motion.div
-                  key="revealed"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="w-full max-w-md"
-                >
-                  <p className="text-white/40 text-lg uppercase tracking-widest mb-3 text-center">Résultat</p>
-                  {state.pyramid[state.currentIndex]?.plays.length === 0 ? (
-                    <p className="text-center text-white/50 text-xl">Aucun match sur cette carte.</p>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {state.pyramid[state.currentIndex]?.plays.map((p, i) => (
-                        <motion.p
-                          key={i}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.12 * i }}
-                          className="text-lg text-center"
-                        >
-                          <b>{memberName(p.memberId)}</b> ➜ <b>{memberName(p.targetMemberId)}</b>
-                        </motion.p>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <SipTally members={group.members} totals={state.totalSipsReceived} />
-          </div>
-        </div>
-      ) : (
-        <p className="text-white/40 text-2xl">Préparation de la pyramide…</p>
+      {status !== 'ended' && phase === 'matching' && state && (
+        <MatchingScreen state={state} members={group.members} memberName={memberName} />
       )}
+
+      {status !== 'ended' && phase === 'recitation' && state && (
+        <RecitationScreen state={state} members={group.members} />
+      )}
+    </div>
+  )
+}
+
+function IntroScreen() {
+  return (
+    <div className="text-center max-w-3xl">
+      <span className="text-7xl mb-4 block">🍻</span>
+      <h1 className="text-5xl font-extrabold shimmer-text mb-8">Pyramide</h1>
+      <div className="flex flex-col gap-3 text-xl text-white/70 text-left">
+        <p>🃏 Chacun reçoit 4 cartes secrètes.</p>
+        <p>🔺 La pyramide se révèle du bas (1 gorgée) au sommet (cul sec).</p>
+        <p>👉 Accusez qui vous voulez d'avoir la carte : "Tu bois !"</p>
+        <p>🤔 La cible boit, ou conteste si elle pense à un bluff.</p>
+        <p>🎭 Bluff démasqué = double gorgée pour l'accusateur. Accusation vraie contestée = double pour la cible.</p>
+        <p>🧠 À la fin, retrouvez l'ordre de vos cartes pour des gorgées bonus !</p>
+      </div>
+      <p className="text-white/30 text-lg mt-8">L'hôte va lancer la première carte…</p>
+    </div>
+  )
+}
+
+function MatchingScreen({
+  state,
+  members,
+  memberName,
+}: {
+  state: PyramidClientState
+  members: Member[]
+  memberName: (id: string) => string
+}) {
+  const card = state.pyramid[state.currentIndex]
+  const cardAccusations = state.accusations.filter((a) => a.cardIndex === state.currentIndex)
+
+  return (
+    <div className="flex items-center gap-16 w-full max-w-6xl">
+      <PyramidVisual state={state} />
+
+      <div className="flex-1 flex flex-col items-center">
+        <p className="text-white/40 text-lg uppercase tracking-widest mb-3">
+          Carte {state.currentIndex + 1} / {state.pyramid.length}
+        </p>
+        {card && (
+          <>
+            <CardFace rank={card.rank} suit={card.suit} size={72} />
+            <p className="text-2xl font-extrabold mt-3 mb-6">{sipLabel(card.sips)}</p>
+          </>
+        )}
+
+        <div className="flex flex-col gap-2 w-full max-w-md min-h-[100px]">
+          <AnimatePresence initial={false}>
+            {cardAccusations.map((a) => (
+              <motion.p
+                key={a.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="text-center text-white/70"
+              >
+                {accusationLabel(a, memberName)}
+              </motion.p>
+            ))}
+          </AnimatePresence>
+          {cardAccusations.length === 0 && <p className="text-center text-white/30">Qui ose accuser… ? 👀</p>}
+        </div>
+
+        <SipTally members={members} totals={state.totalSipsReceived} />
+      </div>
     </div>
   )
 }
@@ -106,7 +143,7 @@ function PyramidVisual({ state }: { state: PyramidClientState }) {
     rows[card.row] = rows[card.row] ?? []
     rows[card.row].push(card)
   }
-  const rowIndexes = Object.keys(rows).map(Number).sort((a, b) => b - a) // top row first visually
+  const rowIndexes = Object.keys(rows).map(Number).sort((a, b) => b - a)
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -121,12 +158,37 @@ function PyramidVisual({ state }: { state: PyramidClientState }) {
                 transition={{ duration: 0.8, repeat: isCurrent ? Infinity : 0 }}
                 className={isCurrent ? 'ring-4 ring-fuchsia-400 rounded-lg' : ''}
               >
-                <CardFace rank={card.rank} size={40} faceDown={!card.revealed} />
+                <CardFace rank={card.rank} suit={card.suit} size={36} faceDown={!card.revealed} />
               </motion.div>
             )
           })}
         </div>
       ))}
+    </div>
+  )
+}
+
+function RecitationScreen({ state, members }: { state: PyramidClientState; members: Member[] }) {
+  const done = members.filter((m) => !!state.recitation[m.id]).length
+  return (
+    <div className="text-center max-w-2xl">
+      <span className="text-6xl mb-4 block">🧠</span>
+      <h1 className="text-4xl font-extrabold shimmer-text mb-4">Récitation finale</h1>
+      <p className="text-white/50 text-xl mb-8">
+        Chacun tente de retrouver l'ordre de ses cartes sur son téléphone…
+      </p>
+      <p className="text-white/70 text-2xl mb-8 tabular-nums">
+        {done} / {members.length} ont terminé
+      </p>
+      <div className="flex flex-wrap gap-3 justify-center">
+        {members.map((m) => (
+          <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-3 py-1.5">
+            <Avatar pseudo={m.pseudo} color={m.color} size={28} />
+            <span className="text-sm font-medium">{m.pseudo}</span>
+            <span className="text-sm">{state.recitation[m.id] ? '✅' : '⏳'}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { usePartyStore } from '../../../store/usePartyStore'
@@ -7,12 +7,36 @@ import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
 import { CardFace } from './CardFace'
-import type { PyramidClientState, HandCard } from './types'
+import { sipLabel } from './types'
+import type { PyramidClientState, Accusation, HandCard } from './types'
 import type { Member } from '../../../types'
 
-function sipLabel(sips: number | 'culsec'): string {
-  if (sips === 'culsec') return '🥃 Cul sec'
-  return `${sips} gorgée${sips > 1 ? 's' : ''}`
+function memberNameFactory(members: Member[]) {
+  return (id: string) => members.find((m) => m.id === id)?.pseudo ?? '?'
+}
+
+function accusationLabel(a: Accusation, memberName: (id: string) => string): string {
+  const accuser = memberName(a.accuserId)
+  const target = memberName(a.targetId)
+  switch (a.status) {
+    case 'pending':
+      return `${accuser} accuse ${target}… en attente de réponse`
+    case 'accepted':
+      return `${target} a bu (a accepté l'accusation de ${accuser})`
+    case 'contested-wrong':
+      return `${target} a contesté à tort → boit double !`
+    case 'contested-right':
+      return `${target} a démasqué le bluff de ${accuser} → ${accuser} boit double !`
+  }
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const arr = [...items]
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
 }
 
 export function PyramidController() {
@@ -27,200 +51,334 @@ export function PyramidController() {
   const phase = group?.party.phase ?? null
 
   useEffect(() => {
-    if (phase === 'revealed' && lastPhase.current !== 'revealed') play('reveal')
+    if (phase === 'matching' && lastPhase.current !== 'matching' && lastPhase.current !== null) play('tick')
     lastPhase.current = phase
   }, [phase, play])
 
   if (!group || !currentMember) return null
-  const state = group.party.roundData as PyramidClientState
+  const { party, members } = group
+  const state = party.roundData as PyramidClientState
+  const memberName = memberNameFactory(members)
 
-  if (group.party.status === 'ended') {
-    return <FinalResults members={group.members} totals={state.totalSipsReceived} onExit={() => navigate('/lobby')} />
+  if (party.status === 'ended') {
+    return <FinalResults members={members} totals={state.totalSipsReceived} onExit={() => navigate('/lobby')} />
   }
 
-  const currentCard = state.pyramid[state.currentIndex]
-  if (!currentCard) {
+  if (party.phase === 'intro') {
+    return <IntroView isHost={isHost} onStart={() => hostAdvance()} />
+  }
+
+  if (party.phase === 'matching') {
     return (
-      <div className="min-h-svh flex items-center justify-center px-6">
-        <p className="text-white/50 text-sm">Préparation de la pyramide…</p>
-      </div>
+      <MatchingView
+        state={state}
+        members={members}
+        selfId={currentMember.id}
+        isHost={isHost}
+        memberName={memberName}
+        onAccuse={(targetMemberId) => {
+          play('vote')
+          sendAction('accuse', { targetMemberId })
+        }}
+        onRespond={(accusationId, contest) => {
+          play('vote')
+          sendAction('respond', { accusationId, contest })
+        }}
+        onAdvance={() => hostAdvance()}
+      />
     )
   }
 
-  const myMatches = state.yourHand.filter((c) => c.rank === currentCard.rank)
-  const iSubmitted = !!state.submissions[currentMember.id]
+  if (party.phase === 'recitation') {
+    return (
+      <RecitationView
+        state={state}
+        members={members}
+        selfId={currentMember.id}
+        isHost={isHost}
+        onSubmit={(order) => sendAction('submitRecitation', { order })}
+        onDistribute={(targetMemberId) => sendAction('distributeRecitationBonus', { targetMemberId })}
+        onAdvance={() => hostAdvance()}
+      />
+    )
+  }
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-8 pb-10 safe-top">
+    <div className="min-h-svh flex items-center justify-center px-6">
+      <p className="text-white/50 text-sm">Préparation de la pyramide…</p>
+    </div>
+  )
+}
+
+function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }) {
+  const rules = [
+    ['🃏', 'Chacun reçoit 4 cartes secrètes, à garder pour soi (personne ne peut les voir).'],
+    ['🔺', 'La pyramide se révèle carte par carte, du bas (1 gorgée) jusqu\'au sommet (cul sec).'],
+    ['👉', 'À chaque carte, accuse qui tu veux d\'avoir cette valeur en main : "Tu bois !"'],
+    ['🤔', 'La personne accusée boit… ou conteste si elle pense que tu bluffes.'],
+    ['✅', 'Accusation vraie confirmée → la personne qui a contesté boit double.'],
+    ['🎭', 'Bluff démasqué → c\'est toi, l\'accusateur, qui bois double.'],
+    ['🧠', 'À la fin, retrouve l\'ordre dans lequel tes cartes ont été distribuées : gorgées bonus à la clé !'],
+  ] as const
+
+  return (
+    <div className="min-h-svh flex flex-col justify-center px-6 py-10 safe-top">
+      <div className="text-center mb-6">
+        <span className="text-5xl">🍻</span>
+        <h1 className="text-2xl font-extrabold mt-2">Pyramide</h1>
+      </div>
+      <Card className="mb-6">
+        <ul className="flex flex-col gap-3 text-sm text-white/80">
+          {rules.map(([emoji, text], i) => (
+            <motion.li
+              key={i}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.05 * i }}
+              className="flex gap-2"
+            >
+              <span className="shrink-0">{emoji}</span>
+              <span>{text}</span>
+            </motion.li>
+          ))}
+        </ul>
+      </Card>
+      {isHost ? (
+        <Button fullWidth onClick={onStart}>
+          C'est parti !
+        </Button>
+      ) : (
+        <p className="text-center text-white/40 text-sm">En attente que l'hôte lance la partie…</p>
+      )}
+      <p className="text-center text-white/20 text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
+    </div>
+  )
+}
+
+function MatchingView({
+  state,
+  members,
+  selfId,
+  isHost,
+  memberName,
+  onAccuse,
+  onRespond,
+  onAdvance,
+}: {
+  state: PyramidClientState
+  members: Member[]
+  selfId: string
+  isHost: boolean
+  memberName: (id: string) => string
+  onAccuse: (targetMemberId: string) => void
+  onRespond: (accusationId: string, contest: boolean) => void
+  onAdvance: () => void
+}) {
+  const [pickingTarget, setPickingTarget] = useState(false)
+  const card = state.pyramid[state.currentIndex]
+  if (!card) return null
+
+  const cardAccusations = state.accusations.filter((a) => a.cardIndex === state.currentIndex)
+  const myPending = cardAccusations.find((a) => a.targetId === selfId && a.status === 'pending')
+  const isLast = state.currentIndex >= state.pyramid.length - 1
+
+  return (
+    <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
       <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">
         Carte {state.currentIndex + 1} / {state.pyramid.length}
       </p>
 
-      <div className="flex flex-col items-center mb-6">
-        <CardFace rank={currentCard.rank} size={80} />
-        <p className="mt-3 text-lg font-bold">{sipLabel(currentCard.sips)}</p>
+      <div className="flex flex-col items-center mb-4">
+        <CardFace rank={card.rank} suit={card.suit} size={72} />
+        <p className="mt-2 text-lg font-bold">{sipLabel(card.sips)}</p>
       </div>
 
-      {group.party.phase === 'matching' && (
-        <MatchingPanel
-          myMatches={myMatches}
-          iSubmitted={iSubmitted}
-          members={group.members}
-          selfId={currentMember.id}
-          sips={currentCard.sips}
-          onPlay={(targetMemberId) => {
-            play('vote')
-            sendAction('pyramidPlay', { play: true, targetMemberId })
-          }}
-          onPass={() => sendAction('pyramidPlay', { play: false })}
-        />
+      {myPending && (
+        <Card className="mb-4 border-fuchsia-400/40">
+          <p className="text-sm text-center mb-3">
+            <b>{memberName(myPending.accuserId)}</b> pense que tu as cette carte !
+          </p>
+          <div className="flex gap-2">
+            <Button fullWidth onClick={() => onRespond(myPending.id, false)}>
+              Je bois
+            </Button>
+            <Button fullWidth variant="secondary" onClick={() => onRespond(myPending.id, true)}>
+              Je conteste
+            </Button>
+          </div>
+        </Card>
       )}
 
-      {group.party.phase === 'revealed' && (
-        <RevealedPanel
-          card={currentCard}
-          members={group.members}
-          isHost={isHost}
-          isLast={state.currentIndex >= state.pyramid.length - 1}
-          onNext={() => hostAdvance()}
-        />
+      {!pickingTarget && (
+        <Button fullWidth variant="secondary" onClick={() => setPickingTarget(true)} className="mb-4">
+          👉 Accuser quelqu'un
+        </Button>
       )}
 
-      <div className="mt-auto pt-6">
+      {pickingTarget && (
+        <Card className="mb-4">
+          <p className="text-sm font-semibold mb-3 text-center">Qui a cette carte ?</p>
+          <div className="grid grid-cols-3 gap-2">
+            {members
+              .filter((m) => m.id !== selfId)
+              .map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    onAccuse(m.id)
+                    setPickingTarget(false)
+                  }}
+                  className="glass-card rounded-2xl p-3 flex flex-col items-center gap-1.5"
+                >
+                  <Avatar pseudo={m.pseudo} color={m.color} size={36} />
+                  <span className="text-xs font-medium truncate w-full text-center">{m.pseudo}</span>
+                </button>
+              ))}
+          </div>
+          <Button fullWidth variant="ghost" onClick={() => setPickingTarget(false)} className="mt-2">
+            Annuler
+          </Button>
+        </Card>
+      )}
+
+      {cardAccusations.length > 0 && (
+        <div className="flex flex-col gap-1.5 mb-4">
+          {cardAccusations.map((a) => (
+            <p key={a.id} className="text-xs text-white/60 text-center">
+              {accusationLabel(a, memberName)}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-auto pt-2">
+        {isHost ? (
+          <Button fullWidth onClick={onAdvance}>
+            {isLast ? 'Passer à la récitation →' : 'Carte suivante →'}
+          </Button>
+        ) : (
+          <p className="text-center text-white/30 text-xs">L'hôte peut avancer à tout moment</p>
+        )}
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-white/10">
         <p className="text-xs text-white/40 mb-2 text-center">Ta main</p>
         <div className="flex justify-center gap-2">
-          {state.yourHand.map((c: HandCard) => (
-            <div key={c.id} className={c.rank === currentCard.rank ? 'ring-2 ring-fuchsia-400 rounded-lg' : ''}>
-              <CardFace rank={c.rank} size={44} />
-            </div>
+          {state.yourHand.map((c) => (
+            <CardFace key={c.id} rank={c.rank} suit={c.suit} size={40} />
           ))}
-          {state.yourHand.length === 0 && <p className="text-white/30 text-xs">Main vide</p>}
         </div>
       </div>
     </div>
   )
 }
 
-function MatchingPanel({
-  myMatches,
-  iSubmitted,
+function RecitationView({
+  state,
   members,
   selfId,
-  sips,
-  onPlay,
-  onPass,
+  isHost,
+  onSubmit,
+  onDistribute,
+  onAdvance,
 }: {
-  myMatches: HandCard[]
-  iSubmitted: boolean
+  state: PyramidClientState
   members: Member[]
   selfId: string
-  sips: number | 'culsec'
-  onPlay: (targetMemberId: string) => void
-  onPass: () => void
-}) {
-  const [picking, setPicking] = useState(false)
-
-  if (iSubmitted) {
-    return (
-      <Card className="text-center mb-4">
-        <p className="text-2xl mb-1">✅</p>
-        <p className="text-sm text-white/60">En attente des autres joueurs…</p>
-      </Card>
-    )
-  }
-
-  if (myMatches.length === 0) {
-    return (
-      <Card className="text-center mb-4">
-        <p className="text-2xl mb-1">👀</p>
-        <p className="text-sm text-white/60">Pas de carte correspondante, tu regardes…</p>
-      </Card>
-    )
-  }
-
-  if (!picking) {
-    return (
-      <Card className="text-center mb-4">
-        <p className="font-semibold mb-3">
-          Tu as {myMatches.length > 1 ? `${myMatches.length} cartes` : 'une carte'} qui correspond{myMatches.length > 1 ? 'ent' : ''} !
-        </p>
-        <div className="flex flex-col gap-2">
-          <Button fullWidth onClick={() => setPicking(true)}>
-            Distribuer {sips === 'culsec' ? 'un cul sec' : `${(sips as number) * myMatches.length} gorgées`}
-          </Button>
-          <Button fullWidth variant="ghost" onClick={onPass}>
-            Passer quand même
-          </Button>
-        </div>
-      </Card>
-    )
-  }
-
-  return (
-    <Card className="mb-4">
-      <p className="text-sm font-semibold mb-3 text-center">À qui ?</p>
-      <div className="grid grid-cols-3 gap-2">
-        {members
-          .filter((m) => m.id !== selfId)
-          .map((m) => (
-            <button
-              key={m.id}
-              onClick={() => onPlay(m.id)}
-              className="glass-card rounded-2xl p-3 flex flex-col items-center gap-1.5"
-            >
-              <Avatar pseudo={m.pseudo} color={m.color} size={36} />
-              <span className="text-xs font-medium truncate w-full text-center">{m.pseudo}</span>
-            </button>
-          ))}
-      </div>
-    </Card>
-  )
-}
-
-function RevealedPanel({
-  card,
-  members,
-  isHost,
-  isLast,
-  onNext,
-}: {
-  card: PyramidClientState['pyramid'][number]
-  members: Member[]
   isHost: boolean
-  isLast: boolean
-  onNext: () => void
+  onSubmit: (order: string[]) => void
+  onDistribute: (targetMemberId: string) => void
+  onAdvance: () => void
 }) {
-  const memberName = (id: string) => members.find((m) => m.id === id)?.pseudo ?? '?'
+  // Shuffle once on mount so the display order doesn't jump around as room:update ticks in.
+  const shuffled = useMemo(() => shuffle(state.yourHand), [])
+  const [order, setOrder] = useState<string[]>([])
+  const entry = state.recitation[selfId]
+
+  const toggleCard = (id: string) => {
+    setOrder((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < shuffled.length ? [...prev, id] : prev))
+  }
+
+  const cardById = (id: string): HandCard | undefined => shuffled.find((c) => c.id === id)
 
   return (
-    <Card className="mb-4">
-      {card.plays.length === 0 ? (
-        <p className="text-center text-white/50 text-sm py-2">Personne n'avait de match sur cette carte.</p>
+    <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
+      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Récitation finale</p>
+      <h1 className="text-xl font-extrabold text-center mb-4">🧠 Retrouve l'ordre de tes cartes</h1>
+
+      {!entry ? (
+        <>
+          <Card className="mb-4">
+            <p className="text-xs text-white/50 mb-3 text-center">
+              Touche tes cartes dans l'ordre où tu penses les avoir reçues.
+            </p>
+            <div className="flex justify-center gap-2 mb-4 min-h-[70px]">
+              {order.length === 0 && <p className="text-white/30 text-xs self-center">Aucune carte sélectionnée</p>}
+              {order.map((id, i) => {
+                const c = cardById(id)
+                if (!c) return null
+                return (
+                  <div key={id} className="flex flex-col items-center gap-1">
+                    <CardFace rank={c.rank} suit={c.suit} size={44} selected />
+                    <span className="text-[10px] text-white/40">{i + 1}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex justify-center gap-2">
+              {shuffled.map((c) => (
+                <button key={c.id} onClick={() => toggleCard(c.id)} className="disabled:opacity-30" disabled={order.includes(c.id)}>
+                  <CardFace rank={c.rank} suit={c.suit} size={48} selected={order.includes(c.id)} />
+                </button>
+              ))}
+            </div>
+          </Card>
+          <Button fullWidth disabled={order.length !== shuffled.length} onClick={() => onSubmit(order)}>
+            Valider mon rappel
+          </Button>
+        </>
+      ) : !entry.distributed ? (
+        entry.bonusSips > 0 ? (
+          <Card>
+            <p className="text-center font-bold mb-1">🎉 {entry.bonusSips} gorgée{entry.bonusSips > 1 ? 's' : ''} bonus !</p>
+            <p className="text-center text-white/50 text-sm mb-4">À qui les distribues-tu ?</p>
+            <div className="grid grid-cols-3 gap-2">
+              {members
+                .filter((m) => m.id !== selfId)
+                .map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => onDistribute(m.id)}
+                    className="glass-card rounded-2xl p-3 flex flex-col items-center gap-1.5"
+                  >
+                    <Avatar pseudo={m.pseudo} color={m.color} size={36} />
+                    <span className="text-xs font-medium truncate w-full text-center">{m.pseudo}</span>
+                  </button>
+                ))}
+            </div>
+          </Card>
+        ) : (
+          <Card className="text-center">
+            <p className="text-white/60 text-sm">Pas de bonus cette fois — mémoire à travailler ! 😅</p>
+          </Card>
+        )
       ) : (
-        <div className="flex flex-col gap-2 mb-3">
-          {card.plays.map((p, i) => (
-            <motion.p
-              key={i}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 * i }}
-              className="text-sm"
-            >
-              <b>{memberName(p.memberId)}</b> donne{' '}
-              {card.sips === 'culsec' ? 'un cul sec 🥃' : `${(card.sips as number) * p.matchCount} gorgées`} à{' '}
-              <b>{memberName(p.targetMemberId)}</b>
-            </motion.p>
-          ))}
-        </div>
+        <Card className="text-center">
+          <p className="text-2xl mb-1">✅</p>
+          <p className="text-white/60 text-sm">En attente des autres…</p>
+        </Card>
       )}
-      {isHost ? (
-        <Button fullWidth onClick={onNext} className="mt-1">
-          {isLast ? 'Voir les résultats' : 'Carte suivante →'}
-        </Button>
-      ) : (
-        <p className="text-center text-white/40 text-xs">En attente de l'hôte…</p>
-      )}
-    </Card>
+
+      <div className="mt-auto pt-6">
+        {isHost ? (
+          <Button fullWidth variant="secondary" onClick={onAdvance}>
+            Voir le classement final →
+          </Button>
+        ) : (
+          <p className="text-center text-white/30 text-xs">L'hôte peut conclure à tout moment</p>
+        )}
+      </div>
+    </div>
   )
 }
 
