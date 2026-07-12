@@ -20,13 +20,15 @@ function accusationLabel(a: Accusation, memberName: (id: string) => string): str
   const target = memberName(a.targetId)
   switch (a.status) {
     case 'pending':
-      return `${accuser} accuse ${target}… en attente de réponse`
+      return `${accuser} distribue à ${target}… en attente de réponse`
     case 'accepted':
-      return `${target} a bu (a accepté l'accusation de ${accuser})`
+      return `${target} a bu (a fait confiance à ${accuser})`
+    case 'awaiting-proof':
+      return `${target} a dit "tu bluffes !" → ${accuser} doit prouver sa carte`
     case 'contested-wrong':
-      return `${target} a contesté à tort → boit double !`
+      return `${target} a douté à tort → boit double !`
     case 'contested-right':
-      return `${target} a démasqué le bluff de ${accuser} → ${accuser} boit double !`
+      return `${accuser} bluffait → boit double !`
   }
 }
 
@@ -68,6 +70,10 @@ export function PyramidController() {
     return <IntroView isHost={isHost} onStart={() => hostAdvance()} />
   }
 
+  if (party.phase === 'memorize') {
+    return <MemorizeView state={state} isHost={isHost} onAdvance={() => hostAdvance()} />
+  }
+
   if (party.phase === 'matching') {
     return (
       <MatchingView
@@ -76,13 +82,17 @@ export function PyramidController() {
         selfId={currentMember.id}
         isHost={isHost}
         memberName={memberName}
-        onAccuse={(targetMemberId) => {
+        onDistribute={(targetMemberId) => {
           play('vote')
           sendAction('accuse', { targetMemberId })
         }}
         onRespond={(accusationId, contest) => {
           play('vote')
           sendAction('respond', { accusationId, contest })
+        }}
+        onProveCard={(accusationId, cardSlotIndex) => {
+          play('vote')
+          sendAction('proveCard', { accusationId, cardSlotIndex })
         }}
         onAdvance={() => hostAdvance()}
       />
@@ -112,13 +122,14 @@ export function PyramidController() {
 
 function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }) {
   const rules = [
-    ['🃏', 'Chacun reçoit 4 cartes secrètes, à garder pour soi (personne ne peut les voir).'],
+    ['🃏', 'Chacun reçoit 4 cartes secrètes — tu auras 30 secondes pour les mémoriser avant qu\'elles ne soient cachées.'],
     ['🔺', 'La pyramide se révèle carte par carte, du bas (1 gorgée) jusqu\'au sommet (cul sec).'],
-    ['👉', 'À chaque carte, accuse qui tu veux d\'avoir cette valeur en main : "Tu bois !"'],
-    ['🤔', 'La personne accusée boit… ou conteste si elle pense que tu bluffes.'],
-    ['✅', 'Accusation vraie confirmée → la personne qui a contesté boit double.'],
-    ['🎭', 'Bluff démasqué → c\'est toi, l\'accusateur, qui bois double.'],
-    ['🧠', 'À la fin, retrouve l\'ordre dans lequel tes cartes ont été distribuées : gorgées bonus à la clé !'],
+    ['👉', 'À chaque carte, distribue à qui tu veux : "Tu bois !" (tu n\'as pas besoin d\'avoir la carte)'],
+    ['🤔', 'La personne visée boit… ou dit "tu bluffes !" si elle doute de toi.'],
+    ['🃏', 'Si on doute de toi, tu as UN SEUL essai pour montrer, de mémoire, laquelle de tes 4 cartes correspond.'],
+    ['✅', 'Bonne carte → la personne qui doutait boit double.'],
+    ['🎭', 'Mauvaise carte (ou bluff) → c\'est toi qui bois double.'],
+    ['🧠', 'À la fin, retrouve l\'ordre de tes cartes de mémoire : gorgées bonus à la clé !'],
   ] as const
 
   return (
@@ -155,14 +166,76 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
   )
 }
 
+const MEMORIZE_SECONDS = 30
+
+function MemorizeView({
+  state,
+  isHost,
+  onAdvance,
+}: {
+  state: PyramidClientState
+  isHost: boolean
+  onAdvance: () => void
+}) {
+  const [secondsLeft, setSecondsLeft] = useState(MEMORIZE_SECONDS)
+  const advancedRef = useRef(false)
+
+  useEffect(() => {
+    setSecondsLeft(MEMORIZE_SECONDS)
+    advancedRef.current = false
+    const interval = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    if (secondsLeft === 0 && isHost && !advancedRef.current) {
+      advancedRef.current = true
+      onAdvance()
+    }
+  }, [secondsLeft, isHost, onAdvance])
+
+  return (
+    <div className="min-h-svh flex flex-col items-center justify-center px-6 safe-top text-center">
+      <span className="text-5xl mb-2 block">🧠</span>
+      <h1 className="text-2xl font-extrabold mb-2">Mémorise tes cartes !</h1>
+      <p className="text-white/50 text-sm mb-6">Elles seront cachées dès que le temps sera écoulé.</p>
+
+      <div className="flex justify-center gap-3 mb-8">
+        {state.yourHand.map((c, i) => (
+          <div key={c.id} className="flex flex-col items-center gap-1">
+            <CardFace rank={c.rank} suit={c.suit} size={56} />
+            <span className="text-[10px] text-white/30">{i + 1}</span>
+          </div>
+        ))}
+      </div>
+
+      <motion.div
+        key={secondsLeft}
+        initial={{ scale: 1.3, opacity: 0.5 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="text-5xl font-extrabold shimmer-text mb-8 tabular-nums"
+      >
+        {secondsLeft}s
+      </motion.div>
+
+      {isHost && (
+        <Button fullWidth onClick={onAdvance}>
+          C'est bon, jouons ! →
+        </Button>
+      )}
+    </div>
+  )
+}
+
 function MatchingView({
   state,
   members,
   selfId,
   isHost,
   memberName,
-  onAccuse,
+  onDistribute,
   onRespond,
+  onProveCard,
   onAdvance,
 }: {
   state: PyramidClientState
@@ -170,8 +243,9 @@ function MatchingView({
   selfId: string
   isHost: boolean
   memberName: (id: string) => string
-  onAccuse: (targetMemberId: string) => void
+  onDistribute: (targetMemberId: string) => void
   onRespond: (accusationId: string, contest: boolean) => void
+  onProveCard: (accusationId: string, cardSlotIndex: number) => void
   onAdvance: () => void
 }) {
   const [pickingTarget, setPickingTarget] = useState(false)
@@ -180,6 +254,7 @@ function MatchingView({
 
   const cardAccusations = state.accusations.filter((a) => a.cardIndex === state.currentIndex)
   const myPending = cardAccusations.find((a) => a.targetId === selfId && a.status === 'pending')
+  const myProofNeeded = cardAccusations.find((a) => a.accuserId === selfId && a.status === 'awaiting-proof')
   const isLast = state.currentIndex >= state.pyramid.length - 1
 
   return (
@@ -196,28 +271,46 @@ function MatchingView({
       {myPending && (
         <Card className="mb-4 border-fuchsia-400/40">
           <p className="text-sm text-center mb-3">
-            <b>{memberName(myPending.accuserId)}</b> pense que tu as cette carte !
+            <b>{memberName(myPending.accuserId)}</b> te distribue cette carte : tu bois !
           </p>
           <div className="flex gap-2">
             <Button fullWidth onClick={() => onRespond(myPending.id, false)}>
               Je bois
             </Button>
             <Button fullWidth variant="secondary" onClick={() => onRespond(myPending.id, true)}>
-              Je conteste
+              Tu bluffes !
             </Button>
+          </div>
+        </Card>
+      )}
+
+      {myProofNeeded && (
+        <Card className="mb-4 border-fuchsia-400/40">
+          <p className="text-sm text-center mb-1">
+            <b>{memberName(myProofNeeded.targetId)}</b> pense que tu bluffes !
+          </p>
+          <p className="text-xs text-white/50 text-center mb-3">
+            Montre, de mémoire, laquelle de tes cartes correspond — un seul essai !
+          </p>
+          <div className="flex justify-center gap-2">
+            {state.yourHand.map((c, i) => (
+              <button key={c.id} onClick={() => onProveCard(myProofNeeded.id, i)}>
+                <CardFace rank={c.rank} suit={c.suit} size={48} />
+              </button>
+            ))}
           </div>
         </Card>
       )}
 
       {!pickingTarget && (
         <Button fullWidth variant="secondary" onClick={() => setPickingTarget(true)} className="mb-4">
-          👉 Accuser quelqu'un
+          🍻 Distribuer une gorgée
         </Button>
       )}
 
       {pickingTarget && (
         <Card className="mb-4">
-          <p className="text-sm font-semibold mb-3 text-center">Qui a cette carte ?</p>
+          <p className="text-sm font-semibold mb-3 text-center">Qui doit boire ?</p>
           <div className="grid grid-cols-3 gap-2">
             {members
               .filter((m) => m.id !== selfId)
@@ -225,7 +318,7 @@ function MatchingView({
                 <button
                   key={m.id}
                   onClick={() => {
-                    onAccuse(m.id)
+                    onDistribute(m.id)
                     setPickingTarget(false)
                   }}
                   className="glass-card rounded-2xl p-3 flex flex-col items-center gap-1.5"

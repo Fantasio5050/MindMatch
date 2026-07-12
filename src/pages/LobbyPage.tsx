@@ -9,22 +9,11 @@ import { usePartyStore } from '../store/usePartyStore'
 import { levelProgress } from '../lib/xp'
 import { BADGE_MAP } from '../data/badges'
 import { apiGetGameHistory } from '../lib/api'
+import { GAME_META } from '../data/gameMeta'
 import type { Group, GameHistoryEntry } from '../types'
 
 type DilemmaPackChoice = 'classic' | 'trash' | 'mixed'
 type PartyCardsPackChoice = 'classic' | 'trash' | 'mixed'
-
-const GAME_ICONS: Record<string, string> = {
-  'who-is-most-likely': '🎯',
-  dilemmas: '⚖️',
-  pyramid: '🍻',
-  'secret-profile': '🔍',
-  'guess-my-answer': '🕵️',
-  'who-wrote-it': '✍️',
-  'party-cards': '🃏',
-  palmier: '🌴',
-  autoroute: '🛣️',
-}
 
 function relativeTime(timestamp: number): string {
   const diffMs = Date.now() - timestamp
@@ -46,14 +35,17 @@ export function LobbyPage() {
   const connectAsPlayer = usePartyStore((s) => s.connectAsPlayer)
   const startGame = usePartyStore((s) => s.startGame)
   const setAdultMode = usePartyStore((s) => s.setAdultMode)
+  const disconnect = usePartyStore((s) => s.disconnect)
   const partyGroup = usePartyStore((s) => s.group)
   const onlinePlayerIds = usePartyStore((s) => s.onlinePlayerIds)
   const isHost = usePartyStore((s) => s.isHost())
   const partyError = usePartyStore((s) => s.error)
   const clearError = usePartyStore((s) => s.clearError)
+  const leaveGroup = useAppStore((s) => s.leaveGroup)
 
   const [copied, setCopied] = useState(false)
   const [confirmingAdultMode, setConfirmingAdultMode] = useState(false)
+  const [confirmingLeave, setConfirmingLeave] = useState(false)
   const [dilemmaPack, setDilemmaPack] = useState<DilemmaPackChoice>('classic')
   const [partyCardsPack, setPartyCardsPack] = useState<PartyCardsPackChoice>('classic')
   const [history, setHistory] = useState<GameHistoryEntry[]>([])
@@ -107,6 +99,12 @@ export function LobbyPage() {
     }
   }
 
+  const handleLeave = () => {
+    disconnect()
+    leaveGroup()
+    navigate('/')
+  }
+
   return (
     <PageTransition>
       <div className="px-6 pt-10 pb-10 safe-top">
@@ -117,6 +115,24 @@ export function LobbyPage() {
             Code : <span className="font-bold tracking-[0.2em] text-white/80">{group.code}</span>{' '}
             <span className="text-fuchsia-300">{copied ? '✓ Copié' : '(copier)'}</span>
           </button>
+          {confirmingLeave ? (
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <span className="text-xs text-white/50">Quitter ce salon ?</span>
+              <button onClick={handleLeave} className="text-xs font-semibold text-pink-300 underline">
+                Confirmer
+              </button>
+              <button onClick={() => setConfirmingLeave(false)} className="text-xs text-white/40 underline">
+                Annuler
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmingLeave(true)}
+              className="text-xs text-white/30 mt-3 underline underline-offset-2"
+            >
+              🚪 Quitter le salon
+            </button>
+          )}
         </div>
 
         {partyError && (
@@ -168,7 +184,7 @@ export function LobbyPage() {
             <div className="flex flex-col gap-2.5">
               {history.map((h) => (
                 <div key={h.id} className="flex items-center gap-3">
-                  <span className="text-xl shrink-0">{GAME_ICONS[h.gameId] ?? '🎮'}</span>
+                  <span className="text-xl shrink-0">{GAME_META[h.gameId]?.icon ?? '🎮'}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{h.gameName}</p>
                     <p className="text-[11px] text-white/40">

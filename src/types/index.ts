@@ -55,6 +55,11 @@ export interface PartySession {
   phase: string | null
   round: number
   roundData: unknown
+  /** Snapshot of member ids present when the current game started. Anyone who joins the group
+   * while this list is non-empty (i.e. a game is active) is not in it, and the client shows them
+   * a waiting screen instead of the live game UI — cleaner than teaching every game module how to
+   * cope with a player appearing mid-round. Reset to the full roster on each new game start. */
+  participantIds: string[]
 }
 
 export interface Group {

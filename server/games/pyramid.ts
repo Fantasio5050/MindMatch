@@ -31,7 +31,7 @@ interface PyramidCardState extends Card {
   revealed: boolean
 }
 
-type AccusationStatus = 'pending' | 'accepted' | 'contested-wrong' | 'contested-right'
+type AccusationStatus = 'pending' | 'accepted' | 'awaiting-proof' | 'contested-wrong' | 'contested-right'
 
 interface Accusation {
   id: string
@@ -144,15 +144,21 @@ export const pyramid: GameModule = {
       return { session: { ...session, status: 'playing', phase: 'intro', round: 0, roundData: newState } }
     }
 
-    // 2) Host dismisses the rules screen -> reveal the first card.
+    // 2) Host dismisses the rules screen -> everyone gets a timed window to memorize their hand
+    // before the cards are dealt "face down". Nothing about the pyramid is revealed yet.
     if (session.phase === 'intro') {
+      return { session: { ...session, phase: 'memorize', roundData: state } }
+    }
+
+    // 3) Memorize window is over (host advances, timer or manual "C'est parti !") -> reveal card 1.
+    if (session.phase === 'memorize') {
       const nextPyramid = state.pyramid.map((c, i) => (i === 0 ? { ...c, revealed: true } : c))
       return {
         session: { ...session, phase: 'matching', round: 1, roundData: { ...state, pyramid: nextPyramid, currentIndex: 0 } },
       }
     }
 
-    // 3) Host wraps up the recitation -> final results.
+    // 4) Host wraps up the recitation -> final results.
     if (session.phase === 'recitation') {
       const entries = group.members.map((m) => ({ id: m.id, sips: state.totalSipsReceived[m.id] ?? 0 }))
       const minSips = entries.length > 0 ? Math.min(...entries.map((e) => e.sips)) : 0
@@ -167,7 +173,7 @@ export const pyramid: GameModule = {
       return { session: { ...session, status: 'ended', phase: 'ended' }, xpAwards }
     }
 
-    // 4) Normal card-to-card advance.
+    // 5) Normal card-to-card advance.
     const nextIndex = state.currentIndex + 1
     if (nextIndex >= state.pyramid.length) {
       return { session: { ...session, phase: 'recitation', roundData: state } }
@@ -208,26 +214,51 @@ export const pyramid: GameModule = {
       if (!accusation || accusation.targetId !== memberId || accusation.status !== 'pending') return { session }
       const card = state.pyramid[accusation.cardIndex]
       if (!card) return { session }
+
+      let status: AccusationStatus
+      let totals = state.totalSipsReceived
+
+      if (!payload?.contest) {
+        // Accepted at face value: the target trusts the distributor really has the card, no proof needed.
+        status = 'accepted'
+        totals = addSips(totals, memberId, card.sips === 'culsec' ? CULSEC_WEIGHT : card.sips)
+      } else {
+        // "Tu bluffes !" — the distributor now has ONE attempt to point at the exact card in their
+        // hand that matches. Nothing resolves yet: see the `proveCard` action below.
+        status = 'awaiting-proof'
+      }
+
+      const nextAccusations = state.accusations.map((a) => (a.id === accusation.id ? { ...a, status } : a))
+      return { session: { ...session, roundData: { ...state, accusations: nextAccusations, totalSipsReceived: totals } } }
+    }
+
+    if (action.type === 'proveCard' && session.phase === 'matching') {
+      const payload = action.payload as { accusationId?: string; cardSlotIndex?: number } | null
+      const accusation = state.accusations.find((a) => a.id === payload?.accusationId)
+      if (!accusation || accusation.accuserId !== memberId || accusation.status !== 'awaiting-proof') return { session }
+      const card = state.pyramid[accusation.cardIndex]
+      if (!card) return { session }
+      const slot = payload?.cardSlotIndex
+      if (slot === undefined || slot === null) return { session }
       const sipValue = card.sips === 'culsec' ? CULSEC_WEIGHT : card.sips
+
+      // Single attempt: whichever one card they point to is the whole answer, correct or not —
+      // no re-tries, and no credit for "having a match somewhere else" in hand.
+      const shown = state.hands[memberId]?.[slot]
+      const correct = shown?.rank === card.rank
 
       let status: AccusationStatus
       let totals = state.totalSipsReceived
       const xpAwards: XpAward[] = []
 
-      if (!payload?.contest) {
-        status = 'accepted'
-        totals = addSips(totals, memberId, sipValue)
+      if (correct) {
+        status = 'contested-wrong'
+        totals = addSips(totals, accusation.targetId, sipValue * 2)
+        xpAwards.push({ memberId: accusation.accuserId, amount: CONTEST_XP, reason: 'A prouvé sa carte' })
       } else {
-        const accuserHasCard = state.hands[accusation.accuserId]?.some((c) => c.rank === card.rank) ?? false
-        if (accuserHasCard) {
-          status = 'contested-wrong'
-          totals = addSips(totals, memberId, sipValue * 2)
-          xpAwards.push({ memberId: accusation.accuserId, amount: CONTEST_XP, reason: 'Accusation confirmée' })
-        } else {
-          status = 'contested-right'
-          totals = addSips(totals, accusation.accuserId, sipValue * 2)
-          xpAwards.push({ memberId, amount: CONTEST_XP, reason: 'A démasqué un bluff' })
-        }
+        status = 'contested-right'
+        totals = addSips(totals, accusation.accuserId, sipValue * 2)
+        xpAwards.push({ memberId: accusation.targetId, amount: CONTEST_XP, reason: 'A démasqué un bluff' })
       }
 
       const nextAccusations = state.accusations.map((a) => (a.id === accusation.id ? { ...a, status } : a))

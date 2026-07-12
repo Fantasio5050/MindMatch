@@ -49,12 +49,18 @@ body {
   backdrop-filter: blur(20px);
 }
 
+/* margin, not padding: these are meant to ADD safe-area inset on top of an element's own
+   pt-N/pb-N padding. Tailwind's utilities live inside its own cascade @layer, while these plain
+   custom classes are unlayered — unlayered CSS always wins regardless of source order, so if this
+   used `padding-top`/`padding-bottom` it would silently replace (not add to) any pt-N/pb-N on the
+   same element instead of stacking with it. Margin sidesteps the conflict entirely by being a
+   different property. */
 .safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .safe-top {
-  padding-top: env(safe-area-inset-top, 0px);
+  margin-top: env(safe-area-inset-top, 0px);
 }
 
 .no-scrollbar::-webkit-scrollbar {

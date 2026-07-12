@@ -10,8 +10,14 @@ export function ScreenPage() {
   const { code } = useParams<{ code?: string }>()
   const navigate = useNavigate()
   const connectAsSpectator = usePartyStore((s) => s.connectAsSpectator)
+  const disconnect = usePartyStore((s) => s.disconnect)
   const partyError = usePartyStore((s) => s.error)
   const [input, setInput] = useState('')
+
+  const handleExit = () => {
+    disconnect()
+    navigate('/screen')
+  }
 
   useEffect(() => {
     if (code) connectAsSpectator(code.toUpperCase())
@@ -45,11 +51,25 @@ export function ScreenPage() {
 
   if (partyError) {
     return (
-      <div className="min-h-svh flex items-center justify-center px-6 text-center">
+      <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center gap-6">
         <p className="text-pink-300">{partyError}</p>
+        <Button variant="secondary" onClick={handleExit}>
+          Essayer un autre code
+        </Button>
       </div>
     )
   }
 
-  return <PartyGameShell mode="screen" />
+  return (
+    <div className="relative">
+      <button
+        onClick={handleExit}
+        className="fixed top-4 left-4 z-40 w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/50 text-sm"
+        aria-label="Changer de salle"
+      >
+        ←
+      </button>
+      <PartyGameShell mode="screen" />
+    </div>
+  )
 }

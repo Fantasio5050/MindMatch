@@ -27,7 +27,8 @@ sqlite.exec(`
     party_current_game_id TEXT,
     party_phase TEXT,
     party_round INTEGER NOT NULL DEFAULT 0,
-    party_round_data TEXT
+    party_round_data TEXT,
+    party_participant_ids TEXT NOT NULL DEFAULT '[]'
   );
 
   CREATE TABLE IF NOT EXISTS members (
@@ -57,6 +58,14 @@ sqlite.exec(`
   CREATE INDEX IF NOT EXISTS idx_history_group ON game_history(group_id, ended_at DESC);
 `)
 
+// Lightweight migration for databases created before `party_participant_ids` existed —
+// `CREATE TABLE IF NOT EXISTS` above is a no-op once the table already exists, so a column added
+// later needs its own ALTER TABLE, run once and only if missing.
+const groupColumns = sqlite.prepare('PRAGMA table_info(groups)').all() as { name: string }[]
+if (!groupColumns.some((c) => c.name === 'party_participant_ids')) {
+  sqlite.exec("ALTER TABLE groups ADD COLUMN party_participant_ids TEXT NOT NULL DEFAULT '[]'")
+}
+
 interface GroupRow {
   id: string
   code: string
@@ -69,6 +78,7 @@ interface GroupRow {
   party_phase: string | null
   party_round: number
   party_round_data: string | null
+  party_participant_ids: string
 }
 
 interface MemberRow {
@@ -117,6 +127,7 @@ function rowToGroup(row: GroupRow, members: StoredMember[]): StoredGroup {
       phase: row.party_phase,
       round: row.party_round,
       roundData: row.party_round_data ? JSON.parse(row.party_round_data) : null,
+      participantIds: JSON.parse(row.party_participant_ids),
     },
   }
 }
@@ -139,8 +150,8 @@ export function readDb(): Database {
 }
 
 const upsertGroup = sqlite.prepare(`
-  INSERT INTO groups (id, code, name, created_at, adult_mode_enabled, party_status, party_host_member_id, party_current_game_id, party_phase, party_round, party_round_data)
-  VALUES (@id, @code, @name, @created_at, @adult_mode_enabled, @party_status, @party_host_member_id, @party_current_game_id, @party_phase, @party_round, @party_round_data)
+  INSERT INTO groups (id, code, name, created_at, adult_mode_enabled, party_status, party_host_member_id, party_current_game_id, party_phase, party_round, party_round_data, party_participant_ids)
+  VALUES (@id, @code, @name, @created_at, @adult_mode_enabled, @party_status, @party_host_member_id, @party_current_game_id, @party_phase, @party_round, @party_round_data, @party_participant_ids)
   ON CONFLICT(id) DO UPDATE SET
     code = excluded.code,
     name = excluded.name,
@@ -150,7 +161,8 @@ const upsertGroup = sqlite.prepare(`
     party_current_game_id = excluded.party_current_game_id,
     party_phase = excluded.party_phase,
     party_round = excluded.party_round,
-    party_round_data = excluded.party_round_data
+    party_round_data = excluded.party_round_data,
+    party_participant_ids = excluded.party_participant_ids
 `)
 
 const upsertMember = sqlite.prepare(`
@@ -183,6 +195,7 @@ const writeTx = sqlite.transaction((db: Database) => {
       party_phase: group.party.phase,
       party_round: group.party.round,
       party_round_data: group.party.roundData ? JSON.stringify(group.party.roundData) : null,
+      party_participant_ids: JSON.stringify(group.party.participantIds ?? []),
     })
     for (const member of group.members) {
       upsertMember.run({

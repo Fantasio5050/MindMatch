@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { PageTransition } from '../components/PageTransition'
 import { Card } from '../components/Card'
@@ -19,14 +19,15 @@ const FLOATING_EMOJIS = [
 
 export function HomePage() {
   const navigate = useNavigate()
+  const { code: prefillCode } = useParams<{ code?: string }>()
   const createGroup = useAppStore((s) => s.createGroup)
   const joinGroup = useAppStore((s) => s.joinGroup)
   const { play } = useSound()
 
-  const [mode, setMode] = useState<Mode>('landing')
+  const [mode, setMode] = useState<Mode>(prefillCode ? 'join' : 'landing')
   const [pseudo, setPseudo] = useState('')
   const [groupName, setGroupName] = useState('')
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(prefillCode ? prefillCode.toUpperCase() : '')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 

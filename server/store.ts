@@ -138,6 +138,7 @@ export function createGroup(groupName: string, pseudo: string): { group: Group; 
       phase: null,
       round: 0,
       roundData: null,
+      participantIds: [],
     },
     adultModeEnabled: false,
   }

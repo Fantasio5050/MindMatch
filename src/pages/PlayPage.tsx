@@ -1,16 +1,16 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageTransition } from '../components/PageTransition'
 import { usePartyStore } from '../store/usePartyStore'
 import { PartyGameShell } from '../party/PartyGameShell'
-import { useSound } from '../hooks/useSound'
 
 export function PlayPage() {
   const navigate = useNavigate()
   const connectAsPlayer = usePartyStore((s) => s.connectAsPlayer)
   const endGame = usePartyStore((s) => s.endGame)
   const isHost = usePartyStore((s) => s.isHost())
-  const { muted, toggleMuted } = useSound()
+  const code = usePartyStore((s) => s.group?.code)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     connectAsPlayer()
@@ -23,19 +23,37 @@ export function PlayPage() {
     navigate('/lobby')
   }
 
+  const copyCode = async () => {
+    if (!code) return
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // clipboard unavailable, ignore silently
+    }
+  }
+
   return (
     <PageTransition>
       <div className="relative">
-        <div className="fixed top-4 left-4 right-4 z-40 flex items-center justify-between safe-top">
+        {/* Left-aligned only — the global AudioControls button already owns the top-right corner. */}
+        <div className="fixed top-4 left-4 z-40 safe-top flex items-center gap-2">
           <button
             onClick={handleBack}
             className="flex items-center gap-1.5 rounded-full bg-white/8 px-3 h-9 text-white/70 text-sm"
           >
             ← {isHost ? 'Quitter la partie' : 'Salon'}
           </button>
-          <button onClick={toggleMuted} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-sm">
-            {muted ? '🔇' : '🔊'}
-          </button>
+          {code && (
+            <button
+              onClick={copyCode}
+              className="flex items-center gap-1 rounded-full bg-white/8 px-3 h-9 text-white/50 text-xs font-semibold tracking-widest"
+              aria-label="Copier le code de la salle"
+            >
+              {copied ? '✓ Copié' : code}
+            </button>
+          )}
         </div>
         <PartyGameShell mode="controller" />
       </div>

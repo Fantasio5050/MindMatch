@@ -4,7 +4,7 @@ export interface HandCard {
   suit: number
 }
 
-export type AccusationStatus = 'pending' | 'accepted' | 'contested-wrong' | 'contested-right'
+export type AccusationStatus = 'pending' | 'accepted' | 'awaiting-proof' | 'contested-wrong' | 'contested-right'
 
 export interface Accusation {
   id: string

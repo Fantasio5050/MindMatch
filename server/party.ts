@@ -52,8 +52,8 @@ function settle(group: StoredGroup, game: GameModule, session: PartySession, xpA
   }
 }
 
-function emptySession(hostMemberId: string, gameId: string | null): PartySession {
-  return { status: 'lobby', hostMemberId, currentGameId: gameId, phase: null, round: 0, roundData: null }
+function emptySession(hostMemberId: string, gameId: string | null, participantIds: string[] = []): PartySession {
+  return { status: 'lobby', hostMemberId, currentGameId: gameId, phase: null, round: 0, roundData: null, participantIds }
 }
 
 export function startGame(
@@ -79,7 +79,12 @@ export function startGame(
   const canStartError = game.canStart?.(group)
   if (canStartError) return { error: canStartError, status: 400 }
 
-  const { session, xpAwards } = game.initRound(group, emptySession(group.party.hostMemberId, gameId), config)
+  const participantIds = group.members.map((m) => m.id)
+  const { session, xpAwards } = game.initRound(
+    group,
+    emptySession(group.party.hostMemberId, gameId, participantIds),
+    config,
+  )
   settle(group, game, session, xpAwards)
   writeDb(db)
 
@@ -100,6 +105,9 @@ export function submitAction(
 
   const game = group.party.currentGameId ? getGame(group.party.currentGameId) : null
   if (!game) return { error: 'Aucune partie en cours.', status: 400 }
+  if (group.party.status === 'playing' && !group.party.participantIds.includes(memberId)) {
+    return { error: 'Tu rejoindras à la prochaine partie — patiente un instant !', status: 403 }
+  }
 
   const actionResult = game.handleAction(group, group.party, memberId, { type: actionType, payload })
   settle(group, game, actionResult.session, actionResult.xpAwards)

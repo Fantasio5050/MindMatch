@@ -78,13 +78,13 @@ function ToggleRow({
 }) {
   return (
     <button onClick={onToggle} className="flex items-center gap-2 w-full py-1">
-      <span className="text-base">{icon}</span>
-      <span className="flex-1 text-left text-sm text-white/80">{label}</span>
+      <span className="text-base shrink-0">{icon}</span>
+      <span className="flex-1 text-left text-sm text-white/80 truncate">{label}</span>
       <span
-        className={`w-9 h-5 rounded-full relative transition-colors ${active ? 'bg-fuchsia-500' : 'bg-white/15'}`}
+        className={`w-9 h-5 rounded-full relative shrink-0 transition-colors ${active ? 'bg-fuchsia-500' : 'bg-white/15'}`}
       >
         <span
-          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${active ? 'translate-x-4' : 'translate-x-0.5'}`}
+          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${active ? 'translate-x-4' : 'translate-x-0'}`}
         />
       </span>
     </button>

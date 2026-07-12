@@ -14,11 +14,13 @@ function accusationLabel(a: Accusation, memberName: (id: string) => string): str
   const target = memberName(a.targetId)
   switch (a.status) {
     case 'pending':
-      return `${accuser} accuse ${target}…`
+      return `${accuser} distribue à ${target}…`
     case 'accepted':
       return `${target} boit`
+    case 'awaiting-proof':
+      return `${target} doute → ${accuser} doit prouver sa carte`
     case 'contested-wrong':
-      return `${target} conteste à tort → boit double`
+      return `${target} doutait à tort → boit double`
     case 'contested-right':
       return `${accuser} bluffait → boit double`
   }
@@ -59,6 +61,8 @@ export function PyramidScreen() {
 
       {status !== 'ended' && phase === 'intro' && <IntroScreen />}
 
+      {status !== 'ended' && phase === 'memorize' && <MemorizeScreen members={group.members} />}
+
       {status !== 'ended' && phase === 'matching' && state && (
         <MatchingScreen state={state} members={group.members} memberName={memberName} />
       )}
@@ -76,14 +80,45 @@ function IntroScreen() {
       <span className="text-7xl mb-4 block">🍻</span>
       <h1 className="text-5xl font-extrabold shimmer-text mb-8">Pyramide</h1>
       <div className="flex flex-col gap-3 text-xl text-white/70 text-left">
-        <p>🃏 Chacun reçoit 4 cartes secrètes.</p>
+        <p>🃏 Chacun reçoit 4 cartes secrètes, à mémoriser en 30 secondes.</p>
         <p>🔺 La pyramide se révèle du bas (1 gorgée) au sommet (cul sec).</p>
-        <p>👉 Accusez qui vous voulez d'avoir la carte : "Tu bois !"</p>
-        <p>🤔 La cible boit, ou conteste si elle pense à un bluff.</p>
-        <p>🎭 Bluff démasqué = double gorgée pour l'accusateur. Accusation vraie contestée = double pour la cible.</p>
+        <p>👉 Distribuez à qui vous voulez : "Tu bois !" — pas besoin d'avoir la carte.</p>
+        <p>🤔 La cible boit, ou dit "tu bluffes !" si elle doute.</p>
+        <p>🃏 En cas de doute, un seul essai pour montrer la bonne carte, de mémoire.</p>
+        <p>🎭 Bonne carte = double pour qui doutait. Mauvaise carte (ou bluff) = double pour le/la distributeur·rice.</p>
         <p>🧠 À la fin, retrouvez l'ordre de vos cartes pour des gorgées bonus !</p>
       </div>
-      <p className="text-white/30 text-lg mt-8">L'hôte va lancer la première carte…</p>
+      <p className="text-white/30 text-lg mt-8">L'hôte va lancer la mémorisation…</p>
+    </div>
+  )
+}
+
+const MEMORIZE_SECONDS = 30
+
+function MemorizeScreen({ members }: { members: Member[] }) {
+  const [secondsLeft, setSecondsLeft] = useState(MEMORIZE_SECONDS)
+
+  useEffect(() => {
+    setSecondsLeft(MEMORIZE_SECONDS)
+    const interval = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <div className="text-center max-w-3xl">
+      <span className="text-7xl mb-4 block">🧠</span>
+      <h1 className="text-4xl font-extrabold shimmer-text mb-6">Mémorisez vos cartes !</h1>
+      <motion.div key={secondsLeft} initial={{ scale: 1.3, opacity: 0.5 }} animate={{ scale: 1, opacity: 1 }} className="text-8xl font-extrabold tabular-nums mb-10">
+        {secondsLeft}s
+      </motion.div>
+      <div className="flex flex-wrap gap-3 justify-center">
+        {members.map((m) => (
+          <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-4 py-1.5">
+            <Avatar pseudo={m.pseudo} color={m.color} size={32} />
+            <span className="text-lg font-medium">{m.pseudo}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
