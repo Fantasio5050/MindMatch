@@ -3,6 +3,8 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from './store/useAppStore'
 import { BottomNav } from './components/BottomNav'
+import { AmbientBackground } from './components/AmbientBackground'
+import { AudioControls } from './components/AudioControls'
 import { HomePage } from './pages/HomePage'
 import { QuizPage } from './pages/QuizPage'
 import { ProfilePage } from './pages/ProfilePage'
@@ -139,6 +141,8 @@ function AppBootstrap() {
 function App() {
   return (
     <HashRouter>
+      <AmbientBackground />
+      <AudioControls />
       <AppBootstrap />
     </HashRouter>
   )

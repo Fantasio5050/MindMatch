@@ -11,3 +11,5 @@ export interface StoredGroup extends Omit<Group, 'members'> {
 export interface Database {
   groups: StoredGroup[]
 }
+
+export type { GameHistoryEntry } from '../src/types'

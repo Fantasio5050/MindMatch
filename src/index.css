@@ -36,11 +36,11 @@ body {
 }
 
 .app-shell {
-  background:
-    radial-gradient(120% 60% at 50% -10%, rgba(168, 85, 247, 0.35) 0%, rgba(11, 7, 20, 0) 60%),
-    radial-gradient(100% 50% at 90% 10%, rgba(236, 72, 153, 0.2) 0%, rgba(11, 7, 20, 0) 55%),
-    #0b0714;
+  /* Background now lives in <AmbientBackground> (animated, shared across every page instead of
+     restarting per route) — this just needs to stay transparent so it shows through. */
   min-height: 100svh;
+  position: relative;
+  z-index: 1;
 }
 
 .glass-card {

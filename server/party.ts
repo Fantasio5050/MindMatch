@@ -1,4 +1,4 @@
-import { readDb, writeDb } from './db'
+import { readDb, writeDb, appendGameHistory } from './db'
 import type { StoredGroup } from './types'
 import type { Group, PartySession } from '../src/types'
 import { findAuthorizedMember, sanitizeGroup, isApiError, type ApiError } from './store'
@@ -29,14 +29,26 @@ function applyXpAwards(group: StoredGroup, awards: XpAward[] | undefined): void 
 }
 
 /** Applies a round transition (session + xpAwards), then auto-resolves if the game says it's
- * already trivially complete (e.g. nobody in the room could act this round). */
+ * already trivially complete (e.g. nobody in the room could act this round). Also records a
+ * durable game_history entry the moment a game naturally finishes (status flips to 'ended') —
+ * separate from `group.party.roundData`, which gets overwritten the next time a game starts. */
 function settle(group: StoredGroup, game: GameModule, session: PartySession, xpAwards: XpAward[] | undefined): void {
+  const wasEnded = group.party.status === 'ended'
   applyXpAwards(group, xpAwards)
   group.party = session
   if (game.isRoundComplete(group, group.party)) {
     const resolved = game.resolveRound(group, group.party)
     applyXpAwards(group, resolved.xpAwards)
     group.party = resolved.session
+  }
+  if (!wasEnded && group.party.status === 'ended') {
+    appendGameHistory({
+      groupId: group.id,
+      gameId: game.id,
+      gameName: game.name,
+      endedAt: Date.now(),
+      roundsPlayed: group.party.round,
+    })
   }
 }
 

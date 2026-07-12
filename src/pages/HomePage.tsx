@@ -4,14 +4,24 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { PageTransition } from '../components/PageTransition'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
+import { useSound } from '../hooks/useSound'
 import { useAppStore } from '../store/useAppStore'
 
 type Mode = 'landing' | 'create' | 'join'
+
+const FLOATING_EMOJIS = [
+  { emoji: '🎉', top: '8%', left: '10%', duration: 7, delay: 0 },
+  { emoji: '🍻', top: '14%', left: '82%', duration: 8.5, delay: 0.6 },
+  { emoji: '🎲', top: '78%', left: '86%', duration: 6.5, delay: 1.2 },
+  { emoji: '🃏', top: '82%', left: '8%', duration: 9, delay: 0.3 },
+  { emoji: '✨', top: '46%', left: '92%', duration: 7.5, delay: 1.8 },
+]
 
 export function HomePage() {
   const navigate = useNavigate()
   const createGroup = useAppStore((s) => s.createGroup)
   const joinGroup = useAppStore((s) => s.joinGroup)
+  const { play } = useSound()
 
   const [mode, setMode] = useState<Mode>('landing')
   const [pseudo, setPseudo] = useState('')
@@ -20,6 +30,12 @@ export function HomePage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  const goTo = (next: Mode) => {
+    play('tick')
+    setError('')
+    setMode(next)
+  }
+
   const handleCreate = async () => {
     if (!pseudo.trim()) return setError('Choisis un pseudo pour continuer.')
     if (!groupName.trim()) return setError('Donne un nom à ton groupe.')
@@ -27,6 +43,7 @@ export function HomePage() {
     setSubmitting(true)
     try {
       await createGroup(groupName, pseudo)
+      play('win')
       navigate('/lobby')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Une erreur est survenue.')
@@ -42,6 +59,7 @@ export function HomePage() {
     setSubmitting(true)
     try {
       await joinGroup(code, pseudo)
+      play('win')
       navigate('/lobby')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Une erreur est survenue.')
@@ -52,23 +70,55 @@ export function HomePage() {
 
   return (
     <PageTransition>
-      <div className="min-h-svh flex flex-col justify-between px-6 pt-14 pb-10 safe-top">
-        <div className="flex flex-col items-center text-center gap-3 mt-6">
-          <motion.div
-            initial={{ scale: 0.6, opacity: 0, rotate: -8 }}
-            animate={{ scale: 1, opacity: 1, rotate: 0 }}
-            transition={{ type: 'spring', duration: 0.7 }}
-            className="text-6xl mb-2"
-          >
-            🧠
-          </motion.div>
-          <h1 className="text-4xl font-extrabold tracking-tight shimmer-text">MindMatch Party</h1>
-          <p className="text-white/60 text-base max-w-xs">
-            Ton profil de personnalité + des jeux de soirée synchronisés entre amis, en direct.
-          </p>
+      <div className="min-h-svh flex flex-col justify-between px-6 pt-14 pb-10 safe-top relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          {FLOATING_EMOJIS.map((f, i) => (
+            <motion.span
+              key={i}
+              className="absolute text-2xl opacity-30 select-none"
+              style={{ top: f.top, left: f.left }}
+              animate={{ y: [0, -18, 0], rotate: [-8, 8, -8] }}
+              transition={{ duration: f.duration, delay: f.delay, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              {f.emoji}
+            </motion.span>
+          ))}
         </div>
 
-        <div className="w-full max-w-md mx-auto mt-10">
+        <div className="flex flex-col items-center text-center gap-3 mt-6 relative">
+          <motion.div
+            initial={{ scale: 0.4, opacity: 0, rotate: -20 }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            transition={{ type: 'spring', duration: 0.8, bounce: 0.5 }}
+          >
+            <motion.span
+              animate={{ y: [0, -10, 0], rotate: [-4, 4, -4] }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+              className="text-7xl block drop-shadow-[0_0_36px_rgba(217,70,239,0.55)]"
+            >
+              🧠
+            </motion.span>
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
+            className="text-4xl font-extrabold tracking-tight shimmer-text leading-tight"
+          >
+            MindMatch Party
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.4 }}
+            className="text-white/60 text-base max-w-xs"
+          >
+            Ton profil de personnalité + des jeux de soirée synchronisés entre amis, en direct.
+          </motion.p>
+        </div>
+
+        <div className="w-full max-w-md mx-auto mt-10 relative">
           <AnimatePresence mode="wait">
             {mode === 'landing' && (
               <motion.div
@@ -79,28 +129,38 @@ export function HomePage() {
                 transition={{ duration: 0.3 }}
                 className="flex flex-col gap-3"
               >
-                <Button
-                  fullWidth
-                  onClick={() => {
-                    setError('')
-                    setMode('create')
+                <motion.div
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                    boxShadow: [
+                      '0 0 0px rgba(217,70,239,0)',
+                      '0 0 28px rgba(217,70,239,0.45)',
+                      '0 0 0px rgba(217,70,239,0)',
+                    ],
                   }}
-                >
-                  ✨ Créer un groupe
-                </Button>
-                <Button
-                  fullWidth
-                  variant="secondary"
-                  onClick={() => {
-                    setError('')
-                    setMode('join')
+                  transition={{
+                    opacity: { delay: 0.1, duration: 0.3 },
+                    y: { delay: 0.1, duration: 0.3 },
+                    boxShadow: { delay: 0.5, duration: 2.4, repeat: Infinity, ease: 'easeInOut' },
                   }}
+                  className="rounded-2xl"
                 >
-                  🔑 Rejoindre avec un code
-                </Button>
-                <Button fullWidth variant="ghost" onClick={() => navigate('/screen')}>
-                  📺 Afficher sur un écran (TV)
-                </Button>
+                  <Button fullWidth onClick={() => goTo('create')}>
+                    ✨ Créer un groupe
+                  </Button>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
+                  <Button fullWidth variant="secondary" onClick={() => goTo('join')}>
+                    🔑 Rejoindre avec un code
+                  </Button>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
+                  <Button fullWidth variant="ghost" onClick={() => navigate('/screen')}>
+                    📺 Afficher sur un écran (TV)
+                  </Button>
+                </motion.div>
               </motion.div>
             )}
 
@@ -121,7 +181,7 @@ export function HomePage() {
                     <Button fullWidth onClick={handleCreate} disabled={submitting} className="mt-1">
                       {submitting ? 'Création…' : 'Créer et commencer'}
                     </Button>
-                    <Button fullWidth variant="ghost" onClick={() => setMode('landing')} disabled={submitting}>
+                    <Button fullWidth variant="ghost" onClick={() => goTo('landing')} disabled={submitting}>
                       ← Retour
                     </Button>
                   </div>
@@ -152,7 +212,7 @@ export function HomePage() {
                     <Button fullWidth onClick={handleJoin} disabled={submitting} className="mt-1">
                       {submitting ? 'Connexion…' : 'Rejoindre et commencer'}
                     </Button>
-                    <Button fullWidth variant="ghost" onClick={() => setMode('landing')} disabled={submitting}>
+                    <Button fullWidth variant="ghost" onClick={() => goTo('landing')} disabled={submitting}>
                       ← Retour
                     </Button>
                   </div>
@@ -162,7 +222,7 @@ export function HomePage() {
           </AnimatePresence>
         </div>
 
-        <p className="text-center text-xs text-white/30 mt-10">
+        <p className="text-center text-xs text-white/30 mt-10 relative">
           Quiz de personnalité · jeux de soirée · XP & badges entre amis
         </p>
       </div>

@@ -67,3 +67,14 @@ export interface Group {
   /** Host-controlled setting unlocking 18+ content packs and drinking games for the whole room. */
   adultModeEnabled: boolean
 }
+
+/** A durable record of one completed mini-game, independent of the live (and overwritten-on-next-game)
+ * `party.roundData` — this is what powers a "parties précédentes" history for a group. */
+export interface GameHistoryEntry {
+  id: number
+  groupId: string
+  gameId: string
+  gameName: string
+  endedAt: number
+  roundsPlayed: number
+}

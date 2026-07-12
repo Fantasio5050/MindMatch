@@ -1,23 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
-
-const STORAGE_KEY = 'mindmatch-sound-muted'
+import { useCallback, useSyncExternalStore } from 'react'
+import { getAudioContext } from '../lib/audioContext'
+import { sfxMutedStore } from '../lib/audioPrefs'
 
 type SoundName = 'vote' | 'reveal' | 'win' | 'tick'
 
-let audioCtx: AudioContext | null = null
-
-function getCtx(): AudioContext | null {
-  if (typeof window === 'undefined') return null
-  if (!audioCtx) {
-    const Ctor = window.AudioContext
-    if (!Ctor) return null
-    audioCtx = new Ctor()
-  }
-  return audioCtx
-}
-
 function beep(freq: number, duration: number, delay = 0): void {
-  const ctx = getCtx()
+  const ctx = getAudioContext()
   if (!ctx) return
   const osc = ctx.createOscillator()
   const gain = ctx.createGain()
@@ -34,7 +22,7 @@ function beep(freq: number, duration: number, delay = 0): void {
 }
 
 function playSound(sound: SoundName): void {
-  const ctx = getCtx()
+  const ctx = getAudioContext()
   if (!ctx) return
   if (ctx.state === 'suspended') void ctx.resume()
   switch (sound) {
@@ -58,17 +46,10 @@ function playSound(sound: SoundName): void {
 }
 
 export function useSound() {
-  const [muted, setMuted] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem(STORAGE_KEY) === '1'
-  })
+  const muted = useSyncExternalStore(sfxMutedStore.subscribe, sfxMutedStore.get)
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, muted ? '1' : '0')
-  }, [muted])
-
-  const play = useCallback((sound: SoundName) => !muted && playSound(sound), [muted])
-  const toggleMuted = useCallback(() => setMuted((m) => !m), [])
+  const play = useCallback((sound: SoundName) => !sfxMutedStore.get() && playSound(sound), [])
+  const toggleMuted = useCallback(() => sfxMutedStore.set(!sfxMutedStore.get()), [])
 
   return { play, muted, toggleMuted }
 }

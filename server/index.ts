@@ -3,8 +3,9 @@ import cors from 'cors'
 import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createGroup, joinGroup, getGroup, saveAnswer, finishMember, isApiError } from './store'
+import { createGroup, joinGroup, getGroup, saveAnswer, finishMember, findAuthorizedMember, isApiError } from './store'
 import { attachRealtime } from './realtime'
+import { readDb, getRecentGameHistory } from './db'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT) || 3001
@@ -70,6 +71,15 @@ api.post('/groups/:groupId/members/:memberId/finish', (req, res) => {
   if (isApiError(result)) return res.status(result.status).json({ error: result.error })
   broadcastRoom(groupId)
   res.json(result)
+})
+
+api.get('/groups/:groupId/history', (req, res) => {
+  const { groupId } = req.params
+  const memberId = typeof req.query.memberId === 'string' ? req.query.memberId : ''
+  const memberToken = typeof req.query.memberToken === 'string' ? req.query.memberToken : ''
+  const authResult = findAuthorizedMember(readDb(), groupId, memberId, memberToken)
+  if (isApiError(authResult)) return res.status(authResult.status).json({ error: authResult.error })
+  res.json({ history: getRecentGameHistory(groupId) })
 })
 
 app.use('/api', api)

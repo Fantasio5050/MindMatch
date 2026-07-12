@@ -1,4 +1,4 @@
-import type { Group } from '../types'
+import type { Group, GameHistoryEntry } from '../types'
 
 export class ApiError extends Error {}
 
@@ -58,4 +58,14 @@ export async function apiFinish(groupId: string, memberId: string, memberToken: 
     body: JSON.stringify({ memberToken }),
   })
   return group
+}
+
+export async function apiGetGameHistory(
+  groupId: string,
+  memberId: string,
+  memberToken: string,
+): Promise<GameHistoryEntry[]> {
+  const params = new URLSearchParams({ memberId, memberToken })
+  const { history } = await request<{ history: GameHistoryEntry[] }>(`/groups/${groupId}/history?${params.toString()}`)
+  return history
 }

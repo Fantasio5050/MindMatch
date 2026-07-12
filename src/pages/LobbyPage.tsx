@@ -8,10 +8,34 @@ import { useAppStore } from '../store/useAppStore'
 import { usePartyStore } from '../store/usePartyStore'
 import { levelProgress } from '../lib/xp'
 import { BADGE_MAP } from '../data/badges'
-import type { Group } from '../types'
+import { apiGetGameHistory } from '../lib/api'
+import type { Group, GameHistoryEntry } from '../types'
 
 type DilemmaPackChoice = 'classic' | 'trash' | 'mixed'
 type PartyCardsPackChoice = 'classic' | 'trash' | 'mixed'
+
+const GAME_ICONS: Record<string, string> = {
+  'who-is-most-likely': '🎯',
+  dilemmas: '⚖️',
+  pyramid: '🍻',
+  'secret-profile': '🔍',
+  'guess-my-answer': '🕵️',
+  'who-wrote-it': '✍️',
+  'party-cards': '🃏',
+  palmier: '🌴',
+  autoroute: '🛣️',
+}
+
+function relativeTime(timestamp: number): string {
+  const diffMs = Date.now() - timestamp
+  const minutes = Math.floor(diffMs / 60000)
+  if (minutes < 1) return "à l'instant"
+  if (minutes < 60) return `il y a ${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `il y a ${hours} h`
+  const days = Math.floor(hours / 24)
+  return `il y a ${days} j`
+}
 
 export function LobbyPage() {
   const navigate = useNavigate()
@@ -32,6 +56,7 @@ export function LobbyPage() {
   const [confirmingAdultMode, setConfirmingAdultMode] = useState(false)
   const [dilemmaPack, setDilemmaPack] = useState<DilemmaPackChoice>('classic')
   const [partyCardsPack, setPartyCardsPack] = useState<PartyCardsPackChoice>('classic')
+  const [history, setHistory] = useState<GameHistoryEntry[]>([])
 
   useEffect(() => {
     if (!identity) return
@@ -42,6 +67,13 @@ export function LobbyPage() {
   useEffect(() => {
     if (partyGroup?.party.status === 'playing') navigate('/play')
   }, [partyGroup?.party.status, navigate])
+
+  useEffect(() => {
+    if (!identity) return
+    apiGetGameHistory(identity.groupId, identity.memberId, identity.memberToken)
+      .then(setHistory)
+      .catch(() => {})
+  }, [identity, partyGroup?.party.status])
 
   const group = partyGroup ?? appGroup
   if (!identity || !group) {
@@ -129,6 +161,25 @@ export function LobbyPage() {
             })}
           </div>
         </Card>
+
+        {history.length > 0 && (
+          <Card className="mb-4" delay={0.08}>
+            <h3 className="text-sm font-bold text-white/70 mb-3">Parties récentes</h3>
+            <div className="flex flex-col gap-2.5">
+              {history.map((h) => (
+                <div key={h.id} className="flex items-center gap-3">
+                  <span className="text-xl shrink-0">{GAME_ICONS[h.gameId] ?? '🎮'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{h.gameName}</p>
+                    <p className="text-[11px] text-white/40">
+                      {h.roundsPlayed} manche{h.roundsPlayed !== 1 ? 's' : ''} · {relativeTime(h.endedAt)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         <AdultModeCard
           adultMode={adultMode}

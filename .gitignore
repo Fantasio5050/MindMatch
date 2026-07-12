@@ -14,7 +14,7 @@ dist-server
 *.local
 
 # Runtime data (created on first server start)
-server/data/db.json
+server/data/
 
 # Editor directories and files
 .vscode/*
