@@ -36,7 +36,8 @@ Les salles, réponses et parties sont partagées en temps réel entre tous les m
 
 - **Frontend** — React 19 + TypeScript + Vite, Tailwind CSS v4, Framer Motion, React Router (HashRouter), Zustand, Socket.IO client. Musique et effets sonores générés en direct avec la Web Audio API (pas de fichiers audio externes).
 - **Backend** — Node.js + Express + Socket.IO.
-- **Persistance** — SQLite (`better-sqlite3`), un seul fichier `server/data/db.sqlite3` (mode WAL), zéro service supplémentaire à installer ou administrer. Groupes et membres sont stockés dans de vraies tables relationnelles ; les données propres à chaque jeu (réponses en cours, historique de manche...) sont stockées en JSON dans quelques colonnes dédiées, plus adapté qu'un schéma rigide vu que chaque mini-jeu a son propre état.
+- **Persistance** — SQLite (`better-sqlite3`), un seul fichier `db.sqlite3` (mode WAL), zéro service supplémentaire à installer ou administrer. Groupes et membres sont stockés dans de vraies tables relationnelles ; les données propres à chaque jeu (réponses en cours, historique de manche...) sont stockées en JSON dans quelques colonnes dédiées, plus adapté qu'un schéma rigide vu que chaque mini-jeu a son propre état.
+- **Déploiement** — `Dockerfile` (multi-stage) + `docker-compose.yml` fournis pour un déploiement conteneurisé en une commande ; fonctionne aussi en Node.js direct sur l'hôte (voir plus bas).
 
 ## Développement local
 
@@ -56,23 +57,45 @@ npm run dev      # Frontend sur http://localhost:5173 (proxy /api vers le serveu
 
 ## Déployer sur ton propre serveur (VPS)
 
-L'app se déploie comme **un seul processus Node** qui sert à la fois le site et l'API — pas besoin de deux hébergements séparés. Le guide ci-dessous suppose un serveur Ubuntu/Debian avec accès root, Nginx en reverse proxy et Let's Encrypt (Certbot) pour le HTTPS ; adapte les noms de domaine/chemins à ta situation.
+L'app se déploie comme **un seul processus Node** qui sert à la fois le site et l'API, exposé sur `127.0.0.1:3001` — Nginx en reverse proxy s'occupe du domaine et du HTTPS par-dessus. Deux façons d'exécuter ce processus : Docker (recommandé, surtout si tu as déjà d'autres services conteneurisés) ou Node.js installé directement sur l'hôte. Le reste du guide (Nginx, DNS, HTTPS, pare-feu) est identique dans les deux cas.
 
-### 1. Dépendances système
+### Option A — Docker (recommandé)
+
+Le repo fournit un `Dockerfile` (multi-stage : build puis image d'exécution allégée) et un `docker-compose.yml`.
+
+```bash
+sudo apt update && sudo apt install -y git docker.io docker-compose-plugin
+sudo mkdir -p /var/www/mindmatch
+sudo chown $USER:$USER /var/www/mindmatch
+git clone <url-de-ton-repo> /var/www/mindmatch
+cd /var/www/mindmatch
+
+docker compose up -d --build
+docker compose ps   # doit afficher le conteneur "mindmatch" en "running"
+```
+
+Les données SQLite vivent dans `./data` (bind mount défini dans `docker-compose.yml`), donc elles survivent aux rebuilds d'image.
+
+Mettre à jour l'app plus tard :
+
+```bash
+cd /var/www/mindmatch
+git pull
+docker compose up -d --build
+```
+
+### Option B — Node.js installé directement sur l'hôte
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y git nginx build-essential python3
+sudo apt install -y git build-essential python3
 
-# Node.js LTS via NodeSource (adapte la version si besoin)
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
 node -v && npm -v
 ```
 
 `build-essential` et `python3` servent à compiler la dépendance native `better-sqlite3` si aucun binaire précompilé n'est disponible pour ta plateforme — l'installation `npm install` s'en charge automatiquement le cas échéant.
-
-### 2. Récupérer et builder l'app
 
 ```bash
 sudo mkdir -p /var/www/mindmatch
@@ -85,9 +108,7 @@ npm run build          # frontend -> dist/
 npm run build:server   # backend  -> dist-server/index.mjs
 ```
 
-### 3. Service systemd (garde le process actif)
-
-Crée `/etc/systemd/system/mindmatch.service` :
+Garde le process actif avec un service systemd — crée `/etc/systemd/system/mindmatch.service` :
 
 ```ini
 [Unit]
@@ -115,7 +136,20 @@ sudo systemctl enable --now mindmatch
 sudo systemctl status mindmatch   # doit afficher "active (running)"
 ```
 
-### 4. Nginx en reverse proxy (avec support WebSocket)
+Mettre à jour l'app plus tard :
+
+```bash
+cd /var/www/mindmatch
+git pull
+npm install
+npm run build
+npm run build:server
+sudo systemctl restart mindmatch
+```
+
+### Nginx en reverse proxy (avec support WebSocket)
+
+Que tu aies choisi l'option A ou B, l'app écoute sur `127.0.0.1:3001` — la config Nginx est la même :
 
 Crée `/etc/nginx/sites-available/mindmatch` :
 
@@ -143,7 +177,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 5. DNS + HTTPS
+### DNS + HTTPS
 
 Pointe un enregistrement DNS de type A (ou AAAA) de `mindmatch.tondomaine.fr` vers l'IP publique du serveur, chez ton registrar/fournisseur DNS. Une fois propagé (`dig mindmatch.tondomaine.fr` doit renvoyer la bonne IP) :
 
@@ -152,9 +186,9 @@ sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d mindmatch.tondomaine.fr
 ```
 
-Certbot édite automatiquement la config Nginx pour rediriger le HTTP vers HTTPS et met en place le renouvellement automatique du certificat (timer systemd `certbot.timer`, déjà activé par défaut).
+Certbot édite automatiquement la config Nginx pour rediriger le HTTP vers HTTPS et met en place le renouvellement automatique du certificat (timer systemd `certbot.timer`, déjà activé par défaut). Si tu gères déjà tes certificats manuellement (méthode webroot, un seul bloc `:80` partagé entre plusieurs domaines...), ajoute simplement `mindmatch.tondomaine.fr` à ce bloc existant et lance `certbot certonly --webroot -w <ton-webroot> -d mindmatch.tondomaine.fr` à la place.
 
-### 6. Pare-feu
+### Pare-feu
 
 ```bash
 sudo ufw allow OpenSSH
@@ -162,24 +196,19 @@ sudo ufw allow 'Nginx Full'
 sudo ufw enable
 ```
 
-### 7. Mettre à jour l'app après un changement
-
-```bash
-cd /var/www/mindmatch
-git pull
-npm install
-npm run build
-npm run build:server
-sudo systemctl restart mindmatch
-```
-
 ### Persistance et sauvegardes
 
-Toutes les données (groupes, membres, scores, historique de parties) vivent dans `server/data/db.sqlite3` (+ ses fichiers `-wal`/`-shm` en mode WAL), créé automatiquement au premier démarrage et **non suivi par git**. Pour changer son emplacement, définis `MINDMATCH_DB_PATH=/chemin/vers/db.sqlite3` dans le service systemd.
+Toutes les données (groupes, membres, scores, historique de parties) vivent dans un fichier `db.sqlite3` (+ ses fichiers `-wal`/`-shm` en mode WAL), créé automatiquement au premier démarrage et **non suivi par git** :
+- **Option A (Docker)** — `./data/db.sqlite3`, à l'extérieur du conteneur grâce au bind mount du `docker-compose.yml`.
+- **Option B (Node direct)** — `server/data/db.sqlite3` par défaut ; change l'emplacement avec `MINDMATCH_DB_PATH=/chemin/vers/db.sqlite3` dans le service systemd.
 
 Pour une sauvegarde propre (cohérente même si le serveur tourne), utilise la commande de backup native de SQLite plutôt qu'une simple copie de fichier :
 
 ```bash
+# Option A (Docker)
+sqlite3 /var/www/mindmatch/data/db.sqlite3 ".backup /chemin/de/sauvegarde/db-$(date +%F).sqlite3"
+
+# Option B (Node direct)
 sqlite3 /var/www/mindmatch/server/data/db.sqlite3 ".backup /chemin/de/sauvegarde/db-$(date +%F).sqlite3"
 ```
 

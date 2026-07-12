@@ -1,0 +1,12 @@
+services:
+  mindmatch:
+    build: .
+    container_name: mindmatch
+    restart: unless-stopped
+    environment:
+      - PORT=3001
+      - MINDMATCH_DB_PATH=/app/data/db.sqlite3
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "127.0.0.1:3001:3001"
