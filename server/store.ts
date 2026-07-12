@@ -45,12 +45,18 @@ export function sanitizeMember(member: StoredMember, isSelf: boolean): Member {
 }
 
 /**
- * Hides per-player secret state from everyone except its owner, following two platform-wide
+ * Hides per-player secret state from everyone except its owner, following platform-wide
  * conventions any game module can opt into just by naming its roundData fields this way:
  *  - `roundData.votes: Record<memberId, choice>` -> replaced with `votedCount` + `yourVote`
  *    (keeps votes anonymous while resolved).
  *  - `roundData.hands: Record<memberId, card[]>` -> replaced with `yourHand` (keeps card hands
  *    private to their owner, e.g. for Pyramide).
+ *  - `roundData.submissions: Record<memberId, text>` -> replaced with `submittedCount` +
+ *    `yourSubmission` (same idea as votes, for free-text answers, e.g. Qui a écrit ça ?).
+ *  - `roundData.secrets: {...}` -> stripped entirely for every client, including its own owner
+ *    (for state nobody should see yet, e.g. the mystery member's identity in Profil secret). The
+ *    game module is responsible for moving values out of `secrets` into a public field once they
+ *    become safe to reveal.
  */
 function sanitizeParty(party: PartySession, requestingMemberId: string | null): PartySession {
   let roundData = party.roundData
@@ -71,6 +77,21 @@ function sanitizeParty(party: PartySession, requestingMemberId: string | null): 
       ...rest,
       yourHand: requestingMemberId ? (hands[requestingMemberId] ?? []) : [],
     }
+  }
+
+  if (roundData && typeof roundData === 'object' && 'submissions' in roundData) {
+    const { submissions, ...rest } = roundData as { submissions: Record<string, string> } & Record<string, unknown>
+    roundData = {
+      ...rest,
+      submittedCount: Object.keys(submissions).length,
+      yourSubmission: requestingMemberId ? (submissions[requestingMemberId] ?? null) : null,
+    }
+  }
+
+  if (roundData && typeof roundData === 'object' && 'secrets' in roundData) {
+    const { secrets, ...rest } = roundData as { secrets: unknown } & Record<string, unknown>
+    void secrets
+    roundData = rest
   }
 
   return { ...party, roundData }

@@ -64,6 +64,8 @@ export function startGame(
   if (group.members.length < game.minPlayers) {
     return { error: `Il faut au moins ${game.minPlayers} joueurs pour ce jeu.`, status: 400 }
   }
+  const canStartError = game.canStart?.(group)
+  if (canStartError) return { error: canStartError, status: 400 }
 
   const { session, xpAwards } = game.initRound(group, emptySession(group.party.hostMemberId, gameId), config)
   settle(group, game, session, xpAwards)

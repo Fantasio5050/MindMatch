@@ -77,6 +77,12 @@ export function QuizPage() {
             ←
           </button>
           <ProgressBar value={index} total={questions.length} />
+          <button
+            onClick={() => navigate('/lobby')}
+            className="text-xs text-white/50 shrink-0 px-2 py-1.5 rounded-full bg-white/8"
+          >
+            Salle
+          </button>
         </div>
 
         <div className="flex-1 flex flex-col justify-center">

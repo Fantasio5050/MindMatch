@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import { PageTransition } from '../components/PageTransition'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
@@ -11,14 +10,8 @@ import { levelProgress } from '../lib/xp'
 import { BADGE_MAP } from '../data/badges'
 import type { Group } from '../types'
 
-const UPCOMING_GAMES = [
-  { icon: '🕵️', name: 'Devine ma réponse' },
-  { icon: '🃏', name: 'Cartes de soirée' },
-  { icon: '✍️', name: 'Qui a écrit ça ?' },
-  { icon: '🔍', name: 'Profil secret' },
-]
-
 type DilemmaPackChoice = 'classic' | 'trash' | 'mixed'
+type PartyCardsPackChoice = 'classic' | 'trash' | 'mixed'
 
 export function LobbyPage() {
   const navigate = useNavigate()
@@ -38,6 +31,7 @@ export function LobbyPage() {
   const [copied, setCopied] = useState(false)
   const [confirmingAdultMode, setConfirmingAdultMode] = useState(false)
   const [dilemmaPack, setDilemmaPack] = useState<DilemmaPackChoice>('classic')
+  const [partyCardsPack, setPartyCardsPack] = useState<PartyCardsPackChoice>('classic')
 
   useEffect(() => {
     if (!identity) return
@@ -60,8 +54,15 @@ export function LobbyPage() {
 
   const me = group.members.find((m) => m.id === identity.memberId)
   const quizDone = !!me?.scores
+  const finishedCount = group.members.filter((m) => m.scores !== null).length
   const canPlayMostLikely = group.members.length >= 3
   const canPlayPyramid = group.members.length >= 2
+  const canPlayPartyCards = group.members.length >= 2
+  const canPlaySecretProfile = group.members.length >= 3 && finishedCount >= 2
+  const canPlayWhoWroteIt = group.members.length >= 3
+  const canPlayGuessMyAnswer = group.members.length >= 3 && finishedCount >= 1
+  const canPlayPalmier = group.members.length >= 2
+  const canPlayAutoroute = group.members.length >= 2
   const adultMode = group.adultModeEnabled
 
   const copyCode = async () => {
@@ -243,23 +244,162 @@ export function LobbyPage() {
             <LockedGameCard icon="🍻" name="Pyramide" note="Jeu à boire — active le mode 18+" />
           )}
 
-          {UPCOMING_GAMES.map((g, i) => (
-            <motion.div
-              key={g.name}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.05 * i }}
-              className="glass-card rounded-3xl p-5 opacity-40"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-3xl grayscale">{g.icon}</span>
+          {adultMode ? (
+            <Card delay={0.26}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-3xl">🌴</span>
                 <div className="flex-1">
-                  <p className="font-semibold text-sm">{g.name}</p>
-                  <p className="text-xs text-white/40">Bientôt disponible</p>
+                  <p className="font-semibold text-sm">Palmier</p>
+                  <p className="text-xs text-white/40">Le Cercle — 52 cartes, cul sec au centre 🥃</p>
                 </div>
               </div>
-            </motion.div>
-          ))}
+              {isHost ? (
+                <Button
+                  fullWidth
+                  disabled={!canPlayPalmier}
+                  onClick={() => startGame('palmier')}
+                  className="!py-2.5 text-sm"
+                >
+                  {canPlayPalmier ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
+                </Button>
+              ) : (
+                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
+              )}
+            </Card>
+          ) : (
+            <LockedGameCard icon="🌴" name="Palmier" note="Jeu à boire — active le mode 18+" />
+          )}
+
+          {adultMode ? (
+            <Card delay={0.27}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-3xl">🛣️</span>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">Autoroute</p>
+                  <p className="text-xs text-white/40">Plus haut ou plus bas — rate et tu bois</p>
+                </div>
+              </div>
+              {isHost ? (
+                <Button
+                  fullWidth
+                  disabled={!canPlayAutoroute}
+                  onClick={() => startGame('autoroute')}
+                  className="!py-2.5 text-sm"
+                >
+                  {canPlayAutoroute ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
+                </Button>
+              ) : (
+                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
+              )}
+            </Card>
+          ) : (
+            <LockedGameCard icon="🛣️" name="Autoroute" note="Jeu à boire — active le mode 18+" />
+          )}
+
+          <Card delay={0.28}>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-3xl">🔍</span>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">Profil secret</p>
+                <p className="text-xs text-white/40">Des indices sur les traits, devinez qui c'est</p>
+              </div>
+            </div>
+            {isHost ? (
+              <Button
+                fullWidth
+                disabled={!canPlaySecretProfile}
+                onClick={() => startGame('secret-profile')}
+                className="!py-2.5 text-sm"
+              >
+                {canPlaySecretProfile
+                  ? 'Lancer la partie'
+                  : 'Il faut 3 joueurs, dont 2 ayant fini le test'}
+              </Button>
+            ) : (
+              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
+            )}
+          </Card>
+
+          <Card delay={0.3}>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-3xl">🕵️</span>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">Devine ma réponse</p>
+                <p className="text-xs text-white/40">Devinez ce qu'un·e ami·e a répondu au quiz</p>
+              </div>
+            </div>
+            {isHost ? (
+              <Button
+                fullWidth
+                disabled={!canPlayGuessMyAnswer}
+                onClick={() => startGame('guess-my-answer')}
+                className="!py-2.5 text-sm"
+              >
+                {canPlayGuessMyAnswer ? 'Lancer la partie' : 'Il faut 3 joueurs, dont 1 ayant fini le test'}
+              </Button>
+            ) : (
+              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
+            )}
+          </Card>
+
+          <Card delay={0.32}>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-3xl">✍️</span>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">Qui a écrit ça ?</p>
+                <p className="text-xs text-white/40">Écrivez, mélangez, devinez les auteur·rice·s</p>
+              </div>
+            </div>
+            {isHost ? (
+              <Button
+                fullWidth
+                disabled={!canPlayWhoWroteIt}
+                onClick={() => startGame('who-wrote-it')}
+                className="!py-2.5 text-sm"
+              >
+                {canPlayWhoWroteIt ? 'Lancer la partie' : 'Il faut au moins 3 joueurs'}
+              </Button>
+            ) : (
+              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
+            )}
+          </Card>
+
+          <Card delay={0.34}>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-3xl">🃏</span>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">Cartes de soirée</p>
+                <p className="text-xs text-white/40">Action, vérité, défi — à tour de rôle</p>
+              </div>
+            </div>
+            <div className="flex gap-1.5 mb-3">
+              <PackPill label="Classique" active={partyCardsPack === 'classic'} onClick={() => setPartyCardsPack('classic')} />
+              <PackPill
+                label="Trash 18+"
+                active={partyCardsPack === 'trash'}
+                locked={!adultMode}
+                onClick={() => adultMode && setPartyCardsPack('trash')}
+              />
+              <PackPill
+                label="Mixte"
+                active={partyCardsPack === 'mixed'}
+                locked={!adultMode}
+                onClick={() => adultMode && setPartyCardsPack('mixed')}
+              />
+            </div>
+            {isHost ? (
+              <Button
+                fullWidth
+                disabled={!canPlayPartyCards}
+                onClick={() => startGame('party-cards', { pack: partyCardsPack })}
+                className="!py-2.5 text-sm"
+              >
+                {canPlayPartyCards ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
+              </Button>
+            ) : (
+              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
+            )}
+          </Card>
         </div>
 
         <Card delay={0.3} className="text-center">
@@ -337,9 +477,9 @@ function AdultModeCard({
       <Card className="mb-4 border-pink-500/30">
         <p className="text-sm font-bold mb-2">🔞 Activer le contenu 18+ ?</p>
         <p className="text-xs text-white/60 leading-relaxed mb-4">
-          Cette salle va inclure de l'humour cru et un jeu à boire (Pyramide). Buvez avec modération, restez
-          maîtres de votre soirée, ne prenez jamais le volant après avoir bu, et remplacez l'alcool par de l'eau
-          ou une boisson sans alcool si vous préférez. L'objectif reste de s'amuser ensemble.
+          Cette salle va inclure de l'humour cru et des jeux à boire (Pyramide, Palmier, Autoroute). Buvez avec
+          modération, restez maîtres de votre soirée, ne prenez jamais le volant après avoir bu, et remplacez
+          l'alcool par de l'eau ou une boisson sans alcool si vous préférez. L'objectif reste de s'amuser ensemble.
         </p>
         <div className="flex gap-2">
           <Button variant="ghost" fullWidth onClick={onCancel} className="!py-2.5 text-sm">

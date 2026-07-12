@@ -24,6 +24,10 @@ export interface GameModule {
   name: string
   icon: string
   minPlayers: number
+  /** Extra game-specific eligibility check beyond minPlayers (e.g. "needs 2 players with a
+   * finished MindMatch profile"). Return an error message to block starting, or null/undefined
+   * to allow it. */
+  canStart?(group: Group): string | null
   /**
    * Starts a fresh round (or the first round) — called on game start and on host "next round".
    * `config` is only meaningful on the very first call (e.g. a chosen content pack); later calls
