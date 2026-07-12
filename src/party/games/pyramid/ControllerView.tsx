@@ -464,12 +464,12 @@ function RecitationView({
                   Carte {currentSlot + 1} : {pendingRank === null ? 'quelle valeur ?' : 'quel signe ?'}
                 </p>
                 {pendingRank === null ? (
-                  <div className="grid grid-cols-7 gap-1.5">
+                  <div className="grid grid-cols-5 gap-1.5">
                     {RANKS.map((r) => (
                       <button
                         key={r}
                         onClick={() => pickRank(r)}
-                        className="glass-card rounded-xl py-2 text-sm font-bold active:bg-white/15"
+                        className="glass-card rounded-xl py-2.5 text-sm font-bold text-white active:bg-white/15"
                       >
                         {rankLabel(r)}
                       </button>
