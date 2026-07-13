@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { HORSES, PMU_TRACK_LEN } from './types'
 import type { PmuRaceEvent } from './types'
-import { computePlayback, horseVisualPosition } from './timeline'
+import { computePlayback, raceElapsed, horseVisualPosition } from './timeline'
 
 /** Scène 3D du PMU (three.js impératif) : hippodrome nocturne sous projecteurs, 4 chevaux
  * low-poly animés, caméra cinématique qui suit le leader. Chargée en lazy uniquement sur la TV —
@@ -268,7 +268,7 @@ export default function RaceScene3D({ events, raceStartedAt, winnerSuit }: Scene
       const t = clock.getElapsedTime()
       const { events: raceEvents, raceStartedAt: startedAt, winnerSuit: winner } = stateRef.current
       const racing = !!raceEvents && raceEvents.length > 0 && startedAt !== null
-      const playback = racing ? computePlayback(raceEvents, Date.now() - startedAt) : null
+      const playback = racing ? computePlayback(raceEvents, raceElapsed(startedAt)) : null
 
       let leaderX = START_X
       for (const h of HORSES) {

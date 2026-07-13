@@ -166,45 +166,94 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
   )
 }
 
+const PULL_RANGE_PX = 300 // tirer sur ~30 cm d'écran = jauge pleine
+
 function SwipePad({ state, onSpin }: { state: WheelClientState; onSpin: (force: number) => void }) {
   const startRef = useRef<{ y: number; t: number } | null>(null)
+  const [power, setPower] = useState(0)
+  const [dragging, setDragging] = useState(false)
   const [sent, setSent] = useState(false)
 
   const onPointerDown = (e: React.PointerEvent) => {
+    if (sent) return
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     startRef.current = { y: e.clientY, t: performance.now() }
+    setDragging(true)
+    setPower(0)
   }
-  const onPointerUp = (e: React.PointerEvent) => {
+  const onPointerMove = (e: React.PointerEvent) => {
+    const start = startRef.current
+    if (!start || sent) return
+    setPower(Math.min(1, Math.max(0, (start.y - e.clientY) / PULL_RANGE_PX)))
+  }
+  const onPointerEnd = (e: React.PointerEvent) => {
     const start = startRef.current
     startRef.current = null
+    setDragging(false)
     if (!start || sent) return
-    const dy = start.y - e.clientY // swipe vers le haut = positif
-    const dt = Math.max(1, performance.now() - start.t)
-    const velocity = dy / dt // px/ms
-    if (dy < 30) return // trop court pour compter
-    const force = Math.min(1, Math.max(0.15, velocity / 2.2))
+    const dy = start.y - e.clientY
+    if (dy < 25) {
+      setPower(0) // geste trop court : on annule, sans pénalité
+      return
+    }
+    // La distance donne la base (lisible, prévisible), la vitesse du geste ajoute un bonus.
+    const velocity = dy / Math.max(1, performance.now() - start.t)
+    const force = Math.min(1, Math.max(0.15, dy / PULL_RANGE_PX + Math.min(0.3, velocity / 3)))
+    setPower(force)
     setSent(true)
+    navigator.vibrate?.(60)
     onSpin(force)
   }
 
+  const percent = Math.round(power * 100)
+
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-5">
-      <WheelSVG segments={state.segments} angle={state.wheelAngle} size={210} />
+    <div className="flex-1 flex flex-col items-center justify-center gap-4">
+      <div style={{ transform: `scale(${1 + power * 0.06})`, transition: 'transform 80ms' }}>
+        <WheelSVG segments={state.segments} angle={state.wheelAngle - power * 40} size={200} />
+      </div>
+
       <div
         onPointerDown={onPointerDown}
-        onPointerUp={onPointerUp}
-        className="w-full max-w-xs h-44 rounded-3xl border-2 border-dashed border-fuchsia-400/50 bg-fuchsia-500/10 flex flex-col items-center justify-center gap-2 select-none touch-none"
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        className="relative w-full max-w-xs h-52 rounded-3xl overflow-hidden glass-card border border-fuchsia-400/40 select-none touch-none"
       >
-        {sent ? (
-          <p className="text-white/60 text-sm">🎡 C'est parti !</p>
-        ) : (
-          <>
-            <motion.span animate={{ y: [8, -8, 8] }} transition={{ duration: 1.2, repeat: Infinity }} className="text-4xl">
-              ⬆️
-            </motion.span>
-            <p className="font-bold">À toi de jouer — SWIPE vers le haut !</p>
-            <p className="text-white/40 text-xs">Plus le geste est rapide, plus la roue tourne</p>
-          </>
-        )}
+        {/* Jauge de puissance qui monte avec le doigt */}
+        <div
+          className="absolute inset-x-0 bottom-0 pointer-events-none"
+          style={{
+            height: `${power * 100}%`,
+            background: 'linear-gradient(180deg, rgba(232,121,249,0.55) 0%, rgba(139,92,246,0.35) 100%)',
+            transition: dragging ? 'none' : 'height 250ms ease',
+          }}
+        />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 pointer-events-none">
+          {sent ? (
+            <>
+              <span className="text-4xl">🎡</span>
+              <p className="font-bold">Lancée à {percent}% !</p>
+            </>
+          ) : dragging ? (
+            <>
+              <span className="text-4xl font-extrabold shimmer-text tabular-nums">{percent}%</span>
+              <p className="text-white/70 text-sm font-semibold">{power >= 0.95 ? '🔥 PLEINE PUISSANCE !' : 'Relâche pour lancer !'}</p>
+            </>
+          ) : (
+            <>
+              <motion.span animate={{ y: [10, -10, 10] }} transition={{ duration: 1.3, repeat: Infinity, ease: 'easeInOut' }} className="text-4xl">
+                👆
+              </motion.span>
+              <p className="font-bold">Maintiens et tire vers le haut</p>
+              <p className="text-white/40 text-xs">puis relâche pour lancer la roue</p>
+            </>
+          )}
+        </div>
+        {/* Graduations de la jauge */}
+        {[25, 50, 75].map((g) => (
+          <div key={g} className="absolute inset-x-4 border-t border-dashed border-white/10 pointer-events-none" style={{ bottom: `${g}%` }} />
+        ))}
       </div>
     </div>
   )

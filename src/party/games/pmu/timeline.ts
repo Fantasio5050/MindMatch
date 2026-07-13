@@ -15,6 +15,25 @@ export function eventDuration(event: PmuRaceEvent): number {
   return FINISH_MS
 }
 
+/** L'horodatage serveur `raceStartedAt` n'est fiable que si l'horloge locale est à l'heure du
+ * serveur. Sur une TV ou un PC dont l'horloge dérive de quelques secondes, la course semblait
+ * déjà finie (ou ne démarrait pas). Au-delà de la latence réseau plausible, on re-base donc le
+ * départ sur l'horloge LOCALE à la réception — tous les écrans reçoivent le broadcast à ~100 ms
+ * près, la salle reste synchrone. */
+const CLOCK_SKEW_TOLERANCE_MS = 1500
+const rebasedStarts = new Map<number, number>()
+
+export function raceElapsed(raceStartedAt: number): number {
+  const now = Date.now()
+  let start = rebasedStarts.get(raceStartedAt)
+  if (start === undefined) {
+    start = Math.abs(now - raceStartedAt) > CLOCK_SKEW_TOLERANCE_MS ? now : raceStartedAt
+    if (rebasedStarts.size > 10) rebasedStarts.clear()
+    rebasedStarts.set(raceStartedAt, start)
+  }
+  return now - start
+}
+
 export interface PlaybackState {
   /** Encore dans le compte à rebours de départ. */
   countdown: boolean
