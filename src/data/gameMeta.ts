@@ -15,4 +15,5 @@ export const GAME_META: Record<string, GameMeta> = {
   palmier: { id: 'palmier', name: 'Palmier', icon: '🌴' },
   autoroute: { id: 'autoroute', name: 'Autoroute', icon: '🛣️' },
   pmu: { id: 'pmu', name: 'PMU', icon: '🏇' },
+  wheel: { id: 'wheel', name: 'Roue Infernale', icon: '🎡' },
 }

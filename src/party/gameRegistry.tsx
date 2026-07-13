@@ -19,6 +19,8 @@ import { AutorouteController } from './games/autoroute/ControllerView'
 import { AutorouteScreen } from './games/autoroute/ScreenView'
 import { PmuController } from './games/pmu/ControllerView'
 import { PmuScreen } from './games/pmu/ScreenView'
+import { WheelController } from './games/wheel/ControllerView'
+import { WheelScreen } from './games/wheel/ScreenView'
 
 interface ClientGameEntry {
   Controller: ComponentType
@@ -36,4 +38,5 @@ export const CLIENT_GAME_REGISTRY: Record<string, ClientGameEntry> = {
   palmier: { Controller: PalmierController, Screen: PalmierScreen },
   autoroute: { Controller: AutorouteController, Screen: AutorouteScreen },
   pmu: { Controller: PmuController, Screen: PmuScreen },
+  wheel: { Controller: WheelController, Screen: WheelScreen },
 }
