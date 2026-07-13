@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { WHEEL_SEGMENT_DEG, type WheelSegment } from '../../../data/wheelSegments'
 import { wheelAngleAt } from './spinMath'
 import type { WheelSpin } from './types'
+import { createManagedRenderer, makeFrameGate, disposeScene } from '../../lib/threePerf'
 
 /** Roue Infernale en 3D (three.js impératif) : grande roue verticale de plateau TV, jante néon,
  * pointeur lumineux, estrade et projecteurs. Chargée en lazy — seule la TV télécharge three.js.
@@ -94,10 +95,9 @@ export default function WheelScene3D({ segments, spin, restAngle }: SceneProps) 
     const container = containerRef.current
     if (!container) return
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75))
-    renderer.setSize(container.clientWidth, container.clientHeight)
-    container.appendChild(renderer.domElement)
+    const managed = createManagedRenderer(container)
+    const renderer = managed.renderer
+    const shouldRender = makeFrameGate()
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x0b0714)
@@ -187,11 +187,11 @@ export default function WheelScene3D({ segments, spin, restAngle }: SceneProps) 
     const camPos = new THREE.Vector3(0, WHEEL_Y + 0.6, 18)
     const camTarget = new THREE.Vector3(0, WHEEL_Y - 0.2, 0)
     let disposed = false
+    let lastFrame = performance.now()
 
-    function animate() {
+    function animate(now: number) {
       if (disposed) return
       requestAnimationFrame(animate)
-      const t = clock.getElapsedTime()
       const { spin: activeSpin, restAngle: rest } = stateRef.current
 
       let angle = rest
@@ -201,6 +201,13 @@ export default function WheelScene3D({ segments, spin, restAngle }: SceneProps) 
         angle = at.angle
         spinningProgress = at.done ? null : at.progress
       }
+
+      // 60 fps pendant la rotation, 30 fps quand la roue est à l'arrêt ; rendu suspendu sans
+      // crasher si le contexte WebGL est momentanément perdu (TV fragile).
+      if (!managed.canRender() || !shouldRender(now, spinningProgress !== null)) return
+      const dtFrames = Math.min(4, (now - lastFrame) / 16.67)
+      lastFrame = now
+      const t = clock.getElapsedTime()
       // Rotation horaire à l'écran (face +Z) = rotation.z négative.
       wheelGroup.rotation.z = (-angle * Math.PI) / 180
 
@@ -208,37 +215,31 @@ export default function WheelScene3D({ segments, spin, restAngle }: SceneProps) 
       pointer.rotation.z = Math.PI + (spinningProgress !== null ? Math.sin(t * 40) * 0.12 * (1 - spinningProgress) : 0)
 
       // Caméra : léger balancement au repos, travelling avant pendant la décélération.
+      // Amorti compensé par le temps réel, identique à 30 comme à 60 fps.
       const push = spinningProgress !== null ? spinningProgress * 1.6 : 0
       const wantedPos = new THREE.Vector3(Math.sin(t * 0.25) * 1.6, WHEEL_Y + 0.6 + Math.sin(t * 0.4) * 0.3, 18 - push)
-      camPos.lerp(wantedPos, 0.04)
+      camPos.lerp(wantedPos, 1 - Math.pow(1 - 0.04, dtFrames))
       camera.position.copy(camPos)
       camera.lookAt(camTarget)
 
       renderer.render(scene, camera)
     }
-    animate()
+    requestAnimationFrame(animate)
 
     const onResize = () => {
       if (!container) return
       camera.aspect = container.clientWidth / container.clientHeight
       camera.updateProjectionMatrix()
-      renderer.setSize(container.clientWidth, container.clientHeight)
+      managed.resize()
     }
     window.addEventListener('resize', onResize)
 
     return () => {
       disposed = true
       window.removeEventListener('resize', onResize)
-      renderer.dispose()
       texture.dispose()
-      scene.traverse((obj) => {
-        const mesh = obj as THREE.Mesh
-        if (mesh.geometry) mesh.geometry.dispose()
-        const material = mesh.material as THREE.Material | THREE.Material[] | undefined
-        if (Array.isArray(material)) material.forEach((m) => m.dispose())
-        else if (material) material.dispose()
-      })
-      renderer.domElement.remove()
+      disposeScene(scene)
+      managed.dispose()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [segmentsKey])

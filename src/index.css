@@ -84,3 +84,41 @@ body {
   color: transparent;
   animation: shimmer 5s linear infinite;
 }
+
+/* Animations décoratives en CSS pur : elles tournent sur le compositeur GPU (transform/opacity
+   uniquement), sans travail JavaScript par frame — contrairement aux boucles framer-motion
+   infinies qui réveillaient le main thread 60 fois par seconde et chauffaient les téléphones. */
+@keyframes blob-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(40px, -30px) scale(1.12); }
+  66% { transform: translate(-20px, 20px) scale(0.95); }
+}
+.ambient-blob {
+  animation: blob-drift ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes float-bob {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50% { transform: translateY(-18px) rotate(8deg); }
+}
+.float-bob {
+  display: inline-block;
+  animation: float-bob ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+.glow-pulse {
+  animation: glow-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-blob,
+  .float-bob,
+  .glow-pulse {
+    animation: none;
+  }
+}

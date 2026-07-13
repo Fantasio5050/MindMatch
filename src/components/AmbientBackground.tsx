@@ -1,6 +1,3 @@
-import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-
 interface Blob {
   color: string
   size: number
@@ -17,44 +14,27 @@ const BLOBS: Blob[] = [
   { color: '#38bdf8', size: 34, top: '5%', left: '70%', duration: 24, delay: 1 },
 ]
 
-/** Slowly drifting, blurred gradient blobs behind every page — mounted once at the app root so
- * the animation never restarts on navigation. Purely decorative: fixed, non-interactive, and
- * disabled when the user prefers reduced motion. */
+/** Slowly drifting gradient blobs behind every page — mounted once at the app root.
+ * Perf : animation 100% CSS (compositeur GPU, zéro JS par frame — l'ancienne version framer-motion
+ * réveillait le main thread en continu sur chaque page), et pas de filter:blur — le dégradé radial
+ * est déjà doux, le blur de 40px sur des surfaces de 50vmax coûtait très cher sur mobile.
+ * `prefers-reduced-motion` est géré par la classe .ambient-blob elle-même. */
 export function AmbientBackground() {
-  const [reduced, setReduced] = useState(false)
-
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setReduced(mq.matches)
-    const onChange = () => setReduced(mq.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-
   return (
     <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none" aria-hidden="true">
       {BLOBS.map((b, i) => (
-        <motion.div
+        <div
           key={i}
-          className="absolute rounded-full"
+          className="absolute rounded-full ambient-blob"
           style={{
             width: `${b.size}vmax`,
             height: `${b.size}vmax`,
             top: b.top,
             left: b.left,
             background: `radial-gradient(circle, ${b.color}55 0%, ${b.color}00 70%)`,
-            filter: 'blur(40px)',
+            animationDuration: `${b.duration}s`,
+            animationDelay: `${b.delay}s`,
           }}
-          animate={
-            reduced
-              ? {}
-              : {
-                  x: [0, 40, -20, 0],
-                  y: [0, -30, 20, 0],
-                  scale: [1, 1.12, 0.95, 1],
-                }
-          }
-          transition={{ duration: b.duration, delay: b.delay, repeat: Infinity, ease: 'easeInOut' }}
         />
       ))}
       <div

@@ -74,15 +74,13 @@ export function HomePage() {
       <div className="min-h-svh flex flex-col justify-between px-6 pt-14 pb-10 safe-top relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
           {FLOATING_EMOJIS.map((f, i) => (
-            <motion.span
+            <span
               key={i}
-              className="absolute text-2xl opacity-30 select-none"
-              style={{ top: f.top, left: f.left }}
-              animate={{ y: [0, -18, 0], rotate: [-8, 8, -8] }}
-              transition={{ duration: f.duration, delay: f.delay, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute text-2xl opacity-30 select-none float-bob"
+              style={{ top: f.top, left: f.left, animationDuration: `${f.duration}s`, animationDelay: `${f.delay}s` }}
             >
               {f.emoji}
-            </motion.span>
+            </span>
           ))}
         </div>
 
@@ -92,13 +90,12 @@ export function HomePage() {
             animate={{ scale: 1, opacity: 1, rotate: 0 }}
             transition={{ type: 'spring', duration: 0.8, bounce: 0.5 }}
           >
-            <motion.span
-              animate={{ y: [0, -10, 0], rotate: [-4, 4, -4] }}
-              transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
-              className="text-7xl block drop-shadow-[0_0_36px_rgba(217,70,239,0.55)]"
+            <span
+              className="text-7xl block drop-shadow-[0_0_36px_rgba(217,70,239,0.55)] float-bob"
+              style={{ animationDuration: '3.2s' }}
             >
               🧠
-            </motion.span>
+            </span>
           </motion.div>
 
           <motion.h1
@@ -132,22 +129,17 @@ export function HomePage() {
               >
                 <motion.div
                   initial={{ opacity: 0, y: 14 }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                    boxShadow: [
-                      '0 0 0px rgba(217,70,239,0)',
-                      '0 0 28px rgba(217,70,239,0.45)',
-                      '0 0 0px rgba(217,70,239,0)',
-                    ],
-                  }}
-                  transition={{
-                    opacity: { delay: 0.1, duration: 0.3 },
-                    y: { delay: 0.1, duration: 0.3 },
-                    boxShadow: { delay: 0.5, duration: 2.4, repeat: Infinity, ease: 'easeInOut' },
-                  }}
-                  className="rounded-2xl"
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1, duration: 0.3 }}
+                  className="rounded-2xl relative"
                 >
+                  {/* Halo pulsé en CSS (opacity sur une ombre statique) : animer box-shadow via JS
+                      forçait un repaint complet du bouton à chaque frame, en continu. */}
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0 rounded-2xl glow-pulse pointer-events-none"
+                    style={{ boxShadow: '0 0 28px rgba(217,70,239,0.45)' }}
+                  />
                   <Button fullWidth onClick={() => goTo('create')}>
                     ✨ Créer un groupe
                   </Button>

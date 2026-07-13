@@ -81,7 +81,7 @@ export function WheelController() {
           {memberName(state.spin.spinnerId)} a lancé la roue 🎡
         </p>
         <div className="flex justify-center mb-4">
-          <WheelSVG segments={state.segments} angle={playback.angle} size={230} />
+          <WheelSVG segments={state.segments} angle={state.wheelAngle} spin={state.spin} size={230} />
         </div>
 
         {!playback.done ? (

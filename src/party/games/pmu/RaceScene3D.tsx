@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { HORSES, PMU_TRACK_LEN } from './types'
 import type { PmuRaceEvent } from './types'
 import { computePlayback, raceElapsed, horseVisualPosition } from './timeline'
+import { createManagedRenderer, makeFrameGate, disposeScene } from '../../lib/threePerf'
 
 /** Scène 3D du PMU (three.js impératif) : hippodrome nocturne sous projecteurs, 4 chevaux
  * low-poly animés, caméra cinématique qui suit le leader. Chargée en lazy uniquement sur la TV —
@@ -153,10 +154,9 @@ export default function RaceScene3D({ events, raceStartedAt, winnerSuit }: Scene
     const container = containerRef.current
     if (!container) return
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75))
-    renderer.setSize(container.clientWidth, container.clientHeight)
-    container.appendChild(renderer.domElement)
+    const managed = createManagedRenderer(container)
+    const renderer = managed.renderer
+    const shouldRender = makeFrameGate()
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x0b0714)
@@ -202,12 +202,13 @@ export default function RaceScene3D({ events, raceStartedAt, winnerSuit }: Scene
       scene.add(line)
     }
     const railMat = new THREE.MeshStandardMaterial({ color: 0xf4f2f8, roughness: 0.5 })
+    const postGeo = new THREE.BoxGeometry(0.09, 0.75, 0.09)
     for (const side of [-1, 1]) {
       const rail = new THREE.Mesh(new THREE.BoxGeometry(FINISH_X + 14, 0.09, 0.09), railMat)
       rail.position.set(FINISH_X / 2, 0.75, side * (LANE_Z * 2 + 0.8))
       scene.add(rail)
       for (let x = -6; x <= FINISH_X + 7; x += 3.2) {
-        const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.75, 0.09), railMat)
+        const post = new THREE.Mesh(postGeo, railMat)
         post.position.set(x, 0.375, side * (LANE_Z * 2 + 0.8))
         scene.add(post)
       }
@@ -235,14 +236,15 @@ export default function RaceScene3D({ events, raceStartedAt, winnerSuit }: Scene
     finishStrip.position.set(FINISH_X, 0.02, 0)
     scene.add(finishStrip)
 
-    // Petite foule : gradins de cubes colorés qui sautillent.
+    // Petite foule : gradins de cubes colorés qui sautillent. Géométrie et matériaux PARTAGÉS
+    // (l'ancienne version créait 90 géométries + 90 matériaux = 90 programmes d'état GPU).
     const crowd: THREE.Mesh[] = []
-    const crowdColors = [0xf472b6, 0x60a5fa, 0xfbbf24, 0x34d399, 0xa78bfa, 0xf87171]
-    for (let i = 0; i < 90; i++) {
-      const cube = new THREE.Mesh(
-        new THREE.BoxGeometry(0.5, 0.7, 0.5),
-        new THREE.MeshStandardMaterial({ color: crowdColors[i % crowdColors.length], roughness: 0.8 }),
-      )
+    const crowdGeo = new THREE.BoxGeometry(0.5, 0.7, 0.5)
+    const crowdMats = [0xf472b6, 0x60a5fa, 0xfbbf24, 0x34d399, 0xa78bfa, 0xf87171].map(
+      (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.8 }),
+    )
+    for (let i = 0; i < 60; i++) {
+      const cube = new THREE.Mesh(crowdGeo, crowdMats[i % crowdMats.length])
       const row = Math.floor(i / 30)
       cube.position.set(-4 + (i % 30) * ((FINISH_X + 10) / 30), 0.9 + row * 0.9, -(LANE_Z * 2 + 2.6 + row * 1.1))
       scene.add(cube)
@@ -261,14 +263,22 @@ export default function RaceScene3D({ events, raceStartedAt, winnerSuit }: Scene
     const camPos = new THREE.Vector3(START_X - 9, 6.5, 13)
     const camTarget = new THREE.Vector3(START_X + 5, 1.2, 0)
     let disposed = false
+    let lastFrame = performance.now()
 
-    function animate() {
+    function animate(now: number) {
       if (disposed) return
       requestAnimationFrame(animate)
-      const t = clock.getElapsedTime()
       const { events: raceEvents, raceStartedAt: startedAt, winnerSuit: winner } = stateRef.current
       const racing = !!raceEvents && raceEvents.length > 0 && startedAt !== null
       const playback = racing ? computePlayback(raceEvents, raceElapsed(startedAt)) : null
+
+      // 60 fps pendant la course, 30 fps au paddock/podium — et rien du tout si le contexte
+      // WebGL est momentanément perdu (TV fragile) : on attend sa restauration sans crasher.
+      const active = !!playback && !playback.done
+      if (!managed.canRender() || !shouldRender(now, active)) return
+      const dtFrames = Math.min(4, (now - lastFrame) / 16.67)
+      lastFrame = now
+      const t = clock.getElapsedTime()
 
       let leaderX = START_X
       for (const h of HORSES) {
@@ -327,35 +337,29 @@ export default function RaceScene3D({ events, raceStartedAt, winnerSuit }: Scene
         wantedPos = new THREE.Vector3(leaderX - 5.5, 6.2, 12.5)
         wantedTarget = new THREE.Vector3(leaderX + 3.5, 1.1, 0)
       }
-      camPos.lerp(wantedPos, 0.045)
-      camTarget.lerp(wantedTarget, 0.065)
+      // Amorti compensé par le temps réel, pour rester identique à 30 comme à 60 fps.
+      camPos.lerp(wantedPos, 1 - Math.pow(1 - 0.045, dtFrames))
+      camTarget.lerp(wantedTarget, 1 - Math.pow(1 - 0.065, dtFrames))
       camera.position.copy(camPos)
       camera.lookAt(camTarget)
 
       renderer.render(scene, camera)
     }
-    animate()
+    requestAnimationFrame(animate)
 
     const onResize = () => {
       if (!container) return
       camera.aspect = container.clientWidth / container.clientHeight
       camera.updateProjectionMatrix()
-      renderer.setSize(container.clientWidth, container.clientHeight)
+      managed.resize()
     }
     window.addEventListener('resize', onResize)
 
     return () => {
       disposed = true
       window.removeEventListener('resize', onResize)
-      renderer.dispose()
-      scene.traverse((obj) => {
-        const mesh = obj as THREE.Mesh
-        if (mesh.geometry) mesh.geometry.dispose()
-        const material = mesh.material as THREE.Material | THREE.Material[] | undefined
-        if (Array.isArray(material)) material.forEach((m) => m.dispose())
-        else if (material) material.dispose()
-      })
-      renderer.domElement.remove()
+      disposeScene(scene)
+      managed.dispose()
     }
   }, [])
 

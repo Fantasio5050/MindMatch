@@ -3,20 +3,18 @@ import { useSound } from '../../../hooks/useSound'
 import { wheelAngleAt, segmentUnderPointer } from './spinMath'
 import type { WheelSpin } from './types'
 
-export interface WheelPlayback {
-  angle: number
-  progress: number
+export interface WheelSpinStatus {
   done: boolean
   segmentIndex: number
 }
 
-/** Anime le spin en cours (~30 fps pour l'UI React ; la 3D interpole en 60 fps de son côté) et
- * joue le "tic" du cliquet chaque fois qu'une frontière de segment passe sous le pointeur. */
-export function useWheelSpin(spin: WheelSpin | null, restAngle: number): WheelPlayback {
+/** Suit l'état DISCRET du spin pour l'UI React (fini ? segment sous le pointeur ?) et joue le
+ * "tic" du cliquet à chaque frontière. Un re-render n'est déclenché que quand l'une de ces deux
+ * valeurs change (quelques fois par seconde) — la rotation continue, elle, est animée par la
+ * scène 3D (TV) et par WheelSVG (téléphones) directement en rAF, sans passer par React. */
+export function useWheelSpin(spin: WheelSpin | null, restAngle: number): WheelSpinStatus {
   const { play } = useSound()
-  const [state, setState] = useState<WheelPlayback>(() => ({
-    angle: restAngle,
-    progress: 1,
+  const [status, setStatus] = useState<WheelSpinStatus>(() => ({
     done: true,
     segmentIndex: segmentUnderPointer(restAngle),
   }))
@@ -24,22 +22,23 @@ export function useWheelSpin(spin: WheelSpin | null, restAngle: number): WheelPl
 
   useEffect(() => {
     if (!spin) {
-      setState({ angle: restAngle, progress: 1, done: true, segmentIndex: segmentUnderPointer(restAngle) })
+      const segmentIndex = segmentUnderPointer(restAngle)
+      setStatus((prev) => (prev.done && prev.segmentIndex === segmentIndex ? prev : { done: true, segmentIndex }))
       return
     }
     lastSegment.current = segmentUnderPointer(spin.fromAngle)
     const interval = setInterval(() => {
-      const { angle, progress, done } = wheelAngleAt(spin, Date.now())
+      const { angle, done } = wheelAngleAt(spin, Date.now())
       const segmentIndex = segmentUnderPointer(angle)
       if (segmentIndex !== lastSegment.current) {
         lastSegment.current = segmentIndex
         play('tick')
       }
-      setState({ angle, progress, done, segmentIndex })
+      setStatus((prev) => (prev.done === done && prev.segmentIndex === segmentIndex ? prev : { done, segmentIndex }))
       if (done) clearInterval(interval)
-    }, 33)
+    }, 50)
     return () => clearInterval(interval)
   }, [spin, restAngle, play])
 
-  return state
+  return status
 }
