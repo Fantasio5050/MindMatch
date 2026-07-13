@@ -1,4 +1,4 @@
-import { readDb, writeDb } from './db'
+import { readDb, writeDb, deleteMember as deleteMemberRow } from './db'
 import type { StoredGroup, StoredMember } from './types'
 import type { Group, Member, PartySession } from '../src/types'
 import { computeScores, getArchetypeId } from '../src/lib/scoring'
@@ -264,6 +264,43 @@ export function updateMemberPhoto(
   result.member.photoUrl = photoUrl
   writeDb(db)
   return { group: sanitizeGroup(result.group, memberId) }
+}
+
+/**
+ * Lets the host remove a member entirely — the escape hatch for the "closed the tab, came back,
+ * had to pick a new pseudo, old ghost member stuck in the room/game forever" scenario. The ghost
+ * is deleted outright (not just marked offline) so every game module's own completion checks
+ * (which iterate `group.members` or `party.participantIds`) stop waiting on someone who no longer
+ * exists, instead of hanging the round forever.
+ */
+export function kickMember(
+  groupId: string,
+  hostMemberId: string,
+  hostToken: string,
+  targetMemberId: string,
+): { group: Group } | ApiError {
+  const db = readDb()
+  const result = findAuthorizedMember(db, groupId, hostMemberId, hostToken)
+  if (isApiError(result)) return result
+  const { group } = result
+
+  if (group.party.hostMemberId !== hostMemberId) {
+    return { error: "Seul·e l'hôte peut exclure un joueur.", status: 403 }
+  }
+  if (targetMemberId === hostMemberId) {
+    return { error: "Tu ne peux pas t'exclure toi-même.", status: 400 }
+  }
+  const targetIndex = group.members.findIndex((m) => m.id === targetMemberId)
+  if (targetIndex === -1) {
+    return { error: 'Membre introuvable.', status: 404 }
+  }
+
+  group.members.splice(targetIndex, 1)
+  group.party.participantIds = group.party.participantIds.filter((id) => id !== targetMemberId)
+  writeDb(db)
+  deleteMemberRow(targetMemberId)
+
+  return { group: sanitizeGroup(group, hostMemberId) }
 }
 
 export function finishMember(

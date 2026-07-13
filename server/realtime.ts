@@ -1,7 +1,7 @@
 import { Server, type Socket } from 'socket.io'
 import type { Server as HttpServer } from 'node:http'
 import { readDb } from './db'
-import { findAuthorizedMember, sanitizeGroup, isApiError } from './store'
+import { findAuthorizedMember, sanitizeGroup, isApiError, kickMember } from './store'
 import { startGame, submitAction, hostAdvance, endGame, setAdultMode } from './party'
 import { EMOTES } from '../src/data/emotes'
 
@@ -145,6 +145,33 @@ export function attachRealtime(httpServer: HttpServer): { broadcastRoom: (groupI
         memberId: socket.data.memberId,
         emoji,
       })
+    })
+
+    // Host removes a stuck/ghost/disruptive player. The target's own socket(s) get an explicit
+    // notice + forced disconnect so their app bounces home immediately, instead of silently
+    // showing them a room that no longer includes them.
+    socket.on('party:kick', (payload: { targetMemberId?: string }) => {
+      if (!socket.data.memberId) return
+      const targetMemberId = payload?.targetMemberId
+      if (!targetMemberId) return
+      const result = kickMember(groupId, socket.data.memberId, memberToken, targetMemberId)
+      if (isApiError(result)) {
+        socket.emit('party:error', { error: result.error })
+        return
+      }
+
+      const room = io.sockets.adapter.rooms.get(groupId)
+      if (room) {
+        for (const socketId of room) {
+          const targetSocket = io.sockets.sockets.get(socketId)
+          if (targetSocket?.data.memberId === targetMemberId) {
+            targetSocket.emit('party:kicked')
+            targetSocket.leave(groupId)
+            targetSocket.disconnect(true)
+          }
+        }
+      }
+      broadcastRoom(groupId)
     })
 
     socket.on('party:endGame', () => {

@@ -38,6 +38,7 @@ export function LobbyPage() {
   const startGame = usePartyStore((s) => s.startGame)
   const setAdultMode = usePartyStore((s) => s.setAdultMode)
   const disconnect = usePartyStore((s) => s.disconnect)
+  const kickMember = usePartyStore((s) => s.kickMember)
   const partyGroup = usePartyStore((s) => s.group)
   const onlinePlayerIds = usePartyStore((s) => s.onlinePlayerIds)
   const isHost = usePartyStore((s) => s.isHost())
@@ -48,6 +49,7 @@ export function LobbyPage() {
   const [copied, setCopied] = useState(false)
   const [confirmingAdultMode, setConfirmingAdultMode] = useState(false)
   const [confirmingLeave, setConfirmingLeave] = useState(false)
+  const [confirmingKickId, setConfirmingKickId] = useState<string | null>(null)
   const [dilemmaPack, setDilemmaPack] = useState<DilemmaPackChoice>('classic')
   const [partyCardsPack, setPartyCardsPack] = useState<PartyCardsPackChoice>('classic')
   const [autorouteCycles, setAutorouteCycles] = useState(3)
@@ -127,6 +129,12 @@ export function LobbyPage() {
     disconnect()
     leaveGroup()
     navigate('/')
+  }
+
+  const handleKick = (targetMemberId: string) => {
+    play('pop')
+    kickMember(targetMemberId)
+    setConfirmingKickId(null)
   }
 
   const handlePhotoPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,6 +235,32 @@ export function LobbyPage() {
                     </div>
                     <p className="text-[11px] text-white/40">Niveau {progress.level} · {m.xp} XP</p>
                   </div>
+                  {isHost && !isMe && (
+                    confirmingKickId === m.id ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => handleKick(m.id)}
+                          className="text-[11px] font-semibold text-pink-300 underline"
+                        >
+                          Exclure ?
+                        </button>
+                        <button
+                          onClick={() => setConfirmingKickId(null)}
+                          className="text-[11px] text-white/40 underline"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmingKickId(m.id)}
+                        className="text-[11px] text-white/30 underline underline-offset-2 shrink-0"
+                        aria-label={`Exclure ${m.pseudo}`}
+                      >
+                        🚫 Kick
+                      </button>
+                    )
+                  )}
                 </div>
               )
             })}

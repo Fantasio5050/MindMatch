@@ -16,6 +16,9 @@ interface PartyState {
   error: string | null
   /** Live emoji reactions currently floating on screen — each auto-expires after a few seconds. */
   emotes: EmoteEvent[]
+  /** True right after the host kicks THIS client out of the room — a page-level watcher redirects
+   * home and shows a message, then clears it. */
+  kicked: boolean
 
   connectAsPlayer: () => void
   connectAsSpectator: (code: string) => void
@@ -23,10 +26,12 @@ interface PartyState {
   startGame: (gameId: string, config?: unknown) => void
   sendAction: (type: string, payload: unknown) => void
   sendEmote: (emoji: string) => void
+  kickMember: (targetMemberId: string) => void
   hostAdvance: () => void
   endGame: () => void
   setAdultMode: (enabled: boolean) => void
   clearError: () => void
+  clearKicked: () => void
 
   currentMember: () => Member | null
   isHost: () => boolean
@@ -44,6 +49,10 @@ export const usePartyStore = create<PartyState>((set, get) => {
       set((s) => ({ emotes: [...s.emotes, msg] }))
       setTimeout(() => set((s) => ({ emotes: s.emotes.filter((e) => e.id !== msg.id) })), EMOTE_LIFETIME_MS)
     })
+    socket.on('party:kicked', () => {
+      disconnectSocket()
+      set({ socket: null, connected: false, group: null, emotes: [], kicked: true })
+    })
   }
 
   return {
@@ -54,6 +63,7 @@ export const usePartyStore = create<PartyState>((set, get) => {
     isSpectator: false,
     error: null,
     emotes: [],
+    kicked: false,
 
     connectAsPlayer: () => {
       if (get().socket && !get().isSpectator) return // already connected, reused across party pages
@@ -82,10 +92,12 @@ export const usePartyStore = create<PartyState>((set, get) => {
     startGame: (gameId, config) => get().socket?.emit('party:start', { gameId, config }),
     sendAction: (type, payload) => get().socket?.emit('party:action', { type, payload }),
     sendEmote: (emoji) => get().socket?.emit('party:emote', { emoji }),
+    kickMember: (targetMemberId) => get().socket?.emit('party:kick', { targetMemberId }),
     hostAdvance: () => get().socket?.emit('party:hostAdvance'),
     endGame: () => get().socket?.emit('party:endGame'),
     setAdultMode: (enabled) => get().socket?.emit('party:setAdultMode', { enabled }),
     clearError: () => set({ error: null }),
+    clearKicked: () => set({ kicked: false }),
 
     currentMember: () => {
       const { group } = get()

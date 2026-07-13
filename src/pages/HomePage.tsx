@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { PageTransition } from '../components/PageTransition'
@@ -6,6 +6,7 @@ import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 import { useSound } from '../hooks/useSound'
 import { useAppStore } from '../store/useAppStore'
+import { usePartyStore } from '../store/usePartyStore'
 
 type Mode = 'landing' | 'create' | 'join'
 
@@ -30,6 +31,15 @@ export function HomePage() {
   const [code, setCode] = useState(prefillCode ? prefillCode.toUpperCase() : '')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const kicked = usePartyStore((s) => s.kicked)
+  const clearKicked = usePartyStore((s) => s.clearKicked)
+  const [showKickedNotice, setShowKickedNotice] = useState(false)
+  useEffect(() => {
+    if (!kicked) return
+    setShowKickedNotice(true)
+    clearKicked()
+  }, [kicked, clearKicked])
 
   const goTo = (next: Mode) => {
     play('tick')
@@ -83,6 +93,15 @@ export function HomePage() {
             </span>
           ))}
         </div>
+
+        {showKickedNotice && (
+          <Card className="relative mb-2 border-pink-500/40 text-center">
+            <p className="text-sm text-pink-300">🚪 L'hôte t'a exclu·e du salon.</p>
+            <button onClick={() => setShowKickedNotice(false)} className="text-xs text-white/40 mt-1 underline">
+              Fermer
+            </button>
+          </Card>
+        )}
 
         <div className="flex flex-col items-center text-center gap-3 mt-6 relative">
           <motion.div

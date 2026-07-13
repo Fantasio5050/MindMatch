@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from './store/useAppStore'
 import { usePartyStore } from './store/usePartyStore'
@@ -46,6 +46,23 @@ function RequireFinished({ children }: { children: ReactNode }) {
   if (!member) return <Splash />
   if (!member.scores) return <Navigate to="/quiz" replace />
   return <>{children}</>
+}
+
+/** Watches for the host kicking THIS client out of a room — bounces home from wherever the
+ * player currently is (lobby, mid-game, TV setup...) instead of leaving them stuck looking at a
+ * room that silently no longer includes them. The `kicked` flag itself is left set so HomePage
+ * can read it once to show a message, then clear it. */
+function KickWatcher() {
+  const navigate = useNavigate()
+  const kicked = usePartyStore((s) => s.kicked)
+
+  useEffect(() => {
+    if (!kicked) return
+    useAppStore.getState().leaveGroup()
+    navigate('/', { replace: true })
+  }, [kicked, navigate])
+
+  return null
 }
 
 /** Picks the background-music ambiance: the in-game track while a party game is actually running
@@ -163,6 +180,7 @@ function App() {
       <AmbientBackground />
       <AudioControls />
       <MusicDirector />
+      <KickWatcher />
       <AppBootstrap />
     </HashRouter>
   )

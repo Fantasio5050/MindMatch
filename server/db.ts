@@ -230,6 +230,15 @@ export function writeDb(db: Database): void {
   writeTx(db)
 }
 
+const deleteMemberStmt = sqlite.prepare('DELETE FROM members WHERE id = ?')
+
+/** Actually removes a member row — `writeDb` only ever upserts whatever is in the snapshot it's
+ * given, so simply omitting a member from `group.members` before calling it would NOT delete
+ * their row (the next readDb() would resurrect them). Used when the host kicks someone. */
+export function deleteMember(memberId: string): void {
+  deleteMemberStmt.run(memberId)
+}
+
 const insertHistory = sqlite.prepare(`
   INSERT INTO game_history (group_id, game_id, game_name, ended_at, rounds_played)
   VALUES (@groupId, @gameId, @gameName, @endedAt, @roundsPlayed)
