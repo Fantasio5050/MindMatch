@@ -7,7 +7,7 @@ import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
 import { CardFace } from './CardFace'
-import { sipLabel, rankLabel, SUITS } from './types'
+import { sipLabel, rankLabel, SUITS, distributionSlots } from './types'
 import type { PyramidClientState, Accusation, RecitationGuess } from './types'
 import type { Member } from '../../../types'
 
@@ -18,17 +18,18 @@ function memberNameFactory(members: Member[]) {
 function accusationLabel(a: Accusation, memberName: (id: string) => string): string {
   const accuser = memberName(a.accuserId)
   const target = memberName(a.targetId)
+  const sips = `${a.sips} gorgée${a.sips > 1 ? 's' : ''}`
   switch (a.status) {
     case 'pending':
-      return `${accuser} distribue à ${target}… en attente de réponse`
+      return `${accuser} distribue ${sips} à ${target}… en attente de réponse`
     case 'accepted':
-      return `${target} a bu (a fait confiance à ${accuser})`
+      return `${target} a bu ${sips} (a fait confiance à ${accuser})`
     case 'awaiting-proof':
       return `${target} a dit "tu bluffes !" → ${accuser} doit prouver sa carte`
     case 'contested-wrong':
-      return `${target} a douté à tort → boit double !`
+      return `${target} a douté à tort → boit ${a.sips * 2} gorgées !`
     case 'contested-right':
-      return `${accuser} bluffait → boit double !`
+      return `${accuser} bluffait → boit ${a.sips * 2} gorgées !`
   }
 }
 
@@ -278,6 +279,14 @@ function MatchingView({
   const myProofNeeded = cardAccusations.find((a) => a.accuserId === selfId && a.status === 'awaiting-proof')
   const isLast = state.currentIndex >= state.pyramid.length - 1
 
+  // Distribution budget for THIS card: 1 shot for level 1 / cul sec, or as many 1-sip slots as
+  // the card is worth for levels 2-4 — splittable across several targets, but never re-usable
+  // once spent (stops one player from spamming "Distribuer" on every single victim).
+  const totalSlots = distributionSlots(card.sips)
+  const mySlotsUsed = cardAccusations.filter((a) => a.accuserId === selfId).length
+  const slotsLeft = Math.max(0, totalSlots - mySlotsUsed)
+  const canDistribute = slotsLeft > 0
+
   return (
     <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
       <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">
@@ -324,15 +333,23 @@ function MatchingView({
         </Card>
       )}
 
-      {!pickingTarget && (
+      {!pickingTarget && canDistribute && (
         <Button fullWidth variant="secondary" onClick={() => setPickingTarget(true)} className="mb-4">
-          🍻 Distribuer une gorgée
+          🍻 Distribuer{totalSlots > 1 ? ` (${slotsLeft} restante${slotsLeft > 1 ? 's' : ''})` : ' une gorgée'}
         </Button>
+      )}
+
+      {!pickingTarget && !canDistribute && (
+        <p className="text-center text-white/30 text-xs mb-4">
+          Tu as déjà distribué cette carte — attends la prochaine !
+        </p>
       )}
 
       {pickingTarget && (
         <Card className="mb-4">
-          <p className="text-sm font-semibold mb-3 text-center">Qui doit boire ?</p>
+          <p className="text-sm font-semibold mb-3 text-center">
+            {totalSlots > 1 ? `Qui doit boire 1 gorgée ? (${slotsLeft} à distribuer)` : 'Qui doit boire ?'}
+          </p>
           <div className="grid grid-cols-3 gap-2">
             {members
               .filter((m) => m.id !== selfId)
@@ -341,11 +358,11 @@ function MatchingView({
                   key={m.id}
                   onClick={() => {
                     onDistribute(m.id)
-                    setPickingTarget(false)
+                    if (slotsLeft <= 1) setPickingTarget(false)
                   }}
                   className="glass-card rounded-2xl p-3 flex flex-col items-center gap-1.5"
                 >
-                  <Avatar pseudo={m.pseudo} color={m.color} size={36} />
+                  <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
                   <span className="text-xs font-medium truncate w-full text-center">{m.pseudo}</span>
                 </button>
               ))}

@@ -13,6 +13,9 @@ export interface Accusation {
   accuserId: string
   targetId: string
   status: AccusationStatus
+  /** Sips at stake for this specific claim (may be less than the card's full value — see the
+   * distribution budget: level 2+ cards split into several 1-sip claims). */
+  sips: number
 }
 
 export interface PyramidCard {
@@ -67,4 +70,12 @@ export function rankLabel(rank: number): string {
 export function sipLabel(sips: number | 'culsec'): string {
   if (sips === 'culsec') return 'CUL SEC 🥃'
   return `${sips} gorgée${sips > 1 ? 's' : ''}`
+}
+
+/** How many times a player may distribute for a given card — mirrors the server's rule exactly
+ * (see server/games/pyramid.ts::distributionBudget) so the button can disable itself locally
+ * instead of waiting on a round-trip. Level 1 and cul sec: 1 shot, all-or-nothing. Levels 2-4:
+ * as many slots as the card is worth, splittable across different players. */
+export function distributionSlots(sips: number | 'culsec'): number {
+  return sips === 'culsec' ? 1 : sips
 }

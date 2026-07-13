@@ -12,17 +12,18 @@ import type { Member } from '../../../types'
 function accusationLabel(a: Accusation, memberName: (id: string) => string): string {
   const accuser = memberName(a.accuserId)
   const target = memberName(a.targetId)
+  const sips = `${a.sips} gorgée${a.sips > 1 ? 's' : ''}`
   switch (a.status) {
     case 'pending':
-      return `${accuser} distribue à ${target}…`
+      return `${accuser} distribue ${sips} à ${target}…`
     case 'accepted':
-      return `${target} boit`
+      return `${target} boit ${sips}`
     case 'awaiting-proof':
       return `${target} doute → ${accuser} doit prouver sa carte`
     case 'contested-wrong':
-      return `${target} doutait à tort → boit double`
+      return `${target} doutait à tort → boit ${a.sips * 2} gorgées`
     case 'contested-right':
-      return `${accuser} bluffait → boit double`
+      return `${accuser} bluffait → boit ${a.sips * 2} gorgées`
   }
 }
 

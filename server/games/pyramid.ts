@@ -39,6 +39,9 @@ interface Accusation {
   accuserId: string
   targetId: string
   status: AccusationStatus
+  /** Sips at stake for THIS claim specifically (not necessarily the card's full value — see
+   * `distributionBudget` below for why a level 2+ card can be split into several 1-sip claims). */
+  sips: number
 }
 
 interface RecitationGuess {
@@ -136,6 +139,15 @@ function addSips(totals: Record<string, number>, memberId: string, amount: numbe
   return { ...totals, [memberId]: (totals[memberId] ?? 0) + amount }
 }
 
+/** How many times a player may distribute for a given card, and how many sips each pick is
+ * worth. Level 1 and cul sec are all-or-nothing (1 slot) — cul sec means "finish your drink",
+ * not something you hand out in tiny pieces. Levels 2/3/4 open up exactly that many 1-sip slots,
+ * so the distributor can split them across several targets instead of dumping them on one person. */
+function distributionBudget(card: { sips: number | 'culsec' }): { slots: number; perPickSips: number } {
+  if (card.sips === 'culsec') return { slots: 1, perPickSips: CULSEC_WEIGHT }
+  return { slots: card.sips, perPickSips: 1 }
+}
+
 export const pyramid: GameModule = {
   id: 'pyramid',
   name: 'Pyramide',
@@ -226,12 +238,23 @@ export const pyramid: GameModule = {
       if (!targetMemberId || targetMemberId === memberId || !group.members.some((m) => m.id === targetMemberId)) {
         return { session }
       }
+      const card = state.pyramid[state.currentIndex]
+      if (!card) return { session }
+
+      // One distribution "budget" per player per card — prevents spamming the same card with
+      // accusation after accusation. Levels 2+ simply open several 1-sip slots, so the budget
+      // check is a plain slot count, not a sip total.
+      const { slots, perPickSips } = distributionBudget(card)
+      const alreadyUsed = state.accusations.filter((a) => a.cardIndex === state.currentIndex && a.accuserId === memberId).length
+      if (alreadyUsed >= slots) return { session }
+
       const accusation: Accusation = {
         id: `acc-${state.accusations.length}-${Math.random().toString(36).slice(2, 7)}`,
         cardIndex: state.currentIndex,
         accuserId: memberId,
         targetId: targetMemberId,
         status: 'pending',
+        sips: perPickSips,
       }
       return { session: { ...session, roundData: { ...state, accusations: [...state.accusations, accusation] } } }
     }
@@ -240,8 +263,6 @@ export const pyramid: GameModule = {
       const payload = action.payload as { accusationId?: string; contest?: boolean } | null
       const accusation = state.accusations.find((a) => a.id === payload?.accusationId)
       if (!accusation || accusation.targetId !== memberId || accusation.status !== 'pending') return { session }
-      const card = state.pyramid[accusation.cardIndex]
-      if (!card) return { session }
 
       let status: AccusationStatus
       let totals = state.totalSipsReceived
@@ -249,7 +270,7 @@ export const pyramid: GameModule = {
       if (!payload?.contest) {
         // Accepted at face value: the target trusts the distributor really has the card, no proof needed.
         status = 'accepted'
-        totals = addSips(totals, memberId, card.sips === 'culsec' ? CULSEC_WEIGHT : card.sips)
+        totals = addSips(totals, memberId, accusation.sips)
       } else {
         // "Tu bluffes !" — the distributor now has ONE attempt to point at the exact card in their
         // hand that matches. Nothing resolves yet: see the `proveCard` action below.
@@ -268,7 +289,6 @@ export const pyramid: GameModule = {
       if (!card) return { session }
       const slot = payload?.cardSlotIndex
       if (slot === undefined || slot === null) return { session }
-      const sipValue = card.sips === 'culsec' ? CULSEC_WEIGHT : card.sips
 
       // Single attempt: whichever one card they point to is the whole answer, correct or not —
       // no re-tries, and no credit for "having a match somewhere else" in hand.
@@ -281,11 +301,11 @@ export const pyramid: GameModule = {
 
       if (correct) {
         status = 'contested-wrong'
-        totals = addSips(totals, accusation.targetId, sipValue * 2)
+        totals = addSips(totals, accusation.targetId, accusation.sips * 2)
         xpAwards.push({ memberId: accusation.accuserId, amount: CONTEST_XP, reason: 'A prouvé sa carte' })
       } else {
         status = 'contested-right'
-        totals = addSips(totals, accusation.accuserId, sipValue * 2)
+        totals = addSips(totals, accusation.accuserId, accusation.sips * 2)
         xpAwards.push({ memberId: accusation.targetId, amount: CONTEST_XP, reason: 'A démasqué un bluff' })
       }
 
