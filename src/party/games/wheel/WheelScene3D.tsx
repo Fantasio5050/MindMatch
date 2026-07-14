@@ -104,16 +104,15 @@ export default function WheelScene3D({ segments, spin, restAngle }: SceneProps) 
     scene.fog = new THREE.Fog(0x0b0714, 22, 55)
     const camera = new THREE.PerspectiveCamera(48, container.clientWidth / container.clientHeight, 0.1, 100)
 
-    scene.add(new THREE.AmbientLight(0x9988bb, 0.9))
+    // Un seul point light (au lieu de deux) : le coût d'éclairage dynamique est par-pixel-par-
+    // lumière, et un GPU de TV faible n'a pas de marge pour un second halo à peine perceptible.
+    scene.add(new THREE.AmbientLight(0x9988bb, 1.0))
     const key = new THREE.DirectionalLight(0xffffff, 1.4)
     key.position.set(6, 12, 14)
     scene.add(key)
-    const glowPink = new THREE.PointLight(0xe879f9, 70, 45)
-    glowPink.position.set(-8, 8, 6)
+    const glowPink = new THREE.PointLight(0xe879f9, 70, 50)
+    glowPink.position.set(0, 8, 6)
     scene.add(glowPink)
-    const glowPurple = new THREE.PointLight(0x8b5cf6, 70, 45)
-    glowPurple.position.set(8, 8, 6)
-    scene.add(glowPurple)
 
     // Sol et estrade.
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 80), new THREE.MeshStandardMaterial({ color: 0x151021, roughness: 0.9 }))
@@ -186,11 +185,15 @@ export default function WheelScene3D({ segments, spin, restAngle }: SceneProps) 
     const clock = new THREE.Clock()
     const camPos = new THREE.Vector3(0, WHEEL_Y + 0.6, 18)
     const camTarget = new THREE.Vector3(0, WHEEL_Y - 0.2, 0)
+    // Réutilisée via .set() au lieu de `new THREE.Vector3()` à chaque frame — évite la pression
+    // GC à 60 fps sur les GPU/CPU faibles.
+    const wantedPos = new THREE.Vector3()
     let disposed = false
     let lastFrame = performance.now()
 
     function animate(now: number) {
       if (disposed) return
+      if (managed.isFatal()) return // GPU jugé mort : on arrête complètement la boucle de rendu
       requestAnimationFrame(animate)
       const { spin: activeSpin, restAngle: rest } = stateRef.current
 
@@ -217,7 +220,7 @@ export default function WheelScene3D({ segments, spin, restAngle }: SceneProps) 
       // Caméra : léger balancement au repos, travelling avant pendant la décélération.
       // Amorti compensé par le temps réel, identique à 30 comme à 60 fps.
       const push = spinningProgress !== null ? spinningProgress * 1.6 : 0
-      const wantedPos = new THREE.Vector3(Math.sin(t * 0.25) * 1.6, WHEEL_Y + 0.6 + Math.sin(t * 0.4) * 0.3, 18 - push)
+      wantedPos.set(Math.sin(t * 0.25) * 1.6, WHEEL_Y + 0.6 + Math.sin(t * 0.4) * 0.3, 18 - push)
       camPos.lerp(wantedPos, 1 - Math.pow(1 - 0.04, dtFrames))
       camera.position.copy(camPos)
       camera.lookAt(camTarget)
@@ -237,8 +240,7 @@ export default function WheelScene3D({ segments, spin, restAngle }: SceneProps) 
     return () => {
       disposed = true
       window.removeEventListener('resize', onResize)
-      texture.dispose()
-      disposeScene(scene)
+      disposeScene(scene) // dispose aussi la texture de `face` (voir disposeMaterial dans threePerf)
       managed.dispose()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

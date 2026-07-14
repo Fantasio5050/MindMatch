@@ -4,6 +4,7 @@ import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'
 import { Avatar } from '../../../components/Avatar'
 import { Confetti } from '../../../components/Confetti'
+import { SceneErrorBoundary } from '../../../components/SceneErrorBoundary'
 import { useWheelSpin } from './useWheelSpin'
 import type { WheelClientState } from './types'
 import type { Member } from '../../../types'
@@ -50,21 +51,29 @@ export function WheelScreen() {
   return (
     <div className="relative min-h-svh overflow-hidden">
       <Confetti trigger={confettiTrigger} />
-      <Suspense
+      <SceneErrorBoundary
         fallback={
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-white/40 text-2xl">Installation de la roue… 🎡</p>
+            <p className="text-white/30 text-xl px-10 text-center">🎡 Affichage 3D indisponible sur cet appareil — la roue continue ci-dessous.</p>
           </div>
         }
       >
-        {state && (
-          <WheelScene3D
-            segments={state.segments}
-            spin={phase === 'spinning' ? state.spin : null}
-            restAngle={state.wheelAngle}
-          />
-        )}
-      </Suspense>
+        <Suspense
+          fallback={
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p className="text-white/40 text-2xl">Installation de la roue… 🎡</p>
+            </div>
+          }
+        >
+          {state && (
+            <WheelScene3D
+              segments={state.segments}
+              spin={phase === 'spinning' ? state.spin : null}
+              restAngle={state.wheelAngle}
+            />
+          )}
+        </Suspense>
+      </SceneErrorBoundary>
 
       <div className="absolute inset-0 z-10 pointer-events-none flex flex-col">
         {phase === 'intro' && <IntroOverlay />}

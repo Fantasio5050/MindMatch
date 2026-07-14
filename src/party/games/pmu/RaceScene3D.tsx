@@ -164,17 +164,16 @@ export default function RaceScene3D({ events, raceStartedAt, winnerSuit }: Scene
 
     const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 200)
 
-    // --- Lumières : nuit de gala, projecteurs violets/roses assortis à l'app. ---
-    scene.add(new THREE.AmbientLight(0x9988bb, 0.85))
+    // --- Lumières : nuit de gala, projecteur rose assorti à l'app. Un seul point light (au lieu
+    // de deux) : le coût d'éclairage dynamique est par-pixel-par-lumière, et un GPU de TV faible
+    // n'a pas de marge à donner pour un deuxième halo qui ne change presque rien visuellement. ---
+    scene.add(new THREE.AmbientLight(0x9988bb, 0.95))
     const moon = new THREE.DirectionalLight(0xbbaaff, 1.5)
     moon.position.set(-10, 25, 15)
     scene.add(moon)
-    const glowPink = new THREE.PointLight(0xe879f9, 60, 60)
-    glowPink.position.set(FINISH_X, 8, -8)
+    const glowPink = new THREE.PointLight(0xe879f9, 60, 70)
+    glowPink.position.set((START_X + FINISH_X) / 2, 8, -4)
     scene.add(glowPink)
-    const glowPurple = new THREE.PointLight(0x8b5cf6, 60, 60)
-    glowPurple.position.set(START_X + 6, 8, 8)
-    scene.add(glowPurple)
 
     // --- Sol + piste. ---
     const ground = new THREE.Mesh(
@@ -262,11 +261,17 @@ export default function RaceScene3D({ events, raceStartedAt, winnerSuit }: Scene
     const clock = new THREE.Clock()
     const camPos = new THREE.Vector3(START_X - 9, 6.5, 13)
     const camTarget = new THREE.Vector3(START_X + 5, 1.2, 0)
+    // Cibles caméra réutilisées via .set() au lieu de `new THREE.Vector3()` à chaque frame — sur
+    // une TV bas de gamme, cette allocation à 60 fps finissait par déclencher des pauses de
+    // garbage collection visibles (et de la pression mémoire évitable).
+    const wantedPos = new THREE.Vector3()
+    const wantedTarget = new THREE.Vector3()
     let disposed = false
     let lastFrame = performance.now()
 
     function animate(now: number) {
       if (disposed) return
+      if (managed.isFatal()) return // GPU jugé mort : on arrête complètement la boucle de rendu
       requestAnimationFrame(animate)
       const { events: raceEvents, raceStartedAt: startedAt, winnerSuit: winner } = stateRef.current
       const racing = !!raceEvents && raceEvents.length > 0 && startedAt !== null
@@ -320,22 +325,20 @@ export default function RaceScene3D({ events, raceStartedAt, winnerSuit }: Scene
       }
 
       // --- Caméra. ---
-      let wantedPos: THREE.Vector3
-      let wantedTarget: THREE.Vector3
       if (!racing || !playback) {
         // Paddock : lente orbite autour de la ligne de départ.
         const a = t * 0.18
-        wantedPos = new THREE.Vector3(START_X + 3 + Math.sin(a) * 11, 5.5 + Math.sin(t * 0.4) * 0.6, Math.cos(a) * 11 + 4)
-        wantedTarget = new THREE.Vector3(START_X + 1.5, 1.2, 0)
+        wantedPos.set(START_X + 3 + Math.sin(a) * 11, 5.5 + Math.sin(t * 0.4) * 0.6, Math.cos(a) * 11 + 4)
+        wantedTarget.set(START_X + 1.5, 1.2, 0)
       } else if (playback.countdown) {
-        wantedPos = new THREE.Vector3(START_X - 8, 4.5, 10)
-        wantedTarget = new THREE.Vector3(START_X + 4, 1.4, 0)
+        wantedPos.set(START_X - 8, 4.5, 10)
+        wantedTarget.set(START_X + 4, 1.4, 0)
       } else if (playback.done) {
-        wantedPos = new THREE.Vector3(FINISH_X - 3, 4.5, 10.5)
-        wantedTarget = new THREE.Vector3(FINISH_X - 1, 1.6, 0)
+        wantedPos.set(FINISH_X - 3, 4.5, 10.5)
+        wantedTarget.set(FINISH_X - 1, 1.6, 0)
       } else {
-        wantedPos = new THREE.Vector3(leaderX - 5.5, 6.2, 12.5)
-        wantedTarget = new THREE.Vector3(leaderX + 3.5, 1.1, 0)
+        wantedPos.set(leaderX - 5.5, 6.2, 12.5)
+        wantedTarget.set(leaderX + 3.5, 1.1, 0)
       }
       // Amorti compensé par le temps réel, pour rester identique à 30 comme à 60 fps.
       camPos.lerp(wantedPos, 1 - Math.pow(1 - 0.045, dtFrames))
