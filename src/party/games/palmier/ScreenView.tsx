@@ -4,7 +4,7 @@ import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'
 import { Avatar } from '../../../components/Avatar'
 import { Confetti } from '../../../components/Confetti'
-import { CardFace } from '../pyramid/CardFace'
+import { PlayingCard } from '../shared/PlayingCard'
 import type { PalmierClientState } from './types'
 import type { Member } from '../../../types'
 
@@ -74,14 +74,7 @@ function DrawingScreen({ state, members }: { state: PalmierClientState; members:
     <div className="flex items-center gap-16 w-full max-w-6xl">
       <div className="flex flex-col items-center gap-4">
         {state.currentCard && (
-          <motion.div
-            key={state.currentCard.id}
-            initial={{ scale: 0.7, opacity: 0, rotateY: 90 }}
-            animate={{ scale: 1, opacity: 1, rotateY: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <CardFace rank={state.currentCard.rank} suit={state.currentCard.suit} size={140} />
-          </motion.div>
+          <PlayingCard key={state.currentCard.id} rank={state.currentCard.rank} suit={state.currentCard.suit} size={140} flipReveal />
         )}
         <p className="text-white/40 text-lg uppercase tracking-widest">
           Carte {state.currentIndex + 1} / {state.totalCards}

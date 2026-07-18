@@ -6,7 +6,7 @@ import { useSound } from '../../../hooks/useSound'
 import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
-import { CardFace } from '../pyramid/CardFace'
+import { PlayingCard } from '../shared/PlayingCard'
 import { QUESTION_META, CHOICE_META, choiceLabel } from './types'
 import type { AutorouteClientState, AutorouteChoice, AutorouteTrackCell } from './types'
 import type { Member } from '../../../types'
@@ -248,21 +248,21 @@ function PredictingView({
           <div className="flex flex-col items-center mb-6">
             {kind === 'higher-lower' && recent.length > 0 && (
               <>
-                <CardFace rank={recent[recent.length - 1].rank} suit={recent[recent.length - 1].suit} size={72} />
+                <PlayingCard rank={recent[recent.length - 1].rank} suit={recent[recent.length - 1].suit} size={72} />
                 <p className="text-white/50 text-sm mt-3">Ta carte de référence</p>
               </>
             )}
             {kind === 'red-black' && (
               <>
-                <CardFace faceDown size={72} />
+                <PlayingCard faceDown size={72} />
                 <p className="text-white/50 text-sm mt-3">La prochaine carte sera…</p>
               </>
             )}
             {kind === 'inter-exter' && recent.length >= 2 && (
               <>
                 <div className="flex gap-3">
-                  <CardFace rank={recent[recent.length - 2].rank} suit={recent[recent.length - 2].suit} size={64} />
-                  <CardFace rank={recent[recent.length - 1].rank} suit={recent[recent.length - 1].suit} size={64} />
+                  <PlayingCard rank={recent[recent.length - 2].rank} suit={recent[recent.length - 2].suit} size={64} />
+                  <PlayingCard rank={recent[recent.length - 1].rank} suit={recent[recent.length - 1].suit} size={64} dealDelay={0.12} />
                 </div>
                 <p className="text-white/50 text-sm mt-3">Entre ces deux cartes… ou pas ?</p>
               </>
@@ -325,7 +325,7 @@ function RevealView({
       {myResult ? (
         <Card className="text-center mb-4">
           <div className="flex justify-center mb-3">
-            <CardFace rank={myResult.drawnCard.rank} suit={myResult.drawnCard.suit} size={64} />
+            <PlayingCard rank={myResult.drawnCard.rank} suit={myResult.drawnCard.suit} size={64} flipReveal />
           </div>
           <p className="text-xs text-white/40 mb-2">
             Ton pari : {choiceLabel(myResult.choice)}
@@ -366,7 +366,7 @@ function RevealView({
             <div key={m.id} className="flex items-center gap-3">
               <Avatar pseudo={m.pseudo} color={m.color} size={30} photoUrl={m.photoUrl} />
               <span className="text-sm flex-1 truncate">{m.pseudo}</span>
-              <CardFace rank={result.drawnCard.rank} suit={result.drawnCard.suit} size={26} />
+              <PlayingCard rank={result.drawnCard.rank} suit={result.drawnCard.suit} size={26} />
               <span className={`text-sm font-bold ${result.correct ? 'text-emerald-300' : 'text-pink-300'}`}>
                 {result.finished
                   ? '🏁'

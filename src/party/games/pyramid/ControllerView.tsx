@@ -7,6 +7,7 @@ import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
 import { CardFace } from './CardFace'
+import { PlayingCard } from '../shared/PlayingCard'
 import { sipLabel, rankLabel, SUITS, distributionSlots } from './types'
 import type { PyramidClientState, Accusation, RecitationGuess } from './types'
 import type { Member } from '../../../types'
@@ -225,7 +226,7 @@ function MemorizeView({
       <div className="flex justify-center gap-3 mb-8">
         {state.yourHand.map((c, i) => (
           <div key={c.id} className="flex flex-col items-center gap-1">
-            <CardFace rank={c.rank} suit={c.suit} size={56} />
+            <PlayingCard rank={c.rank} suit={c.suit} size={56} dealDelay={0.12 * i} />
             <span className="text-[10px] text-white/30">{i + 1}</span>
           </div>
         ))}
@@ -294,7 +295,7 @@ function MatchingView({
       </p>
 
       <div className="flex flex-col items-center mb-4">
-        <CardFace rank={card.rank} suit={card.suit} size={72} />
+        <PlayingCard key={state.currentIndex} rank={card.rank} suit={card.suit} size={72} flipReveal />
         <p className="mt-2 text-lg font-bold">{sipLabel(card.sips)}</p>
       </div>
 
@@ -527,7 +528,7 @@ function RecitationView({
             <div className="flex justify-center gap-3">
               {entry.actualHand.map((c, i) => (
                 <div key={c.id} className="flex flex-col items-center gap-1">
-                  <CardFace rank={c.rank} suit={c.suit} size={48} />
+                  <PlayingCard rank={c.rank} suit={c.suit} size={48} dealDelay={0.1 * i} flipReveal />
                   <span className="text-[10px]">
                     <span className={entry.perCard[i]?.rankCorrect ? 'text-emerald-300' : 'text-pink-300'}>
                       {entry.perCard[i]?.rankCorrect ? '✓' : '✗'} val

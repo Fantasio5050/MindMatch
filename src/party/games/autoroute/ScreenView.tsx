@@ -4,7 +4,7 @@ import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'
 import { Avatar } from '../../../components/Avatar'
 import { Confetti } from '../../../components/Confetti'
-import { CardFace } from '../pyramid/CardFace'
+import { PlayingCard } from '../shared/PlayingCard'
 import { TrackStrip } from './ControllerView'
 import { QUESTION_META, choiceLabel } from './types'
 import type { AutorouteClientState } from './types'
@@ -181,9 +181,8 @@ function RevealScreen({ state, participants }: { state: AutorouteClientState; pa
               >
                 <Avatar pseudo={m.pseudo} color={m.color} size={40} photoUrl={m.photoUrl} />
                 <span className="w-40 text-lg font-medium truncate text-left">{m.pseudo}</span>
-                <motion.div initial={{ scale: 0.6, rotateY: 90 }} animate={{ scale: 1, rotateY: 0 }} transition={{ duration: 0.4, delay: 0.1 + 0.08 * i }}>
-                  <CardFace rank={result.drawnCard.rank} suit={result.drawnCard.suit} size={48} />
-                </motion.div>
+                <PlayingCard rank={result.drawnCard.rank} suit={result.drawnCard.suit} size={48} dealDelay={0.1 + 0.08 * i} flipReveal />
+
                 <span className="flex-1 text-left text-lg">
                   <span className="text-white/40 mr-3">{choiceLabel(result.choice)}</span>
                   <span className={result.correct ? 'text-emerald-300' : 'text-pink-300'}>

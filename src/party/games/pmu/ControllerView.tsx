@@ -6,7 +6,7 @@ import { useSound } from '../../../hooks/useSound'
 import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
-import { CardFace } from '../pyramid/CardFace'
+import { PlayingCard } from '../shared/PlayingCard'
 import { HORSES, PMU_TRACK_LEN } from './types'
 import type { PmuClientState } from './types'
 import { usePmuPlayback } from './usePmuPlayback'
@@ -243,9 +243,7 @@ function RacingView({
         <>
           <div className="flex flex-col items-center mb-5 min-h-[150px] justify-center">
             {event && event.type !== 'finish' && (
-              <motion.div key={playback.index} initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-                <CardFace rank={event.card.rank} suit={event.card.suit} size={64} />
-              </motion.div>
+              <PlayingCard key={playback.index} rank={event.card.rank} suit={event.card.suit} size={64} />
             )}
             {event && (
               <p className="mt-2 text-sm font-bold text-center" style={{ color: HORSES[event.suit].color }}>

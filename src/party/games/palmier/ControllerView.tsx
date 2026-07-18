@@ -6,7 +6,7 @@ import { useSound } from '../../../hooks/useSound'
 import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
-import { CardFace } from '../pyramid/CardFace'
+import { PlayingCard } from '../shared/PlayingCard'
 import type { PalmierClientState } from './types'
 import type { Member } from '../../../types'
 
@@ -132,7 +132,7 @@ function DrawingView({
 
       {state.currentCard && (
         <div className="flex flex-col items-center gap-2 mb-4">
-          <CardFace rank={state.currentCard.rank} suit={state.currentCard.suit} size={72} />
+          <PlayingCard key={state.currentCard.id} rank={state.currentCard.rank} suit={state.currentCard.suit} size={72} flipReveal />
           <div className="flex items-center gap-2 mt-1">
             <Avatar pseudo={drawer?.pseudo ?? '?'} color={drawer?.color ?? '#fff'} size={28} />
             <span className="text-sm text-white/60">{drawer?.pseudo} tire la carte</span>

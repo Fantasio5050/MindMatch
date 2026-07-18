@@ -4,7 +4,7 @@ import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'
 import { Avatar } from '../../../components/Avatar'
 import { Confetti } from '../../../components/Confetti'
-import { CardFace } from './CardFace'
+import { PlayingCard } from '../shared/PlayingCard'
 import { sipLabel } from './types'
 import type { PyramidClientState, Accusation } from './types'
 import type { Member } from '../../../types'
@@ -146,7 +146,7 @@ function MatchingScreen({
         </p>
         {card && (
           <>
-            <CardFace rank={card.rank} suit={card.suit} size={72} />
+            <PlayingCard key={state.currentIndex} rank={card.rank} suit={card.suit} size={72} flipReveal />
             <p className="text-2xl font-extrabold mt-3 mb-6">{sipLabel(card.sips)}</p>
           </>
         )}
@@ -194,7 +194,7 @@ function PyramidVisual({ state }: { state: PyramidClientState }) {
                 transition={{ duration: 0.8, repeat: isCurrent ? Infinity : 0 }}
                 className={isCurrent ? 'ring-4 ring-fuchsia-400 rounded-lg' : ''}
               >
-                <CardFace rank={card.rank} suit={card.suit} size={36} faceDown={!card.revealed} />
+                <PlayingCard rank={card.rank} suit={card.suit} size={36} faceDown={!card.revealed} />
               </motion.div>
             )
           })}
