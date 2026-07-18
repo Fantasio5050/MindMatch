@@ -4,7 +4,7 @@ import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'
 import { Avatar } from '../../../components/Avatar'
 import { Confetti } from '../../../components/Confetti'
-import { CardFace } from '../pyramid/CardFace'
+import { PlayingCard } from '../shared/PlayingCard'
 import { handTotal, OUTCOME_LABEL, type BlackjackClientState } from './types'
 import type { Member } from '../../../types'
 
@@ -66,11 +66,13 @@ export function BlackjackScreen() {
             </p>
             <div className="flex justify-center gap-2">
               {phase === 'results' && state.dealer
-                ? state.dealer.cards.map((c, i) => <CardFace key={i} rank={c.rank} suit={c.suit} size={64} />)
+                ? state.dealer.cards.map((c, i) => (
+                    <PlayingCard key={i} rank={c.rank} suit={c.suit} size={64} dealDelay={0.07 * i} flipReveal={i === 1} />
+                  ))
                 : (
                   <>
-                    {state.dealerUp && <CardFace rank={state.dealerUp.rank} suit={state.dealerUp.suit} size={64} />}
-                    <CardFace faceDown size={64} />
+                    {state.dealerUp && <PlayingCard rank={state.dealerUp.rank} suit={state.dealerUp.suit} size={64} />}
+                    <PlayingCard faceDown size={64} dealDelay={0.08} />
                   </>
                 )}
             </div>
@@ -99,7 +101,7 @@ export function BlackjackScreen() {
                     <span className="text-white/50">— {total}</span>
                   </div>
                   <div className="flex gap-1">
-                    {h.cards.map((c, i) => <CardFace key={i} rank={c.rank} suit={c.suit} size={40} />)}
+                    {h.cards.map((c, i) => <PlayingCard key={i} rank={c.rank} suit={c.suit} size={40} dealDelay={0.06 * i} />)}
                   </div>
                   {phase === 'playing' && (
                     <span className="text-sm text-white/40">{h.bust ? '💥 Sauté' : h.stood ? '✋ Reste' : total === 21 ? '21 !' : '🤔 En cours'}</span>

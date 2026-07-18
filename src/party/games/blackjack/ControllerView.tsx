@@ -6,7 +6,7 @@ import { useSound } from '../../../hooks/useSound'
 import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
-import { CardFace } from '../pyramid/CardFace'
+import { PlayingCard } from '../shared/PlayingCard'
 import { handTotal, OUTCOME_LABEL, type BlackjackClientState } from './types'
 import type { Member } from '../../../types'
 
@@ -173,8 +173,8 @@ function PlayingView({
       <div className="text-center mb-6">
         <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Croupier</p>
         <div className="flex justify-center gap-1.5">
-          {state.dealerUp && <CardFace rank={state.dealerUp.rank} suit={state.dealerUp.suit} size={44} />}
-          <CardFace faceDown size={44} />
+          {state.dealerUp && <PlayingCard rank={state.dealerUp.rank} suit={state.dealerUp.suit} size={44} />}
+          <PlayingCard faceDown size={44} dealDelay={0.08} />
         </div>
       </div>
 
@@ -183,9 +183,7 @@ function PlayingView({
         <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Ta main — {myTotal}</p>
         <div className="flex justify-center gap-1.5 flex-wrap">
           {myHand?.cards.map((c, i) => (
-            <motion.div key={i} initial={{ y: -12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.05 * i }}>
-              <CardFace rank={c.rank} suit={c.suit} size={54} />
-            </motion.div>
+            <PlayingCard key={i} rank={c.rank} suit={c.suit} size={54} dealDelay={0.09 * i} />
           ))}
         </div>
         {myHand?.blackjack && <p className="text-amber-300 font-bold mt-2">Blackjack ! 🎉</p>}
@@ -248,7 +246,8 @@ function ResultsView({
         </p>
         <div className="flex justify-center gap-1.5 flex-wrap">
           {dealer?.cards.map((c, i) => (
-            <CardFace key={i} rank={c.rank} suit={c.suit} size={40} />
+            // La 2e carte (le "trou") se retourne pour la révélation, comme au vrai Blackjack.
+            <PlayingCard key={i} rank={c.rank} suit={c.suit} size={40} dealDelay={0.07 * i} flipReveal={i === 1} />
           ))}
         </div>
       </div>
