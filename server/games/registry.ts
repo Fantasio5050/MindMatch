@@ -11,6 +11,7 @@ import { autoroute } from './autoroute'
 import { pmu } from './pmu'
 import { wheel } from './wheel'
 import { russianRoulette } from './russianRoulette'
+import { blackjack } from './blackjack'
 
 export const GAME_REGISTRY: Record<string, GameModule> = {
   [whoIsMostLikely.id]: whoIsMostLikely,
@@ -25,6 +26,7 @@ export const GAME_REGISTRY: Record<string, GameModule> = {
   [pmu.id]: pmu,
   [wheel.id]: wheel,
   [russianRoulette.id]: russianRoulette,
+  [blackjack.id]: blackjack,
 }
 
 export function getGame(gameId: string): GameModule | null {
