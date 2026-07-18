@@ -40,7 +40,7 @@ interface BlackjackState {
   order: string[]
   adult: boolean
   bets: Record<string, number>
-  hands: Record<string, BJHand>
+  playerHands: Record<string, BJHand>
   dealerUp: Card | null
   dealer: { cards: Card[]; total: number; bust: boolean } | null
   secrets: { deck: Card[]; dealerHole: Card | null }
@@ -86,7 +86,7 @@ function emptyState(): BlackjackState {
     order: [],
     adult: false,
     bets: {},
-    hands: {},
+    playerHands: {},
     dealerUp: null,
     dealer: null,
     secrets: { deck: [], dealerHole: null },
@@ -112,7 +112,7 @@ function startBettingRound(state: BlackjackState, participantIds: string[]): Bla
     ...state,
     order: participantIds,
     bets: {},
-    hands: {},
+    playerHands: {},
     dealerUp: null,
     dealer: null,
     secrets: { deck: [], dealerHole: null },
@@ -170,7 +170,7 @@ export const blackjack: GameModule = {
 
     // --- Tirer une carte ---
     if (action.type === 'hit' && session.phase === 'playing') {
-      const hand = state.hands[memberId]
+      const hand = state.playerHands[memberId]
       if (!hand || hand.stood || hand.bust) return { session }
       const deck = [...state.secrets.deck]
       const card = deck.pop()
@@ -182,17 +182,17 @@ export const blackjack: GameModule = {
       return {
         session: {
           ...session,
-          roundData: { ...state, hands: { ...state.hands, [memberId]: nextHand }, secrets: { ...state.secrets, deck } },
+          roundData: { ...state, playerHands: { ...state.playerHands, [memberId]: nextHand }, secrets: { ...state.secrets, deck } },
         },
       }
     }
 
     // --- Rester ---
     if (action.type === 'stand' && session.phase === 'playing') {
-      const hand = state.hands[memberId]
+      const hand = state.playerHands[memberId]
       if (!hand || hand.stood || hand.bust) return { session }
       return {
-        session: { ...session, roundData: { ...state, hands: { ...state.hands, [memberId]: { ...hand, stood: true } } } },
+        session: { ...session, roundData: { ...state, playerHands: { ...state.playerHands, [memberId]: { ...hand, stood: true } } } },
       }
     }
 
@@ -217,7 +217,7 @@ export const blackjack: GameModule = {
     }
     if (session.phase === 'playing') {
       return state.order.every((id) => {
-        const h = state.hands[id]
+        const h = state.playerHands[id]
         return h && (h.stood || h.bust || handTotal(h.cards) === 21)
       })
     }
@@ -230,10 +230,10 @@ export const blackjack: GameModule = {
     // Fin des mises -> distribution des cartes.
     if (session.phase === 'betting') {
       const deck = freshDeck()
-      const hands: Record<string, BJHand> = {}
+      const playerHands: Record<string, BJHand> = {}
       for (const id of state.order) {
         const cards = [deck.pop()!, deck.pop()!]
-        hands[id] = { cards, stood: false, bust: false, blackjack: isBlackjack(cards) }
+        playerHands[id] = { cards, stood: false, bust: false, blackjack: isBlackjack(cards) }
       }
       const dealerUp = deck.pop()!
       const dealerHole = deck.pop()!
@@ -241,7 +241,7 @@ export const blackjack: GameModule = {
         session: {
           ...session,
           phase: 'playing',
-          roundData: { ...state, hands, dealerUp, dealer: null, secrets: { deck, dealerHole } },
+          roundData: { ...state, playerHands, dealerUp, dealer: null, secrets: { deck, dealerHole } },
         },
       }
     }
@@ -251,7 +251,7 @@ export const blackjack: GameModule = {
       const deck = [...state.secrets.deck]
       const dealerCards: Card[] = [state.dealerUp!, state.secrets.dealerHole!]
       // Le croupier tire tant qu'il est sous 17 — sauf si tout le monde a déjà sauté.
-      const anyoneAlive = state.order.some((id) => !state.hands[id]?.bust)
+      const anyoneAlive = state.order.some((id) => !state.playerHands[id]?.bust)
       while (anyoneAlive && handTotal(dealerCards) < DEALER_STANDS_ON) {
         const c = deck.pop()
         if (!c) break
@@ -267,7 +267,7 @@ export const blackjack: GameModule = {
       let chips = state.chips
 
       for (const id of state.order) {
-        const hand = state.hands[id]
+        const hand = state.playerHands[id]
         const bet = state.bets[id] ?? MIN_BET
         const total = handTotal(hand.cards)
         let outcome: Outcome

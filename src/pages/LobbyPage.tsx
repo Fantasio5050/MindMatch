@@ -112,6 +112,7 @@ export function LobbyPage() {
   const canPlayPmu = group.members.length >= 2
   const canPlayWheel = group.members.length >= 2
   const canPlayRoulette = group.members.length >= 2
+  const canPlayBlackjack = group.members.length >= 2
   const adultMode = group.adultModeEnabled
 
   const copyCode = async () => {
@@ -346,6 +347,30 @@ export function LobbyPage() {
                 className="!py-2.5 text-sm"
               >
                 {canPlayMostLikely ? 'Lancer la partie' : 'Il faut au moins 3 joueurs'}
+              </Button>
+            ) : (
+              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
+            )}
+          </Card>
+
+          <Card delay={0.18}>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-3xl">🃏</span>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">Blackjack</p>
+                <p className="text-xs text-white/40">
+                  Bats le croupier — {adultMode ? 'mises en gorgées 🍻' : 'mises en jetons'}
+                </p>
+              </div>
+            </div>
+            {isHost ? (
+              <Button
+                fullWidth
+                disabled={!canPlayBlackjack}
+                onClick={() => startGame('blackjack')}
+                className="!py-2.5 text-sm"
+              >
+                {canPlayBlackjack ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
               </Button>
             ) : (
               <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>

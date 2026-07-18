@@ -23,6 +23,8 @@ import { WheelController } from './games/wheel/ControllerView'
 import { WheelScreen } from './games/wheel/ScreenView'
 import { RussianRouletteController } from './games/russianRoulette/ControllerView'
 import { RussianRouletteScreen } from './games/russianRoulette/ScreenView'
+import { BlackjackController } from './games/blackjack/ControllerView'
+import { BlackjackScreen } from './games/blackjack/ScreenView'
 
 interface ClientGameEntry {
   Controller: ComponentType
@@ -42,4 +44,5 @@ export const CLIENT_GAME_REGISTRY: Record<string, ClientGameEntry> = {
   pmu: { Controller: PmuController, Screen: PmuScreen },
   wheel: { Controller: WheelController, Screen: WheelScreen },
   'russian-roulette': { Controller: RussianRouletteController, Screen: RussianRouletteScreen },
+  blackjack: { Controller: BlackjackController, Screen: BlackjackScreen },
 }
