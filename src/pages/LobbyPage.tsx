@@ -113,6 +113,7 @@ export function LobbyPage() {
   const canPlayWheel = group.members.length >= 2
   const canPlayRoulette = group.members.length >= 2
   const canPlayBlackjack = group.members.length >= 2
+  const canPlayBlanc = group.members.length >= 3
   const adultMode = group.adultModeEnabled
 
   const copyCode = async () => {
@@ -589,6 +590,34 @@ export function LobbyPage() {
             </Card>
           ) : (
             <LockedGameCard icon="🔫" name="Roulette russe" note="Jeu à boire hardcore — active le mode 18+" />
+          )}
+
+          {adultMode ? (
+            <Card delay={0.288}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-3xl">🖊️</span>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">
+                    Le Grand Blanc <span className="text-[10px] font-bold text-red-300 align-middle">18+</span>
+                  </p>
+                  <p className="text-xs text-white/40">Cartes à trous trash — posez, votez la plus drôle 🃏</p>
+                </div>
+              </div>
+              {isHost ? (
+                <Button
+                  fullWidth
+                  disabled={!canPlayBlanc}
+                  onClick={() => startGame('blanc')}
+                  className="!py-2.5 text-sm"
+                >
+                  {canPlayBlanc ? 'Lancer la partie' : 'Il faut au moins 3 joueurs'}
+                </Button>
+              ) : (
+                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
+              )}
+            </Card>
+          ) : (
+            <LockedGameCard icon="🖊️" name="Le Grand Blanc" note="Cartes à trous trash — active le mode 18+" />
           )}
 
           <Card delay={0.28}>
