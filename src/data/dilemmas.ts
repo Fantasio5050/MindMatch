@@ -22,6 +22,18 @@ export const CLASSIC_DILEMMAS: Dilemma[] = [
   { id: 'dc-10', pack: 'classic', emojiA: '🏙️', textA: 'Vivre en ville toute ta vie', emojiB: '🌲', textB: 'Vivre isolé·e en pleine nature' },
   { id: 'dc-11', pack: 'classic', emojiA: '🎯', textA: 'Réussir seul·e, sans reconnaissance', emojiB: '👥', textB: 'Réussir en équipe, sans en avoir le mérite' },
   { id: 'dc-12', pack: 'classic', emojiA: '🕰️', textA: 'Avoir plus de temps libre', emojiB: '💶', textB: 'Avoir plus d\'argent' },
+  { id: 'dc-13', pack: 'classic', emojiA: '✈️', textA: 'Voyager partout mais jamais deux fois au même endroit', emojiB: '🏡', textB: 'Rester dans un seul lieu que tu adores' },
+  { id: 'dc-14', pack: 'classic', emojiA: '🦸', textA: 'Pouvoir voler', emojiB: '🕶️', textB: 'Être invisible à volonté' },
+  { id: 'dc-15', pack: 'classic', emojiA: '🎸', textA: 'Maîtriser tous les instruments', emojiB: '🗣️', textB: 'Parler toutes les langues' },
+  { id: 'dc-16', pack: 'classic', emojiA: '☀️', textA: 'Un été éternel', emojiB: '❄️', textB: 'Un hiver éternel' },
+  { id: 'dc-17', pack: 'classic', emojiA: '🐶', textA: 'Comprendre les animaux', emojiB: '🌍', textB: 'Comprendre toutes les cultures humaines' },
+  { id: 'dc-18', pack: 'classic', emojiA: '📚', textA: 'Lire dans les pensées', emojiB: '🔮', textB: 'Prédire l\'avenir à un jour près' },
+  { id: 'dc-19', pack: 'classic', emojiA: '🍕', textA: 'Manger ce que tu veux sans conséquence', emojiB: '💤', textB: 'Ne plus jamais avoir besoin de dormir' },
+  { id: 'dc-20', pack: 'classic', emojiA: '🎬', textA: 'Vivre dans ton film préféré', emojiB: '📖', textB: 'Vivre dans ton livre préféré' },
+  { id: 'dc-21', pack: 'classic', emojiA: '🏅', textA: 'Être le/la meilleur·e dans un domaine', emojiB: '🌈', textB: 'Être bon·ne dans absolument tout' },
+  { id: 'dc-22', pack: 'classic', emojiA: '🤖', textA: 'Un robot qui fait toutes tes corvées', emojiB: '🧑‍🍳', textB: 'Un chef privé pour tous tes repas' },
+  { id: 'dc-23', pack: 'classic', emojiA: '🎢', textA: 'Une vie pleine d\'aventures et d\'imprévus', emojiB: '🛋️', textB: 'Une vie calme et parfaitement stable' },
+  { id: 'dc-24', pack: 'classic', emojiA: '⭐', textA: 'Être admiré·e par des inconnus', emojiB: '💞', textB: 'Être profondément aimé·e par quelques proches' },
 ]
 
 export const TRASH_DILEMMAS: Dilemma[] = [
@@ -39,6 +51,18 @@ export const TRASH_DILEMMAS: Dilemma[] = [
   { id: 'dt-12', pack: 'trash', emojiA: '🔄', textA: 'Échanger de vie avec ton/ta voisin·e de droite pendant une semaine', emojiB: '🙋', textB: 'Rester toi-même, quoi qu\'il arrive' },
   { id: 'dt-13', pack: 'trash', emojiA: '📸', textA: 'Que ton pire selfie devienne viral', emojiB: '📵', textB: 'Perdre tous tes souvenirs en photo' },
   { id: 'dt-14', pack: 'trash', emojiA: '🍾', textA: "Faire le pire karaoké de ta vie devant tout le monde", emojiB: '🤫', textB: 'Ne plus jamais chanter, même sous la douche' },
+  { id: 'dt-15', pack: 'trash', emojiA: '📖', textA: 'Que ton journal intime soit lu à voix haute', emojiB: '🎥', textB: 'Que tes recherches privées passent à la télé' },
+  { id: 'dt-16', pack: 'trash', emojiA: '💋', textA: 'Embrasser la personne à ta gauche', emojiB: '🍺', textB: 'Enchaîner 3 culs secs d\'affilée' },
+  { id: 'dt-17', pack: 'trash', emojiA: '📱', textA: 'Prêter ton téléphone déverrouillé 1h à la table', emojiB: '👕', textB: 'Finir la soirée avec un vêtement en moins' },
+  { id: 'dt-18', pack: 'trash', emojiA: '😳', textA: 'Raconter ton pire moment gênant en détail', emojiB: '🎤', textB: 'Laisser la table inventer une rumeur sur toi' },
+  { id: 'dt-19', pack: 'trash', emojiA: '💸', textA: 'Rembourser toutes tes dettes mais avouer un secret', emojiB: '🤐', textB: 'Garder tes dettes ET ton secret' },
+  { id: 'dt-20', pack: 'trash', emojiA: '📵', textA: 'Ne plus jamais liker personne en ligne', emojiB: '👀', textB: 'Que tout le monde voie chaque profil que tu consultes' },
+  { id: 'dt-21', pack: 'trash', emojiA: '🥴', textA: 'Être toujours la personne la plus ivre de la soirée', emojiB: '😴', textB: 'Être toujours celle qui rentre en premier' },
+  { id: 'dt-22', pack: 'trash', emojiA: '🗨️', textA: 'Dire tout haut ce que tu penses des gens ici', emojiB: '🎭', textB: 'Sourire et faire semblant toute la soirée' },
+  { id: 'dt-23', pack: 'trash', emojiA: '🔥', textA: 'Un ex qui revient toutes les semaines', emojiB: '📵', textB: 'Ne plus jamais recroiser aucun de tes ex' },
+  { id: 'dt-24', pack: 'trash', emojiA: '📷', textA: 'Que ta pire photo devienne ta photo de profil un mois', emojiB: '💬', textB: 'Que ton dernier message vocal soit posté en story' },
+  { id: 'dt-25', pack: 'trash', emojiA: '🤥', textA: 'Ne plus jamais pouvoir mentir', emojiB: '🙉', textB: 'Ne plus jamais entendre la vérité' },
+  { id: 'dt-26', pack: 'trash', emojiA: '🍑', textA: 'Un fond d\'écran gênant imposé par la table pendant un mois', emojiB: '📞', textB: 'Un message vocal chanté à ton crush' },
 ]
 
 export function dilemmasForPack(pack: 'classic' | 'trash' | 'mixed'): Dilemma[] {
