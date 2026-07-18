@@ -12,6 +12,7 @@ import { pmu } from './pmu'
 import { wheel } from './wheel'
 import { russianRoulette } from './russianRoulette'
 import { blackjack } from './blackjack'
+import { blanc } from './blanc'
 
 export const GAME_REGISTRY: Record<string, GameModule> = {
   [whoIsMostLikely.id]: whoIsMostLikely,
@@ -27,6 +28,7 @@ export const GAME_REGISTRY: Record<string, GameModule> = {
   [wheel.id]: wheel,
   [russianRoulette.id]: russianRoulette,
   [blackjack.id]: blackjack,
+  [blanc.id]: blanc,
 }
 
 export function getGame(gameId: string): GameModule | null {
