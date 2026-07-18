@@ -10,6 +10,7 @@ import { palmier } from './palmier'
 import { autoroute } from './autoroute'
 import { pmu } from './pmu'
 import { wheel } from './wheel'
+import { russianRoulette } from './russianRoulette'
 
 export const GAME_REGISTRY: Record<string, GameModule> = {
   [whoIsMostLikely.id]: whoIsMostLikely,
@@ -23,6 +24,7 @@ export const GAME_REGISTRY: Record<string, GameModule> = {
   [autoroute.id]: autoroute,
   [pmu.id]: pmu,
   [wheel.id]: wheel,
+  [russianRoulette.id]: russianRoulette,
 }
 
 export function getGame(gameId: string): GameModule | null {
