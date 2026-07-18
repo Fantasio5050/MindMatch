@@ -23,6 +23,9 @@ export function HomePage() {
   const { code: prefillCode } = useParams<{ code?: string }>()
   const createGroup = useAppStore((s) => s.createGroup)
   const joinGroup = useAppStore((s) => s.joinGroup)
+  const leaveGroup = useAppStore((s) => s.leaveGroup)
+  const resumeGroup = useAppStore((s) => s.currentGroup())
+  const resumeMember = useAppStore((s) => s.currentMember())
   const { play } = useSound()
 
   const [mode, setMode] = useState<Mode>(prefillCode ? 'join' : 'landing')
@@ -40,6 +43,20 @@ export function HomePage() {
     setShowKickedNotice(true)
     clearKicked()
   }, [kicked, clearKicked])
+
+  // Reconnexion : si on revient sur le site avec une adhésion encore valide (identité persistée +
+  // membre toujours présent dans le salon), on propose de REPRENDRE en tant que le même membre —
+  // au lieu de re-rejoindre avec un nouveau pseudo, ce qui laissait un doublon fantôme en jeu.
+  const canResume = !!resumeGroup && !!resumeMember
+  const handleResume = () => {
+    if (!resumeGroup) return
+    play('win')
+    navigate(resumeGroup.party.status === 'playing' ? '/play' : '/lobby')
+  }
+  const handleLeaveFromHome = () => {
+    play('pop')
+    leaveGroup()
+  }
 
   const goTo = (next: Mode) => {
     play('tick')
@@ -99,6 +116,22 @@ export function HomePage() {
             <p className="text-sm text-pink-300">🚪 L'hôte t'a exclu·e du salon.</p>
             <button onClick={() => setShowKickedNotice(false)} className="text-xs text-white/40 mt-1 underline">
               Fermer
+            </button>
+          </Card>
+        )}
+
+        {canResume && !showKickedNotice && (
+          <Card className="relative mb-2 border-fuchsia-500/40">
+            <p className="text-sm text-white/80 text-center leading-snug">
+              Tu es déjà dans le salon <b>{resumeGroup!.name}</b>
+              <br />
+              en tant que <b>{resumeMember!.pseudo}</b>.
+            </p>
+            <Button fullWidth onClick={handleResume} className="!py-2.5 text-sm mt-3">
+              {resumeGroup!.party.status === 'playing' ? '🎮 Revenir dans la partie' : '↩️ Revenir au salon'}
+            </Button>
+            <button onClick={handleLeaveFromHome} className="text-xs text-white/40 mt-2 underline w-full text-center">
+              Quitter ce salon
             </button>
           </Card>
         )}
