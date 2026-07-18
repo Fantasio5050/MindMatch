@@ -1,4 +1,4 @@
-import type { Group, PartySession } from '../../src/types'
+import type { PartySession } from '../../src/types'
 import type { GameModule, GameAction, XpAward } from './types'
 
 /** Blackjack multijoueur contre une banque commune. Les règles s'adaptent au mode :
