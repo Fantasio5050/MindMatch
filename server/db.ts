@@ -1,24 +1,19 @@
-import { DatabaseSync } from 'node:sqlite'
+import SqliteDatabase from 'better-sqlite3'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Database, StoredGroup, StoredMember, GameHistoryEntry } from './types'
 import type { PartyStatus } from '../src/types'
 
-// Persistance via `node:sqlite` (SQLite intégré à Node — aucun module natif à compiler, donc plus
-// de galère de binaire pré-compilé / version de glibc sur les hébergements mutualisés). L'API est
-// synchrone et proche de better-sqlite3 (prepare/run/get/all), à deux différences près gérées
-// ici : les PRAGMA passent par exec(), et les transactions sont ouvertes à la main (pas de
-// helper .transaction()). Nécessite Node >= 22.5 (o2switch tourne en Node 24).
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DB_PATH = process.env.MINDMATCH_DB_PATH || path.join(__dirname, 'data', 'db.sqlite3')
 
 const dir = path.dirname(DB_PATH)
 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 
-const sqlite = new DatabaseSync(DB_PATH)
-sqlite.exec('PRAGMA journal_mode = WAL')
-sqlite.exec('PRAGMA foreign_keys = ON')
+const sqlite = new SqliteDatabase(DB_PATH)
+sqlite.pragma('journal_mode = WAL')
+sqlite.pragma('foreign_keys = ON')
 
 sqlite.exec(`
   CREATE TABLE IF NOT EXISTS groups (
@@ -67,12 +62,12 @@ sqlite.exec(`
 // Lightweight migration for databases created before `party_participant_ids` existed —
 // `CREATE TABLE IF NOT EXISTS` above is a no-op once the table already exists, so a column added
 // later needs its own ALTER TABLE, run once and only if missing.
-const groupColumns = sqlite.prepare("SELECT name FROM pragma_table_info('groups')").all() as { name: string }[]
+const groupColumns = sqlite.prepare('PRAGMA table_info(groups)').all() as { name: string }[]
 if (!groupColumns.some((c) => c.name === 'party_participant_ids')) {
   sqlite.exec("ALTER TABLE groups ADD COLUMN party_participant_ids TEXT NOT NULL DEFAULT '[]'")
 }
 
-const memberColumns = sqlite.prepare("SELECT name FROM pragma_table_info('members')").all() as { name: string }[]
+const memberColumns = sqlite.prepare('PRAGMA table_info(members)').all() as { name: string }[]
 if (!memberColumns.some((c) => c.name === 'photo_url')) {
   sqlite.exec('ALTER TABLE members ADD COLUMN photo_url TEXT')
 }
@@ -149,8 +144,8 @@ const selectGroups = sqlite.prepare('SELECT * FROM groups')
 const selectMembers = sqlite.prepare('SELECT * FROM members')
 
 export function readDb(): Database {
-  const groupRows = selectGroups.all() as unknown as GroupRow[]
-  const memberRows = selectMembers.all() as unknown as MemberRow[]
+  const groupRows = selectGroups.all() as GroupRow[]
+  const memberRows = selectMembers.all() as MemberRow[]
 
   const membersByGroup = new Map<string, StoredMember[]>()
   for (const row of memberRows) {
@@ -195,54 +190,44 @@ const upsertMember = sqlite.prepare(`
     photo_url = excluded.photo_url
 `)
 
-// Les objets passés à .run() utilisent des clés SANS le préfixe "@" (id, code…) : on autorise
-// donc explicitement les paramètres nommés "nus" sur les requêtes concernées.
-upsertGroup.setAllowBareNamedParameters(true)
-upsertMember.setAllowBareNamedParameters(true)
-
-// node:sqlite n'a pas de helper .transaction() : on ouvre/valide la transaction à la main et on
-// annule en cas d'erreur, pour garder l'écriture atomique (un snapshot entier ou rien).
-export function writeDb(db: Database): void {
-  sqlite.exec('BEGIN')
-  try {
-    for (const group of db.groups) {
-      upsertGroup.run({
-        id: group.id,
-        code: group.code,
-        name: group.name,
-        created_at: group.createdAt,
-        adult_mode_enabled: group.adultModeEnabled ? 1 : 0,
-        party_status: group.party.status,
-        party_host_member_id: group.party.hostMemberId,
-        party_current_game_id: group.party.currentGameId ?? null,
-        party_phase: group.party.phase ?? null,
-        party_round: group.party.round,
-        party_round_data: group.party.roundData ? JSON.stringify(group.party.roundData) : null,
-        party_participant_ids: JSON.stringify(group.party.participantIds ?? []),
+const writeTx = sqlite.transaction((db: Database) => {
+  for (const group of db.groups) {
+    upsertGroup.run({
+      id: group.id,
+      code: group.code,
+      name: group.name,
+      created_at: group.createdAt,
+      adult_mode_enabled: group.adultModeEnabled ? 1 : 0,
+      party_status: group.party.status,
+      party_host_member_id: group.party.hostMemberId,
+      party_current_game_id: group.party.currentGameId,
+      party_phase: group.party.phase,
+      party_round: group.party.round,
+      party_round_data: group.party.roundData ? JSON.stringify(group.party.roundData) : null,
+      party_participant_ids: JSON.stringify(group.party.participantIds ?? []),
+    })
+    for (const member of group.members) {
+      upsertMember.run({
+        id: member.id,
+        group_id: group.id,
+        pseudo: member.pseudo,
+        color: member.color,
+        answers: JSON.stringify(member.answers),
+        scores: member.scores ? JSON.stringify(member.scores) : null,
+        archetype_id: member.archetypeId,
+        finished_at: member.finishedAt,
+        xp: member.xp,
+        badges: JSON.stringify(member.badges),
+        game_stats: JSON.stringify(member.gameStats),
+        token: member.token,
+        photo_url: member.photoUrl,
       })
-      for (const member of group.members) {
-        upsertMember.run({
-          id: member.id,
-          group_id: group.id,
-          pseudo: member.pseudo,
-          color: member.color,
-          answers: JSON.stringify(member.answers),
-          scores: member.scores ? JSON.stringify(member.scores) : null,
-          archetype_id: member.archetypeId ?? null,
-          finished_at: member.finishedAt ?? null,
-          xp: member.xp,
-          badges: JSON.stringify(member.badges),
-          game_stats: JSON.stringify(member.gameStats),
-          token: member.token,
-          photo_url: member.photoUrl ?? null,
-        })
-      }
     }
-    sqlite.exec('COMMIT')
-  } catch (err) {
-    sqlite.exec('ROLLBACK')
-    throw err
   }
+})
+
+export function writeDb(db: Database): void {
+  writeTx(db)
 }
 
 const deleteMemberStmt = sqlite.prepare('DELETE FROM members WHERE id = ?')
@@ -258,7 +243,6 @@ const insertHistory = sqlite.prepare(`
   INSERT INTO game_history (group_id, game_id, game_name, ended_at, rounds_played)
   VALUES (@groupId, @gameId, @gameName, @endedAt, @roundsPlayed)
 `)
-insertHistory.setAllowBareNamedParameters(true)
 
 /** Appends one durable "this game just finished" record — separate from the live, overwritten-on-next-game
  * `groups.party_round_data` blob, so a group's game history survives forever (an append-only log, not
@@ -273,5 +257,5 @@ const selectHistory = sqlite.prepare(`
 `)
 
 export function getRecentGameHistory(groupId: string, limit = 10): GameHistoryEntry[] {
-  return selectHistory.all(groupId, limit) as unknown as GameHistoryEntry[]
+  return selectHistory.all(groupId, limit) as GameHistoryEntry[]
 }
