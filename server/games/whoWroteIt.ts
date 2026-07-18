@@ -107,19 +107,31 @@ export const whoWroteIt: GameModule = {
       const payload = action.payload as { entryIndex?: number; guessedMemberId?: string } | null
       const entryIndex = payload?.entryIndex
       const guessedMemberId = payload?.guessedMemberId
+      const authorByIndex = state.secrets?.authorByIndex ?? {}
       if (
         entryIndex === undefined ||
         entryIndex < 0 ||
         entryIndex >= state.entries.length ||
         !guessedMemberId ||
-        !group.members.some((m) => m.id === guessedMemberId)
+        !group.members.some((m) => m.id === guessedMemberId) ||
+        authorByIndex[entryIndex] === memberId || // on ne devine pas sa propre phrase
+        guessedMemberId === memberId // on ne se désigne pas soi-même comme auteur
       ) {
         return { session }
       }
 
+      // Un auteur ne peut être attribué qu'à une seule phrase par un même joueur : si ce membre
+      // avait déjà été placé sur une AUTRE phrase, on l'en retire (réattribution) pour garder un
+      // appariement 1-à-1 et éviter les doublons.
+      const myGuesses: Record<number, string> = { ...(state.guesses[memberId] ?? {}) }
+      for (const [idxStr, gId] of Object.entries(myGuesses)) {
+        if (gId === guessedMemberId && Number(idxStr) !== entryIndex) delete myGuesses[Number(idxStr)]
+      }
+      myGuesses[entryIndex] = guessedMemberId
+
       const nextState: WhoWroteItState = {
         ...state,
-        guesses: { ...state.guesses, [memberId]: { ...(state.guesses[memberId] ?? {}), [entryIndex]: guessedMemberId } },
+        guesses: { ...state.guesses, [memberId]: myGuesses },
       }
       return { session: { ...session, roundData: nextState } }
     }
@@ -133,7 +145,12 @@ export const whoWroteIt: GameModule = {
       return Object.keys(state.submissions).length >= group.members.length
     }
     if (session.phase === 'guessing') {
-      return group.members.every((m) => Object.keys(state.guesses[m.id] ?? {}).length >= state.entries.length)
+      // Chaque joueur doit avoir deviné toutes les phrases SAUF la sienne (on ne vote pas pour soi).
+      const authorByIndex = state.secrets?.authorByIndex ?? {}
+      return group.members.every((m) => {
+        const guessMap = state.guesses[m.id] ?? {}
+        return state.entries.every((_, i) => authorByIndex[i] === m.id || guessMap[i] !== undefined)
+      })
     }
     return false
   },

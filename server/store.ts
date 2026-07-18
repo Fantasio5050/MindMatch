@@ -96,8 +96,25 @@ function sanitizeParty(party: PartySession, requestingMemberId: string | null): 
 
   if (roundData && typeof roundData === 'object' && 'secrets' in roundData) {
     const { secrets, ...rest } = roundData as { secrets: unknown } & Record<string, unknown>
-    void secrets
-    roundData = rest
+    // Cas "Qui a écrit ça ?" : on révèle à chaque joueur UNIQUEMENT l'index de sa propre phrase
+    // (dérivé de secrets.authorByIndex), pour que le client puisse la masquer de ses choix — sans
+    // jamais divulguer les auteurs des autres phrases. Tout le reste de `secrets` est supprimé.
+    let yourEntryIndex: number | null = null
+    if (
+      requestingMemberId &&
+      secrets &&
+      typeof secrets === 'object' &&
+      'authorByIndex' in secrets
+    ) {
+      const authorByIndex = (secrets as { authorByIndex: Record<number, string> }).authorByIndex
+      for (const [idx, authorId] of Object.entries(authorByIndex)) {
+        if (authorId === requestingMemberId) {
+          yourEntryIndex = Number(idx)
+          break
+        }
+      }
+    }
+    roundData = yourEntryIndex !== null ? { ...rest, yourEntryIndex } : rest
   }
 
   return { ...party, roundData }

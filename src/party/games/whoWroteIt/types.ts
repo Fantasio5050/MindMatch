@@ -15,4 +15,7 @@ export interface WhoWroteItClientState {
   history: WhoWroteItHistoryEntry[]
   submittedCount: number
   yourSubmission: string | null
+  /** Index de la phrase écrite par le joueur qui reçoit cet état (pendant la phase de devinette),
+   * pour que le client la masque de ses propres choix. null s'il n'a pas écrit / hors devinette. */
+  yourEntryIndex?: number | null
 }

@@ -130,13 +130,29 @@ function GuessingView({
   currentMemberId: string
   onGuess: (entryIndex: number, guessedMemberId: string) => void
 }) {
-  const [index, setIndex] = useState(0)
-  const entry = state.entries[index]
+  // On saute la phrase écrite par le joueur : on ne devine (et ne vote) que les autres.
+  const ownIndex = state.yourEntryIndex ?? null
+  const guessableIndexes = state.entries.map((_, i) => i).filter((i) => i !== ownIndex)
+
+  const [pos, setPos] = useState(0)
+  const clampedPos = Math.min(pos, Math.max(0, guessableIndexes.length - 1))
+  const index = guessableIndexes[clampedPos]
+  const entry = index !== undefined ? state.entries[index] : undefined
+
   const yourGuesses = state.guesses[currentMemberId] ?? {}
-  const guessedAuthorId = yourGuesses[index]
+  const guessedAuthorId = index !== undefined ? yourGuesses[index] : undefined
   const guessedAuthor = guessedAuthorId ? members.find((m) => m.id === guessedAuthorId) : null
-  const isLast = index >= state.entries.length - 1
-  const allGuessed = Object.keys(yourGuesses).length >= state.entries.length
+  const isLast = clampedPos >= guessableIndexes.length - 1
+  const allGuessed = guessableIndexes.every((i) => yourGuesses[i] !== undefined)
+
+  // Chaque auteur est unique : on retire des choix ceux déjà attribués à une AUTRE phrase, et
+  // soi-même (on ne peut pas être l'auteur d'une phrase qu'on ne devine pas).
+  const usedElsewhere = new Set(
+    Object.entries(yourGuesses)
+      .filter(([idxStr]) => Number(idxStr) !== index)
+      .map(([, id]) => id),
+  )
+  const options = members.filter((m) => m.id !== currentMemberId && !usedElsewhere.has(m.id))
 
   if (!entry) {
     return (
@@ -149,7 +165,7 @@ function GuessingView({
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">
-        Texte {index + 1} / {state.entries.length}
+        Texte {clampedPos + 1} / {guessableIndexes.length}
       </p>
       <p className="text-white/50 text-sm text-center mb-4">{state.currentPrompt?.text}</p>
 
@@ -169,17 +185,17 @@ function GuessingView({
             allGuessed ? (
               <p className="text-center text-white/40 text-sm">En attente des autres joueurs…</p>
             ) : (
-              <p className="text-center text-white/40 text-sm">C'était le dernier texte !</p>
+              <p className="text-center text-white/40 text-sm">Tu as deviné tous les textes !</p>
             )
           ) : (
-            <Button fullWidth onClick={() => setIndex((i) => i + 1)}>
+            <Button fullWidth onClick={() => setPos((p) => p + 1)}>
               Texte suivant →
             </Button>
           )}
         </>
       ) : (
         <div className="grid grid-cols-2 gap-3">
-          {members.map((m, i) => (
+          {options.map((m, i) => (
             <motion.button
               key={m.id}
               onClick={() => onGuess(index, m.id)}
@@ -196,13 +212,13 @@ function GuessingView({
         </div>
       )}
 
-      {state.entries.length > 1 && (
+      {guessableIndexes.length > 1 && (
         <div className="flex justify-center gap-1.5 mt-8">
-          {state.entries.map((_, i) => (
+          {guessableIndexes.map((entryIdx, dotPos) => (
             <button
-              key={i}
-              onClick={() => setIndex(i)}
-              className={`w-2 h-2 rounded-full ${i === index ? 'bg-fuchsia-400' : yourGuesses[i] ? 'bg-white/40' : 'bg-white/15'}`}
+              key={entryIdx}
+              onClick={() => setPos(dotPos)}
+              className={`w-2 h-2 rounded-full ${dotPos === clampedPos ? 'bg-fuchsia-400' : yourGuesses[entryIdx] ? 'bg-white/40' : 'bg-white/15'}`}
             />
           ))}
         </div>
