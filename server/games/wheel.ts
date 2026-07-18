@@ -1,5 +1,6 @@
 import type { PartySession } from '../../src/types'
 import type { GameModule, GameAction, XpAward } from './types'
+import { pickWithoutRepeat } from './pickHelpers'
 import {
   WHEEL_SEGMENTS,
   WHEEL_SEGMENT_COUNT,
@@ -51,6 +52,8 @@ interface WheelState {
   immunities: Record<string, boolean>
   totalSips: Record<string, number>
   spinsDone: number
+  /** Gages déjà tirés cette partie — anti-répétition (voir pickWithoutRepeat). */
+  usedGages: string[]
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -97,6 +100,7 @@ function getState(session: PartySession): WheelState {
       immunities: {},
       totalSips: {},
       spinsDone: 0,
+      usedGages: [],
     }
   )
 }
@@ -144,6 +148,7 @@ export const wheel: GameModule = {
         immunities: {},
         totalSips: {},
         spinsDone: 0,
+        usedGages: [],
       }
       return { session: { ...session, status: 'playing', phase: 'intro', round: 0, roundData: newState } }
     }
@@ -213,7 +218,7 @@ export const wheel: GameModule = {
         around.delete(memberId)
         for (const id of around) applyWheelSips(id, NEIGHBOR_SIPS, acc)
       }
-      if (segment.type === 'gage') gageText = WHEEL_GAGES[Math.floor(Math.random() * WHEEL_GAGES.length)]
+      if (segment.type === 'gage') gageText = pickWithoutRepeat(WHEEL_GAGES, state.usedGages)
       if (segment.type === 'give') giveTotal = segment.value ?? 2
       if (segment.type === 'immunity') acc.immunities[memberId] = true
 
@@ -248,6 +253,7 @@ export const wheel: GameModule = {
             immunities: acc.immunities,
             totalSips: acc.totals,
             spinsDone: state.spinsDone + 1,
+            usedGages: gageText ? [...state.usedGages, gageText] : state.usedGages,
           },
         },
         xpAwards,

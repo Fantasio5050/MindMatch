@@ -1,6 +1,7 @@
 import type { PartySession } from '../../src/types'
 import type { GameModule, GameAction, XpAward } from './types'
 import { CHAMBER_COUNT, BANG_CULSEC_SIPS, CLICK_SIPS, RUSSIAN_ROULETTE_GAGES } from '../../src/data/russianRoulette'
+import { pickWithoutRepeat } from './pickHelpers'
 
 /** Roulette russe (18+). Chacun son tour appuie sur la détente. La position de la balle est tirée
  * ICI et cachée dans `secrets` (supprimé avant d'atteindre les clients — impossible de tricher ou
@@ -37,6 +38,8 @@ interface RussianRouletteState {
   survivedPulls: Record<string, number>
   pullsDone: number
   barrelsUsed: number
+  /** Gages déjà tirés cette partie — anti-répétition (voir pickWithoutRepeat). */
+  usedGages: string[]
 }
 
 function freshBarrel(): { bulletPos: number } {
@@ -56,6 +59,7 @@ function getState(session: PartySession): RussianRouletteState {
       survivedPulls: {},
       pullsDone: 0,
       barrelsUsed: 1,
+      usedGages: [],
     }
   )
 }
@@ -87,6 +91,7 @@ export const russianRoulette: GameModule = {
         survivedPulls: {},
         pullsDone: 0,
         barrelsUsed: 1,
+        usedGages: [],
       }
       return { session: { ...session, status: 'playing', phase: 'intro', round: 0, roundData: newState } }
     }
@@ -157,13 +162,13 @@ export const russianRoulette: GameModule = {
       }
 
       // BANG : gage hardcore, on fige sur la phase result le temps que le perdant tranche.
-      const gageText = RUSSIAN_ROULETTE_GAGES[Math.floor(Math.random() * RUSSIAN_ROULETTE_GAGES.length)]
+      const gageText = pickWithoutRepeat(RUSSIAN_ROULETTE_GAGES, state.usedGages)
       const lastPull: LastPull = { pullerId: memberId, bang: true, chamber: state.chamber, oddsDenom, gageText, gageDone: null }
       return {
         session: {
           ...session,
           phase: 'result',
-          roundData: { ...state, lastPull, bangs: add(state.bangs, memberId, 1), pullsDone },
+          roundData: { ...state, lastPull, bangs: add(state.bangs, memberId, 1), pullsDone, usedGages: [...state.usedGages, gageText] },
         },
       }
     }
