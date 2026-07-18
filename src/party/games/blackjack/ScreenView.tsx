@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'
 import { Avatar } from '../../../components/Avatar'
+import { PodiumRow } from '../shared/PodiumRow'
 import { Confetti } from '../../../components/Confetti'
 import { PlayingCard } from '../shared/PlayingCard'
 import { handTotal, OUTCOME_LABEL, type BlackjackClientState } from './types'
@@ -151,20 +152,14 @@ function FinalPodium({ members, state }: { members: Member[]; state: BlackjackCl
       <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏆 Classement final</h1>
       <div className="flex flex-col gap-4 items-center">
         {ranked.map((m, i) => (
-          <motion.div
-            key={m.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 * i }}
-            className="flex items-center gap-4 glass-card rounded-2xl px-8 py-4 w-[500px]"
-          >
+          <PodiumRow key={m.id} rank={i} total={ranked.length} width={500} loserEmoji={state.adult ? '🍺' : '😅'}>
             <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
             <span className="text-lg text-white/60 tabular-nums">
               {state.adult ? `${state.totalSips[m.id] ?? 0} 🍻` : `${state.chips[m.id] ?? 0} 🎰`}
             </span>
-          </motion.div>
+          </PodiumRow>
         ))}
       </div>
     </div>
