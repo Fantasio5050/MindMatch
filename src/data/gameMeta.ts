@@ -16,4 +16,5 @@ export const GAME_META: Record<string, GameMeta> = {
   autoroute: { id: 'autoroute', name: 'Autoroute', icon: '🛣️' },
   pmu: { id: 'pmu', name: 'PMU', icon: '🏇' },
   wheel: { id: 'wheel', name: 'Roue Infernale', icon: '🎡' },
+  'russian-roulette': { id: 'russian-roulette', name: 'Roulette russe', icon: '🔫' },
 }
