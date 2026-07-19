@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'
 import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
-import { PC_FINISH_INDEX } from '../../../data/petitsChevaux'
+import { PC_FINISH_INDEX, PC_HORSE_COLORS, pcColorHex } from '../../../data/petitsChevaux'
 import type { PetitsChevauxClientState } from './types'
 import type { Member } from '../../../types'
 
@@ -42,7 +42,19 @@ export function PetitsChevauxController() {
   }
 
   if (party.phase === 'intro') {
-    return <IntroView isHost={isHost} onStart={() => hostAdvance()} />
+    return (
+      <IntroView
+        state={state}
+        members={group.members}
+        selfId={currentMember.id}
+        isHost={isHost}
+        onPick={(color) => {
+          play('vote')
+          sendAction('pickColor', { color })
+        }}
+        onStart={() => hostAdvance()}
+      />
+    )
   }
 
   const currentId = state.order[state.currentIndex]
@@ -50,67 +62,79 @@ export function PetitsChevauxController() {
   const iFinished = state.finishOrder.includes(currentMember.id)
   const currentPseudo = group.members.find((m) => m.id === currentId)?.pseudo ?? '?'
   const myPos = state.positions[currentMember.id] ?? 0
+  const myColor = pcColorHex(state.horseColors[currentMember.id])
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-8 safe-top">
       <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Tour {state.turnsPlayed + 1}</p>
 
-      {state.lastRoll && (
-        <motion.div
-          key={`${state.lastRoll.playerId}-${state.turnsPlayed}`}
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-card rounded-2xl px-4 py-3 mb-4 text-center"
-        >
-          <p className="text-sm">
-            🎲 <b>{group.members.find((m) => m.id === state.lastRoll!.playerId)?.pseudo ?? '?'}</b> a fait un{' '}
-            <b className="text-fuchsia-300">{state.lastRoll.die}</b>
-          </p>
-          {state.lastRoll.text && <p className="text-xs text-white/60 mt-1">{state.lastRoll.text}</p>}
-          {state.lastRoll.captured.length > 0 && (
-            <p className="text-xs text-pink-300 mt-1">
-              💥 {state.lastRoll.captured.map((id) => group.members.find((m) => m.id === id)?.pseudo ?? '?').join(', ')} renvoyé·e au départ !
+      <AnimatePresence mode="wait">
+        {state.lastRoll && (
+          <motion.div
+            key={`${state.lastRoll.playerId}-${state.turnsPlayed}`}
+            initial={{ opacity: 0, y: -10, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.35 }}
+            className="glass-card rounded-2xl px-4 py-3 mb-4 text-center"
+          >
+            <p className="text-sm">
+              🎲 <b>{group.members.find((m) => m.id === state.lastRoll!.playerId)?.pseudo ?? '?'}</b> a fait un{' '}
+              <b className="text-fuchsia-300">{state.lastRoll.die}</b>
             </p>
-          )}
-        </motion.div>
-      )}
+            {state.lastRoll.text && <p className="text-xs text-white/60 mt-1">{state.lastRoll.text}</p>}
+            {state.lastRoll.captured.length > 0 && (
+              <p className="text-xs text-pink-300 mt-1">
+                💥 {state.lastRoll.captured.map((id) => group.members.find((m) => m.id === id)?.pseudo ?? '?').join(', ')} renvoyé·e au départ !
+              </p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex-1 flex flex-col items-center justify-center">
-        {iFinished ? (
-          <Card className="text-center">
-            <p className="text-5xl mb-2">🏆</p>
-            <p className="font-bold">Tu es arrivé·e !</p>
-            <p className="text-white/50 text-sm">Regarde les autres galérer 😏</p>
-          </Card>
-        ) : isMyTurn ? (
-          <>
-            <p className="text-white/50 text-sm mb-2">
-              Case {myPos} / {PC_FINISH_INDEX} — à toi de jouer !
-            </p>
-            <motion.button
-              whileTap={{ scale: 0.92 }}
-              animate={{ scale: [1, 1.05, 1] }}
-              transition={{ duration: 1.4, repeat: Infinity }}
-              onClick={() => {
-                play('tick')
-                sendAction('roll', {})
-              }}
-              className="w-40 h-40 rounded-3xl bg-gradient-to-br from-fuchsia-500 to-purple-600 text-white text-6xl font-extrabold shadow-2xl flex items-center justify-center"
-            >
-              🎲
-            </motion.button>
-            <p className="text-white/40 text-sm mt-4">Lance le dé</p>
-          </>
-        ) : (
-          <Card className="text-center">
-            <p className="text-white/50 text-sm mb-2">En attente…</p>
-            <p className="font-semibold">C'est au tour de {currentPseudo} 🎲</p>
-            <p className="text-white/40 text-sm mt-2">Ta position : case {myPos} / {PC_FINISH_INDEX}</p>
-          </Card>
-        )}
+        <AnimatePresence mode="wait">
+          {iFinished ? (
+            <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
+              <Card className="text-center">
+                <p className="text-5xl mb-2">🏆</p>
+                <p className="font-bold">Ton cheval est à l'arrivée !</p>
+                <p className="text-white/50 text-sm">Regarde les autres galérer 😏</p>
+              </Card>
+            </motion.div>
+          ) : isMyTurn ? (
+            <motion.div key="myturn" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }} className="flex flex-col items-center">
+              <p className="text-white/50 text-sm mb-3">
+                Case {myPos} / {PC_FINISH_INDEX} — à toi de jouer !
+              </p>
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                onClick={() => {
+                  play('tick')
+                  sendAction('roll', {})
+                }}
+                className="w-40 h-40 rounded-3xl text-white text-6xl font-extrabold shadow-2xl flex items-center justify-center border-4 border-white/20"
+                style={{ background: `linear-gradient(135deg, ${myColor}, ${myColor}bb)` }}
+              >
+                🎲
+              </motion.button>
+              <p className="text-white/40 text-sm mt-4">Lance le dé pour ton cheval 🐴</p>
+            </motion.div>
+          ) : (
+            <motion.div key="wait" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+              <Card className="text-center">
+                <p className="text-white/50 text-sm mb-2">En attente…</p>
+                <p className="font-semibold">C'est au tour de {currentPseudo} 🎲</p>
+                <p className="text-white/40 text-sm mt-2">Ton cheval : case {myPos} / {PC_FINISH_INDEX}</p>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {isHost && !isMyTurn && (
+      {isHost && !isMyTurn && !iFinished && (
         <Button fullWidth variant="ghost" onClick={() => hostAdvance()} className="!py-2 text-sm mt-4">
           Passer le tour de {currentPseudo} (absent·e)
         </Button>
@@ -120,31 +144,65 @@ export function PetitsChevauxController() {
   )
 }
 
-function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }) {
-  const rules = [
-    ['🐴', 'Chacun son cheval sur le plateau. À ton tour, lance le dé et avance ton pion.'],
-    ['🎯', 'Tu dois tomber pile sur l\'arrivée : si tu dépasses, tu rebondis en arrière !'],
-    ['💥', 'Atterris pile sur un adversaire et il repart au départ… en buvant 2 gorgées.'],
-    ['🍺', 'Les cases déclenchent des events : bois, distribue, avance, recule, gage, cul sec.'],
-    ['🏆', 'Le/la premier·ère à l\'arrivée gagne. Les autres… boivent.'],
-  ] as const
+function IntroView({
+  state,
+  members,
+  selfId,
+  isHost,
+  onPick,
+  onStart,
+}: {
+  state: PetitsChevauxClientState
+  members: Member[]
+  selfId: string
+  isHost: boolean
+  onPick: (color: string) => void
+  onStart: () => void
+}) {
+  const myColor = state.horseColors[selfId]
   return (
     <div className="min-h-svh flex flex-col justify-center px-6 py-10 safe-top">
-      <div className="text-center mb-6">
+      <div className="text-center mb-5">
         <span className="text-5xl">🐴</span>
         <h1 className="text-2xl font-extrabold mt-2">Petits Chevaux</h1>
         <p className="text-white/40 text-sm">Le plateau est sur la TV 📺</p>
       </div>
+
+      <Card className="mb-4">
+        <p className="text-sm font-semibold text-center mb-3">Choisis ton cheval 🐎</p>
+        <div className="grid grid-cols-2 gap-3">
+          {PC_HORSE_COLORS.map((c) => {
+            const mine = myColor === c.key
+            const takenBy = members.filter((m) => state.horseColors[m.id] === c.key && state.order.includes(m.id))
+            return (
+              <motion.button
+                key={c.key}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onPick(c.key)}
+                className={`rounded-2xl p-3 flex flex-col items-center gap-1 border-2 transition-colors ${mine ? 'border-white' : 'border-transparent'}`}
+                style={{ background: `${c.hex}26` }}
+              >
+                <span className="text-4xl" style={{ filter: `drop-shadow(0 2px 3px ${c.hex})` }}>🐎</span>
+                <span className="text-sm font-bold" style={{ color: c.hex }}>{c.name}</span>
+                <div className="flex -space-x-1.5 h-5">
+                  {takenBy.map((m) => (
+                    <Avatar key={m.id} pseudo={m.pseudo} color={m.color} size={18} photoUrl={m.photoUrl} />
+                  ))}
+                </div>
+              </motion.button>
+            )
+          })}
+        </div>
+      </Card>
+
       <Card className="mb-6">
-        <ul className="flex flex-col gap-3 text-sm text-white/80">
-          {rules.map(([emoji, text], i) => (
-            <motion.li key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }} className="flex gap-2">
-              <span className="shrink-0">{emoji}</span>
-              <span>{text}</span>
-            </motion.li>
-          ))}
+        <ul className="flex flex-col gap-2 text-xs text-white/75">
+          <li className="flex gap-2"><span>🎯</span><span>Tombe pile sur l'arrivée au centre — si tu dépasses, tu rebondis !</span></li>
+          <li className="flex gap-2"><span>💥</span><span>Atterris pile sur un cheval adverse et il repart au départ (il boit 2).</span></li>
+          <li className="flex gap-2"><span>🍺</span><span>Les cases déclenchent : bois, tournée, avance, recule, gage, cul sec.</span></li>
         </ul>
       </Card>
+
       {isHost ? (
         <Button fullWidth onClick={onStart}>
           Lancer la course ! 🐴
@@ -152,7 +210,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
       ) : (
         <p className="text-center text-white/40 text-sm">En attente que l'hôte lance la course…</p>
       )}
-      <p className="text-center text-white/20 text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
+      <p className="text-center text-white/20 text-xs mt-4">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
     </div>
   )
 }
@@ -167,7 +225,8 @@ function FinalResults({ members, state, onExit }: { members: Member[]; state: Pe
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
             <span className="text-lg font-bold w-6 text-center text-white/50">{i === 0 ? '🏆' : i + 1}</span>
-            <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
+            <span className="text-2xl" style={{ filter: `drop-shadow(0 1px 2px ${pcColorHex(state.horseColors[m.id])})` }}>🐎</span>
+            <Avatar pseudo={m.pseudo} color={m.color} size={32} photoUrl={m.photoUrl} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
             <span className="text-sm text-white/60">{state.totalSips[m.id] ?? 0} 🍻</span>
           </Card>

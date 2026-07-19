@@ -7,8 +7,11 @@ import {
   PC_FINISH_INDEX,
   PC_CAPTURE_SIPS,
   PC_CULSEC_SIPS,
+  PC_HORSE_COLORS,
   type PCCell,
 } from '../../src/data/petitsChevaux'
+
+const COLOR_KEYS = PC_HORSE_COLORS.map((c) => c.key)
 
 /** Petits Chevaux à boire (18+). Jeu au tour par tour : le joueur courant lance le dé sur son
  * téléphone, le serveur calcule le déplacement (rebond à l'arrivée, événement de case, capture),
@@ -37,6 +40,8 @@ interface PCState {
   turnsPlayed: number
   usedGages: string[]
   winnerId: string | null
+  /** Couleur de cheval choisie par chaque joueur (clé parmi PC_HORSE_COLORS). */
+  horseColors: Record<string, string>
 }
 
 function emptyState(): PCState {
@@ -50,6 +55,7 @@ function emptyState(): PCState {
     turnsPlayed: 0,
     usedGages: [],
     winnerId: null,
+    horseColors: {},
   }
 }
 
@@ -88,8 +94,12 @@ export const petitsChevaux: GameModule = {
     // 1) Premier appel : mise en place du plateau.
     if (session.round === 0 && session.phase === null) {
       const positions: Record<string, number> = {}
-      for (const id of session.participantIds) positions[id] = 0
-      const newState: PCState = { ...emptyState(), order: [...session.participantIds], positions }
+      const horseColors: Record<string, string> = {}
+      session.participantIds.forEach((id, i) => {
+        positions[id] = 0
+        horseColors[id] = COLOR_KEYS[i % COLOR_KEYS.length] // couleur par défaut, changeable en intro
+      })
+      const newState: PCState = { ...emptyState(), order: [...session.participantIds], positions, horseColors }
       return { session: { ...session, status: 'playing', phase: 'intro', round: 0, roundData: newState } }
     }
 
@@ -103,6 +113,15 @@ export const petitsChevaux: GameModule = {
 
   handleAction(_group, session, memberId, action: GameAction) {
     const state = getState(session)
+
+    // Choix de la couleur de cheval, avant le départ.
+    if (session.phase === 'intro' && action.type === 'pickColor') {
+      const payload = action.payload as { color?: string } | null
+      const color = payload?.color
+      if (!color || !COLOR_KEYS.includes(color)) return { session }
+      return { session: { ...session, roundData: { ...state, horseColors: { ...state.horseColors, [memberId]: color } } } }
+    }
+
     if (session.phase !== 'turn' || action.type !== 'roll') return { session }
     if (state.order[state.currentIndex] !== memberId) return { session }
     if (state.finishOrder.includes(memberId)) return { session }

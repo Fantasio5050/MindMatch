@@ -65,3 +65,25 @@ export const PC_TRACK: PCCell[] = [
 
 export const PC_TRACK_LENGTH = PC_TRACK.length
 export const PC_FINISH_INDEX = PC_TRACK_LENGTH - 1
+
+/** Les 4 couleurs classiques des chevaux — chaque joueur choisit la sienne (doublons autorisés
+ * au-delà de 4 joueurs). Ordre/positions des écuries : vert en haut-gauche, jaune en haut-droite,
+ * rouge en bas-droite, bleu en bas-gauche (comme un vrai plateau de petits chevaux). */
+export interface PCHorseColor {
+  key: string
+  name: string
+  hex: string
+}
+
+export const PC_HORSE_COLORS: PCHorseColor[] = [
+  { key: 'green', name: 'Vert', hex: '#3fa45b' },
+  { key: 'yellow', name: 'Jaune', hex: '#e2b325' },
+  { key: 'red', name: 'Rouge', hex: '#d23b3b' },
+  { key: 'blue', name: 'Bleu', hex: '#2f74d0' },
+]
+
+export const PC_COLOR_HEX: Record<string, string> = Object.fromEntries(PC_HORSE_COLORS.map((c) => [c.key, c.hex]))
+
+export function pcColorHex(key: string | undefined): string {
+  return (key && PC_COLOR_HEX[key]) || '#9aa0a6'
+}

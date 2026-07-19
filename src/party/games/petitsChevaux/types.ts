@@ -19,4 +19,5 @@ export interface PetitsChevauxClientState {
   finishOrder: string[]
   turnsPlayed: number
   winnerId: string | null
+  horseColors: Record<string, string>
 }
