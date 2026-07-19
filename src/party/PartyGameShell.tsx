@@ -81,7 +81,7 @@ function WaitingForNextGame({ group, gameId }: { group: Group; gameId: string })
         <div className="flex flex-wrap gap-2 justify-center mb-8 max-w-xs">
           {playing.map((m) => (
             <div key={m.id} className="flex items-center gap-1.5 glass-card rounded-full pl-1 pr-3 py-1">
-              <Avatar pseudo={m.pseudo} color={m.color} size={22} />
+              <Avatar pseudo={m.pseudo} color={m.color} size={22} photoUrl={m.photoUrl} />
               <span className="text-xs">{m.pseudo}</span>
             </div>
           ))}
@@ -118,7 +118,7 @@ function ScreenLobbyWaiting({ group }: { group: Group }) {
       <div className="flex flex-wrap gap-3 justify-center max-w-2xl">
         {group.members.map((m) => (
           <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-4 py-1.5">
-            <Avatar pseudo={m.pseudo} color={m.color} size={32} />
+            <Avatar pseudo={m.pseudo} color={m.color} size={32} photoUrl={m.photoUrl} />
             <span className="text-lg font-medium">{m.pseudo}</span>
           </div>
         ))}

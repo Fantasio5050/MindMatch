@@ -115,7 +115,7 @@ function RevealScreen({ state, members }: { state: WhoWroteItClientState; member
                 transition={{ delay: 0.1 * i }}
                 className="flex items-center gap-4 glass-card rounded-2xl px-6 py-4"
               >
-                <Avatar pseudo={author?.pseudo ?? '?'} color={author?.color ?? '#fff'} size={48} />
+                <Avatar pseudo={author?.pseudo ?? '?'} color={author?.color ?? '#fff'} size={48} photoUrl={author?.photoUrl} />
                 <div className="flex-1 text-left">
                   <p className="text-lg font-bold">{author?.pseudo}</p>
                   <p className="text-white/60">« {entry.text} »</p>
@@ -139,7 +139,7 @@ function FinalPodium({ members }: { members: Member[] }) {
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={420}>
             <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
-            <Avatar pseudo={m.pseudo} color={m.color} size={48} />
+            <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
             <span className="text-lg text-white/60 tabular-nums">{m.xp} XP</span>
           </PodiumRow>

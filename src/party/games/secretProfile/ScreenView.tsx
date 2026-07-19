@@ -106,7 +106,7 @@ function RevealScreen({ state, members }: { state: SecretProfileClientState; mem
             transition={{ type: 'spring', duration: 0.7 }}
             className="flex flex-col items-center mb-10"
           >
-            <Avatar pseudo={mystery.pseudo} color={mystery.color} size={96} />
+            <Avatar pseudo={mystery.pseudo} color={mystery.color} size={96} photoUrl={mystery.photoUrl} />
             <p className="text-4xl font-extrabold shimmer-text mt-4">{mystery.pseudo}</p>
           </motion.div>
         )}
@@ -120,7 +120,7 @@ function RevealScreen({ state, members }: { state: SecretProfileClientState; mem
               transition={{ delay: 0.08 * i }}
               className="flex items-center gap-4"
             >
-              <Avatar pseudo={member.pseudo} color={member.color} size={40} />
+              <Avatar pseudo={member.pseudo} color={member.color} size={40} photoUrl={member.photoUrl} />
               <span className="w-28 text-lg font-medium truncate">{member.pseudo}</span>
               <div className="flex-1 h-6 rounded-full bg-white/10 overflow-hidden">
                 <motion.div
@@ -150,7 +150,7 @@ function FinalPodium({ members }: { members: Member[] }) {
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={420}>
             <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
-            <Avatar pseudo={m.pseudo} color={m.color} size={48} />
+            <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
             <span className="text-lg text-white/60 tabular-nums">{m.xp} XP</span>
           </PodiumRow>

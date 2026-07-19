@@ -116,7 +116,7 @@ function MemorizeScreen({ members }: { members: Member[] }) {
       <div className="flex flex-wrap gap-3 justify-center">
         {members.map((m) => (
           <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-4 py-1.5">
-            <Avatar pseudo={m.pseudo} color={m.color} size={32} />
+            <Avatar pseudo={m.pseudo} color={m.color} size={32} photoUrl={m.photoUrl} />
             <span className="text-lg font-medium">{m.pseudo}</span>
           </div>
         ))}
@@ -241,7 +241,7 @@ function SipTally({ members, totals }: { members: Member[]; totals: Record<strin
     <div className="mt-10 flex flex-wrap gap-3 justify-center">
       {ranked.map((m) => (
         <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-3 py-1.5">
-          <Avatar pseudo={m.pseudo} color={m.color} size={28} />
+          <Avatar pseudo={m.pseudo} color={m.color} size={28} photoUrl={m.photoUrl} />
           <span className="text-sm font-medium">{m.pseudo}</span>
           <span className="text-sm text-white/50 tabular-nums">{totals[m.id] ?? 0}</span>
         </div>
@@ -260,7 +260,7 @@ function FinalPodium({ members, totals }: { members: Member[]; totals: Record<st
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={420} loserEmoji="🍺">
             <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
-            <Avatar pseudo={m.pseudo} color={m.color} size={48} />
+            <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
             <span className="text-lg text-white/60 tabular-nums">{totals[m.id] ?? 0} gorgées</span>
           </PodiumRow>

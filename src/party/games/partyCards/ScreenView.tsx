@@ -48,7 +48,7 @@ function CardScreen({ state, members }: { state: PartyCardsClientState; members:
         </p>
 
         <div className="flex flex-col items-center gap-3 mb-8">
-          <Avatar pseudo={assigned?.pseudo ?? '?'} color={assigned?.color ?? '#fff'} size={80} />
+          <Avatar pseudo={assigned?.pseudo ?? '?'} color={assigned?.color ?? '#fff'} size={80} photoUrl={assigned?.photoUrl} />
           <p className="text-3xl font-extrabold shimmer-text">{assigned?.pseudo}</p>
         </div>
 
@@ -73,7 +73,7 @@ function FinalPodium({ members }: { members: Member[] }) {
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={420}>
             <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
-            <Avatar pseudo={m.pseudo} color={m.color} size={48} />
+            <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
             <span className="text-lg text-white/60 tabular-nums">{m.xp} XP</span>
           </PodiumRow>

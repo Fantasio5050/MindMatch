@@ -67,7 +67,7 @@ function VotingScreen({ state, members }: { state: GuessMyAnswerClientState; mem
         Manche {state.history.length + 1} / {state.totalRounds}
       </p>
       <div className="flex flex-col items-center gap-3 mb-6">
-        <Avatar pseudo={target?.pseudo ?? '?'} color={target?.color ?? '#fff'} size={72} />
+        <Avatar pseudo={target?.pseudo ?? '?'} color={target?.color ?? '#fff'} size={72} photoUrl={target?.photoUrl} />
         <h1 className="text-4xl font-extrabold leading-tight">
           Que répondrait <span className="shimmer-text">{target?.pseudo}</span> ?
         </h1>
@@ -119,7 +119,7 @@ function RevealScreen({ state, members }: { state: GuessMyAnswerClientState; mem
           <div className="flex flex-wrap gap-4 justify-center">
             {correctGuessers.map((m) => (
               <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-4 py-2">
-                <Avatar pseudo={m.pseudo} color={m.color} size={36} />
+                <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
                 <span className="text-lg font-medium">{m.pseudo}</span>
               </div>
             ))}
@@ -142,7 +142,7 @@ function FinalPodium({ members }: { members: Member[] }) {
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={420}>
             <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
-            <Avatar pseudo={m.pseudo} color={m.color} size={48} />
+            <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
             <span className="text-lg text-white/60 tabular-nums">{m.xp} XP</span>
           </PodiumRow>
