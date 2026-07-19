@@ -84,6 +84,18 @@ export const TRASH_PARTY_CARDS: PartyCard[] = [
   { id: 'pt-31', pack: 'trash', type: 'verite', text: "As-tu déjà fait semblant d'aimer un cadeau ? C'était quoi, et de qui ?" },
   { id: 'pt-32', pack: 'trash', type: 'defi', text: "Appelle un contact et chante-lui « joyeux anniversaire », peu importe la date." },
   { id: 'pt-33', pack: 'trash', type: 'action', text: "Dis quelle célébrité serait ton joker « liste ». On ne juge pas." },
+  { id: 'pt-34', pack: 'trash', type: 'verite', text: "Le vrai chiffre : combien de partenaires tu as vraiment eu ?" },
+  { id: 'pt-35', pack: 'trash', type: 'action', text: "Décris ta position préférée au lit… avec les gestes." },
+  { id: 'pt-36', pack: 'trash', type: 'defi', text: "Envoie « t'es chaud·e ? » à ton dernier match et lis la réponse à voix haute." },
+  { id: 'pt-37', pack: 'trash', type: 'verite', text: "Quel est l'endroit le plus improbable où tu as couché ?" },
+  { id: 'pt-38', pack: 'trash', type: 'action', text: "Mime ton orgasme le plus théâtral — le groupe te note sur 10." },
+  { id: 'pt-39', pack: 'trash', type: 'verite', text: "T'as déjà simulé ? Avec qui et pourquoi (sans donner de nom) ?" },
+  { id: 'pt-40', pack: 'trash', type: 'defi', text: "Montre la photo la plus sexy de ta galerie… ou cul sec." },
+  { id: 'pt-41', pack: 'trash', type: 'verite', text: "Ton pire craquage : avec qui tu n'aurais JAMAIS dû coucher ?" },
+  { id: 'pt-42', pack: 'trash', type: 'action', text: "Classe la table du plus au moins bon coup, selon ton pur instinct." },
+  { id: 'pt-43', pack: 'trash', type: 'verite', text: "La chose la plus sale que tu aies faite pour du sexe ?" },
+  { id: 'pt-44', pack: 'trash', type: 'action', text: "Avoue quel·le joueur·se tu materais si tu étais célibataire ce soir." },
+  { id: 'pt-45', pack: 'trash', type: 'verite', text: "Ta recherche la plus honteuse en navigation privée, c'était quoi ?" },
 ]
 
 export function partyCardsForPack(pack: PartyCardPack | 'mixed'): PartyCard[] {
