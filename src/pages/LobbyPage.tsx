@@ -114,6 +114,7 @@ export function LobbyPage() {
   const canPlayRoulette = group.members.length >= 2
   const canPlayBlackjack = group.members.length >= 2
   const canPlayBlanc = group.members.length >= 3
+  const canPlayPetitsChevaux = group.members.length >= 2
   const adultMode = group.adultModeEnabled
 
   const copyCode = async () => {
@@ -618,6 +619,34 @@ export function LobbyPage() {
             </Card>
           ) : (
             <LockedGameCard icon="🖊️" name="Le Grand Blanc" note="Cartes à trous trash — active le mode 18+" />
+          )}
+
+          {adultMode ? (
+            <Card delay={0.289}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-3xl">🐴</span>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">
+                    Petits Chevaux <span className="text-[10px] font-bold text-fuchsia-300 align-middle">plateau sur TV</span>
+                  </p>
+                  <p className="text-xs text-white/40">Lancez le dé, avancez, capturez — cases à boire et gages 🎲</p>
+                </div>
+              </div>
+              {isHost ? (
+                <Button
+                  fullWidth
+                  disabled={!canPlayPetitsChevaux}
+                  onClick={() => startGame('petits-chevaux')}
+                  className="!py-2.5 text-sm"
+                >
+                  {canPlayPetitsChevaux ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
+                </Button>
+              ) : (
+                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
+              )}
+            </Card>
+          ) : (
+            <LockedGameCard icon="🐴" name="Petits Chevaux" note="Jeu à boire (plateau) — active le mode 18+" />
           )}
 
           <Card delay={0.28}>
