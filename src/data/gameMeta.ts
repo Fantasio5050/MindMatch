@@ -19,4 +19,5 @@ export const GAME_META: Record<string, GameMeta> = {
   'russian-roulette': { id: 'russian-roulette', name: 'Roulette russe', icon: '🔫' },
   blackjack: { id: 'blackjack', name: 'Blackjack', icon: '🃏' },
   blanc: { id: 'blanc', name: 'Le Grand Blanc', icon: '🖊️' },
+  'petits-chevaux': { id: 'petits-chevaux', name: 'Petits Chevaux', icon: '🐴' },
 }
