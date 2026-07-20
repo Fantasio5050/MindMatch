@@ -93,45 +93,43 @@ export function PetitsChevauxController() {
       </AnimatePresence>
 
       <div className="flex-1 flex flex-col items-center justify-center">
-        <AnimatePresence mode="wait">
-          {iFinished ? (
-            <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-              <Card className="text-center">
-                <p className="text-5xl mb-2">🏆</p>
-                <p className="font-bold">Ton cheval est à l'arrivée !</p>
-                <p className="text-white/50 text-sm">Regarde les autres galérer 😏</p>
-              </Card>
-            </motion.div>
-          ) : isMyTurn ? (
-            <motion.div key="myturn" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }} className="flex flex-col items-center">
-              <p className="text-white/50 text-sm mb-3">
-                Case {myPos} / {PC_FINISH_INDEX} — à toi de jouer !
-              </p>
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-                onClick={() => {
-                  play('tick')
-                  sendAction('roll', {})
-                }}
-                className="w-40 h-40 rounded-3xl text-white text-6xl font-extrabold shadow-2xl flex items-center justify-center border-4 border-white/20"
-                style={{ background: `linear-gradient(135deg, ${myColor}, ${myColor}bb)` }}
-              >
-                🎲
-              </motion.button>
-              <p className="text-white/40 text-sm mt-4">Lance le dé pour ton cheval 🐴</p>
-            </motion.div>
-          ) : (
-            <motion.div key="wait" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-              <Card className="text-center">
-                <p className="text-white/50 text-sm mb-2">En attente…</p>
-                <p className="font-semibold">C'est au tour de {currentPseudo} 🎲</p>
-                <p className="text-white/40 text-sm mt-2">Ton cheval : case {myPos} / {PC_FINISH_INDEX}</p>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {iFinished ? (
+          <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
+            <Card className="text-center">
+              <p className="text-5xl mb-2">🏆</p>
+              <p className="font-bold">Ton cheval est à l'arrivée !</p>
+              <p className="text-white/50 text-sm">Regarde les autres galérer 😏</p>
+            </Card>
+          </motion.div>
+        ) : isMyTurn ? (
+          <motion.div key="myturn" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="flex flex-col items-center">
+            <p className="text-white/50 text-sm mb-3">
+              Case {myPos} / {PC_FINISH_INDEX} — à toi de jouer !
+            </p>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+              onClick={() => {
+                play('tick')
+                sendAction('roll', {})
+              }}
+              className="w-40 h-40 rounded-3xl text-white text-6xl font-extrabold shadow-2xl flex items-center justify-center border-4 border-white/20"
+              style={{ background: `linear-gradient(135deg, ${myColor}, ${myColor}bb)` }}
+            >
+              🎲
+            </motion.button>
+            <p className="text-white/40 text-sm mt-4">Lance le dé pour ton cheval 🐴</p>
+          </motion.div>
+        ) : (
+          <motion.div key="wait" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
+            <Card className="text-center">
+              <p className="text-white/50 text-sm mb-2">En attente…</p>
+              <p className="font-semibold">C'est au tour de {currentPseudo} 🎲</p>
+              <p className="text-white/40 text-sm mt-2">Ton cheval : case {myPos} / {PC_FINISH_INDEX}</p>
+            </Card>
+          </motion.div>
+        )}
       </div>
 
       {isHost && !isMyTurn && !iFinished && (

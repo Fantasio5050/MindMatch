@@ -10,33 +10,55 @@ import { rankPlayers } from './ControllerView'
 import type { PetitsChevauxClientState } from './types'
 import type { Member } from '../../../types'
 
-const RING = 25 // cases sur l'anneau carré ; les 5 dernières forment la ligne d'arrivée centrale.
+const LOOP = 25 // cases de la boucle en croix ; les suivantes forment la colonne d'arrivée centrale.
 
-/** Coordonnée (0-100) d'une case sur le plateau : anneau carré façon plateau de petits chevaux,
- * puis colonne d'arrivée qui plonge vers le centre (le but 🏆). */
-function cellXY(i: number): { x: number; y: number } {
-  if (i < RING) {
-    const u = (0.125 + i / RING) % 1 // départ en haut-centre, sens horaire
-    return squareRing(u)
+/** Contour en croix (plus), sens horaire, départ au bord droit du bras du haut. Coordonnées 0-100.
+ * Les 4 bras (haut/bas/gauche/droite) et les 4 carrés d'angle donnent le look « petits chevaux ». */
+const PLUS: [number, number][] = [
+  [61, 9], [61, 39], [91, 39], [91, 61], [61, 61], [61, 91],
+  [39, 91], [39, 61], [9, 61], [9, 39], [39, 39], [39, 9],
+]
+const PLUS_PERIM = PLUS.reduce((p, a, i) => {
+  const b = PLUS[(i + 1) % PLUS.length]
+  return p + Math.hypot(b[0] - a[0], b[1] - a[1])
+}, 0)
+function plusPoint(d: number): { x: number; y: number } {
+  let rem = ((d % PLUS_PERIM) + PLUS_PERIM) % PLUS_PERIM
+  for (let i = 0; i < PLUS.length; i++) {
+    const a = PLUS[i], b = PLUS[(i + 1) % PLUS.length]
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1])
+    if (rem <= len) {
+      const t = len === 0 ? 0 : rem / len
+      return { x: a[0] + (b[0] - a[0]) * t, y: a[1] + (b[1] - a[1]) * t }
+    }
+    rem -= len
   }
-  const j = i - RING // 0..(len-RING-1)
-  const y = 28 + ((50 - 28) * j) / Math.max(1, PC_TRACK.length - 1 - RING)
+  return { x: PLUS[0][0], y: PLUS[0][1] }
+}
+
+/** Coordonnée (0-100) d'une case : boucle en croix, puis colonne d'arrivée (bras du haut, lane
+ * centrale) qui descend jusqu'au but 🏆 au centre. */
+function cellXY(i: number): { x: number; y: number } {
+  if (i < LOOP) return plusPoint((i / LOOP) * PLUS_PERIM)
+  const homeCount = PC_TRACK.length - LOOP // ex. 5
+  const j = i - LOOP // 0..homeCount-1
+  const y = 30 + ((50 - 30) * j) / Math.max(1, homeCount - 1)
   return { x: 50, y }
 }
-function squareRing(u: number): { x: number; y: number } {
-  const A = 20, B = 80, S = B - A
-  const s = u * 4
-  if (s < 1) return { x: A + S * s, y: A }
-  if (s < 2) return { x: B, y: A + S * (s - 1) }
-  if (s < 3) return { x: B - S * (s - 2), y: B }
-  return { x: A, y: B - S * (s - 3) }
-}
 
+// Écuries dans les 4 angles (carrés colorés avec un cheval), comme sur un vrai plateau.
 const CORNERS = [
-  { x: 13, y: 13, color: PC_HORSE_COLORS[0] }, // vert, haut-gauche
-  { x: 87, y: 13, color: PC_HORSE_COLORS[1] }, // jaune, haut-droite
-  { x: 87, y: 87, color: PC_HORSE_COLORS[2] }, // rouge, bas-droite
-  { x: 13, y: 87, color: PC_HORSE_COLORS[3] }, // bleu, bas-gauche
+  { x: 20, y: 20, color: PC_HORSE_COLORS[0] }, // vert, haut-gauche
+  { x: 80, y: 20, color: PC_HORSE_COLORS[1] }, // jaune, haut-droite
+  { x: 80, y: 80, color: PC_HORSE_COLORS[2] }, // rouge, bas-droite
+  { x: 20, y: 80, color: PC_HORSE_COLORS[3] }, // bleu, bas-gauche
+]
+
+// Colonnes d'arrivée décoratives (lane centrale de chaque bras), couleur = angle adjacent.
+const HOME_COLUMNS = [
+  { pts: [[50, 62], [50, 68], [50, 74], [50, 80]], hex: PC_HORSE_COLORS[2].hex }, // bas → rouge
+  { pts: [[38, 50], [32, 50], [26, 50], [20, 50]], hex: PC_HORSE_COLORS[3].hex }, // gauche → bleu (BG)
+  { pts: [[62, 50], [68, 50], [74, 50], [80, 50]], hex: PC_HORSE_COLORS[1].hex }, // droite → jaune (HD)
 ]
 
 function cellTint(type: PCCell['type']): { bg: string; border: string } {
@@ -200,35 +222,46 @@ function Board({ state, participants }: { state: PetitsChevauxClientState; parti
 
   return (
     <div className="relative shrink-0 rounded-2xl bg-[#0e0a17] border border-white/10 shadow-2xl" style={{ width: 'min(72vh, 660px)', height: 'min(72vh, 660px)' }}>
-      {/* Tracé de la piste (sous les cases) */}
+      {/* Tracé de la croix + colonnes d'arrivée (sous les cases) */}
       <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
-        <polyline
-          points={PC_TRACK.map((_, i) => { const p = cellXY(i); return `${p.x},${p.y}` }).join(' ')}
-          fill="none"
-          stroke="rgba(255,255,255,0.12)"
-          strokeWidth={4.5}
+        <polygon
+          points={PLUS.map((p) => `${p[0]},${p[1]}`).join(' ')}
+          fill="rgba(255,255,255,0.025)"
+          stroke="rgba(255,255,255,0.14)"
+          strokeWidth={4}
           strokeLinejoin="round"
-          strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
+        />
+        {HOME_COLUMNS.map((h, i) => (
+          <polyline key={i} points={h.pts.map((p) => `${p[0]},${p[1]}`).join(' ')} fill="none" stroke={`${h.hex}66`} strokeWidth={9} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        ))}
+        <polyline
+          points={Array.from({ length: PC_TRACK.length - LOOP }, (_, j) => cellXY(LOOP + j)).map((p) => `${p.x},${p.y}`).join(' ')}
+          fill="none" stroke="rgba(251,191,36,0.45)" strokeWidth={9} strokeLinecap="round" vectorEffect="non-scaling-stroke"
         />
       </svg>
 
-      {/* Écuries : 4 chevaux dans les coins */}
+      {/* Écuries : 4 chevaux dans des carrés d'angle */}
       {CORNERS.map((c, i) => (
         <div
           key={i}
-          className="absolute flex items-center justify-center rounded-full"
+          className="absolute flex items-center justify-center"
           style={{
-            left: `${c.x}%`, top: `${c.y}%`, width: '19%', height: '19%',
+            left: `${c.x}%`, top: `${c.y}%`, width: '30%', height: '30%',
             transform: 'translate(-50%, -50%)',
-            background: `radial-gradient(circle at 50% 40%, ${c.color.hex}dd, ${c.color.hex}77)`,
-            border: `3px solid ${c.color.hex}`,
-            boxShadow: `0 0 18px ${c.color.hex}66`,
+            background: `linear-gradient(150deg, ${c.color.hex}, ${c.color.hex}bb)`,
+            border: `4px solid ${c.color.hex}`, borderRadius: 16,
+            boxShadow: `0 0 22px ${c.color.hex}55, inset 0 0 22px rgba(0,0,0,0.28)`,
           }}
         >
-          <span className="text-[2.6vw]" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.5))' }}>🐎</span>
+          <span className="text-[4vw]" style={{ filter: 'drop-shadow(0 3px 3px rgba(0,0,0,0.55))' }}>🐎</span>
         </div>
       ))}
+
+      {/* Points décoratifs des colonnes d'arrivée (les 3 autres bras) */}
+      {HOME_COLUMNS.map((h, ci) => h.pts.map((p, k) => (
+        <div key={`${ci}-${k}`} className="absolute rounded-full" style={{ left: `${p[0]}%`, top: `${p[1]}%`, width: 18, height: 18, marginLeft: -9, marginTop: -9, background: `${h.hex}44`, border: `2px solid ${h.hex}aa` }} />
+      )))}
 
       {/* Cases */}
       {PC_TRACK.map((cell, i) => {
@@ -236,33 +269,35 @@ function Board({ state, participants }: { state: PetitsChevauxClientState; parti
         const p = cellXY(i)
         const tint = cellTint(cell.type)
         const isLanding = state.lastRoll?.to === i
+        const isHome = i >= LOOP
         return (
           <motion.div
             key={i}
             className="absolute flex items-center justify-center rounded-full"
             style={{
-              left: `${p.x}%`, top: `${p.y}%`, width: 34, height: 34, marginLeft: -17, marginTop: -17,
-              background: tint.bg, border: `2px solid ${tint.border}`,
+              left: `${p.x}%`, top: `${p.y}%`, width: 32, height: 32, marginLeft: -16, marginTop: -16,
+              background: isHome ? 'rgba(251,191,36,0.28)' : tint.bg,
+              border: `2px solid ${isHome ? 'rgba(251,191,36,0.85)' : tint.border}`,
             }}
             animate={isLanding ? { scale: [1, 1.35, 1] } : {}}
             transition={{ duration: 0.5 }}
           >
-            <span className="text-base leading-none">{cell.emoji}</span>
+            <span className="text-sm leading-none">{cell.emoji}</span>
           </motion.div>
         )
       })}
 
-      {/* But central */}
-      <div
-        className="absolute flex flex-col items-center justify-center rounded-full"
-        style={{
-          left: '50%', top: '50%', width: '17%', height: '17%', transform: 'translate(-50%, -50%)',
-          background: 'radial-gradient(circle at 50% 40%, rgba(251,191,36,0.9), rgba(146,64,14,0.7))',
-          border: '3px solid rgba(251,191,36,0.9)',
-          boxShadow: '0 0 24px rgba(251,191,36,0.5)',
-        }}
-      >
-        <span className="text-[2.8vw]">🏆</span>
+      {/* But central : 4 triangles colorés + trophée */}
+      <div className="absolute" style={{ left: '50%', top: '50%', width: '19%', height: '19%', transform: 'translate(-50%, -50%)' }}>
+        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full rounded-xl overflow-hidden" style={{ boxShadow: '0 0 26px rgba(251,191,36,0.5)', border: '3px solid rgba(251,191,36,0.9)' }}>
+          <polygon points="0,0 100,0 50,50" fill={PC_HORSE_COLORS[0].hex} />
+          <polygon points="100,0 100,100 50,50" fill={PC_HORSE_COLORS[1].hex} />
+          <polygon points="100,100 0,100 50,50" fill={PC_HORSE_COLORS[2].hex} />
+          <polygon points="0,100 0,0 50,50" fill={PC_HORSE_COLORS[3].hex} />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-[3.2vw]" style={{ filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))' }}>🏆</span>
+        </div>
       </div>
 
       {/* Pions (chevaux) */}
