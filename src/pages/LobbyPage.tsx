@@ -38,6 +38,7 @@ export function LobbyPage() {
 
   const connectAsPlayer = usePartyStore((s) => s.connectAsPlayer)
   const startGame = usePartyStore((s) => s.startGame)
+  const startMusic = usePartyStore((s) => s.startMusic)
   const setAdultMode = usePartyStore((s) => s.setAdultMode)
   const disconnect = usePartyStore((s) => s.disconnect)
   const kickMember = usePartyStore((s) => s.kickMember)
@@ -77,6 +78,11 @@ export function LobbyPage() {
       navigate('/play')
     }
   }, [partyGroup?.party.status, navigate, play])
+
+  // Mode Soirée lancé par l'hôte -> tout le monde bascule sur la platine partagée.
+  useEffect(() => {
+    if (partyGroup?.music) navigate('/soiree')
+  }, [partyGroup?.music, navigate])
 
   // Little chime whenever someone new walks into the room.
   const memberCount = partyGroup?.members.length ?? null
@@ -367,6 +373,9 @@ export function LobbyPage() {
           </div>
         </div>
 
+        {/* ---- Mode Soirée : la platine musicale partagée ---- */}
+        <SoireeLaunchCard isHost={isHost} onLaunch={(source) => { play('start'); startMusic(source) }} />
+
         {/* ---- Bibliothèque de jeux façon console ---- */}
         <div className="flex items-baseline justify-between mb-3 px-1">
           <h3 className="text-sm font-bold text-white/70">🎮 Jeux</h3>
@@ -442,6 +451,59 @@ export function LobbyPage() {
         )}
       </AnimatePresence>
     </PageTransition>
+  )
+}
+
+/** Entrée "Mode Soirée" : une file musicale partagée (pas un jeu). L'hôte choisit la source
+ * (YouTube prêt à l'emploi ; Spotify nécessite une configuration serveur) puis lance. */
+function SoireeLaunchCard({ isHost, onLaunch }: { isHost: boolean; onLaunch: (source: 'youtube' | 'spotify') => void }) {
+  const [picking, setPicking] = useState(false)
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-3xl border border-emerald-400/25 mb-5 p-5"
+      style={{ background: 'linear-gradient(150deg, rgba(16,185,129,0.28), rgba(59,130,246,0.16) 45%, rgba(20,16,31,0.9) 90%)' }}
+    >
+      <span className="absolute -right-3 -top-5 text-[7rem] opacity-15 rotate-12 select-none pointer-events-none">🎶</span>
+      <p className="text-[10px] uppercase tracking-widest text-emerald-200/70 mb-1">Nouveau · Mode Soirée</p>
+      <h3 className="text-lg font-extrabold mb-1">La platine partagée 🔊</h3>
+      <p className="text-xs text-white/55 mb-4">
+        Fini le seul téléphone branché à l'enceinte : tout le monde ajoute des musiques dans une file
+        <b> équitable</b> (chacun son tour), avec vote pour passer un morceau. Un appareil branché à l'enceinte
+        ouvre la <b>platine</b>.
+      </p>
+
+      {!isHost ? (
+        <p className="text-xs text-white/40">Seul·e l'hôte peut lancer le Mode Soirée.</p>
+      ) : !picking ? (
+        <Button fullWidth onClick={() => setPicking(true)} className="!py-2.5 text-sm">
+          🎶 Lancer le Mode Soirée
+        </Button>
+      ) : (
+        <div>
+          <p className="text-xs text-white/50 mb-2">Choisis la source musicale :</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => onLaunch('youtube')}
+              className="rounded-2xl bg-black/30 border border-white/12 px-3 py-3 text-center active:bg-white/10 transition-colors"
+            >
+              <span className="text-2xl block mb-0.5">▶️</span>
+              <p className="text-sm font-bold">YouTube</p>
+              <p className="text-[10px] text-emerald-300/80">Prêt · sans compte</p>
+            </button>
+            <button
+              onClick={() => onLaunch('spotify')}
+              className="rounded-2xl bg-black/20 border border-white/10 px-3 py-3 text-center active:bg-white/10 transition-colors"
+            >
+              <span className="text-2xl block mb-0.5">🎧</span>
+              <p className="text-sm font-bold">Spotify</p>
+              <p className="text-[10px] text-white/40">Premium + config</p>
+            </button>
+          </div>
+          <button onClick={() => setPicking(false)} className="text-[11px] text-white/40 mt-2">Annuler</button>
+        </div>
+      )}
+    </div>
   )
 }
 

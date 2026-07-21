@@ -165,6 +165,7 @@ export function createGroup(groupName: string, pseudo: string): { group: Group; 
       participantIds: [],
     },
     adultModeEnabled: false,
+    music: null,
   }
 
   db.groups.push(group)

@@ -7,6 +7,15 @@ import { connectSocket, disconnectSocket } from '../lib/socket'
 
 const EMOTE_LIFETIME_MS = 4000
 
+/** Live playback position pushed by the platine — pure ambiance for the now-playing bar, not part
+ * of the persisted room snapshot. */
+export interface MusicPosition {
+  positionMs: number
+  durationMs: number | null
+  isPlaying: boolean
+  at: number
+}
+
 interface PartyState {
   socket: Socket | null
   connected: boolean
@@ -16,6 +25,8 @@ interface PartyState {
   error: string | null
   /** Live emoji reactions currently floating on screen — each auto-expires after a few seconds. */
   emotes: EmoteEvent[]
+  /** Latest playback position reported by the platine (jukebox), or null before any report. */
+  musicPosition: MusicPosition | null
   /** True right after the host kicks THIS client out of the room — a page-level watcher redirects
    * home and shows a message, then clears it. */
   kicked: boolean
@@ -30,6 +41,13 @@ interface PartyState {
   hostAdvance: () => void
   endGame: () => void
   setAdultMode: (enabled: boolean) => void
+  // Mode Soirée (jukebox)
+  startMusic: (source: string) => void
+  stopMusic: () => void
+  musicAction: (type: string, payload?: unknown) => void
+  platineClaim: (platineId: string) => void
+  platineEnded: (platineId: string, trackId: string) => void
+  reportPosition: (pos: { positionMs: number; durationMs: number | null; isPlaying: boolean }) => void
   clearError: () => void
   clearKicked: () => void
 
@@ -53,6 +71,9 @@ export const usePartyStore = create<PartyState>((set, get) => {
       disconnectSocket()
       set({ socket: null, connected: false, group: null, emotes: [], kicked: true })
     })
+    socket.on('music:position', (msg: { positionMs: number; durationMs: number | null; isPlaying: boolean }) => {
+      set({ musicPosition: { ...msg, at: Date.now() } })
+    })
   }
 
   return {
@@ -63,6 +84,7 @@ export const usePartyStore = create<PartyState>((set, get) => {
     isSpectator: false,
     error: null,
     emotes: [],
+    musicPosition: null,
     kicked: false,
 
     connectAsPlayer: () => {
@@ -96,6 +118,12 @@ export const usePartyStore = create<PartyState>((set, get) => {
     hostAdvance: () => get().socket?.emit('party:hostAdvance'),
     endGame: () => get().socket?.emit('party:endGame'),
     setAdultMode: (enabled) => get().socket?.emit('party:setAdultMode', { enabled }),
+    startMusic: (source) => get().socket?.emit('music:start', { source }),
+    stopMusic: () => get().socket?.emit('music:stop'),
+    musicAction: (type, payload) => get().socket?.emit('music:action', { type, payload }),
+    platineClaim: (platineId) => get().socket?.emit('music:platine', { type: 'claim', platineId }),
+    platineEnded: (platineId, trackId) => get().socket?.emit('music:platine', { type: 'ended', platineId, trackId }),
+    reportPosition: (pos) => get().socket?.emit('music:position', pos),
     clearError: () => set({ error: null }),
     clearKicked: () => set({ kicked: false }),
 

@@ -65,6 +65,48 @@ export interface PartySession {
   participantIds: string[]
 }
 
+/** Mode Soirée (jukebox) — a shared music queue that runs alongside the party, independent of the
+ * mini-games. Everyone submits songs from their phone; a single "platine" device (connected to the
+ * Bluetooth speaker) actually plays them. Sources are pluggable; the host picks one at launch. */
+export type MusicSource = 'youtube' | 'spotify'
+
+export interface MusicTrack {
+  /** Internal queue id (unique per submission), distinct from the platform id. */
+  id: string
+  source: MusicSource
+  /** Platform id: a YouTube videoId, or a Spotify track id/uri. */
+  sourceId: string
+  title: string
+  artist: string
+  thumbnail: string | null
+  durationMs: number | null
+  addedById: string
+  bumpVotes: string[]
+  addedAt: number
+}
+
+export interface MusicSession {
+  source: MusicSource
+  hostMemberId: string
+  /** Upcoming tracks in raw insertion order — the fair (round-robin) play order is derived from
+   * this on the fly by `orderedQueue` (src/lib/jukebox.ts), shared by client and server. */
+  queue: MusicTrack[]
+  current: MusicTrack | null
+  /** Most-recent-first, capped — powers an "already played" strip and round-robin fairness. */
+  history: MusicTrack[]
+  isPlaying: boolean
+  /** Member ids currently voting to skip the now-playing track. */
+  skipVotes: string[]
+  /** memberId -> how many of their songs have already been given airtime this session. Drives the
+   * round-robin scheduler so nobody hogs the queue. */
+  playedCounts: Record<string, number>
+  /** Opaque id of the device that has claimed the role of platine (single playback authority), so
+   * two open platine pages don't both blast audio. null until someone claims it. */
+  platineId: string | null
+  currentStartedAt: number | null
+  startedAt: number
+}
+
 export interface Group {
   id: string
   code: string
@@ -74,6 +116,8 @@ export interface Group {
   party: PartySession
   /** Host-controlled setting unlocking 18+ content packs and drinking games for the whole room. */
   adultModeEnabled: boolean
+  /** Active "Mode Soirée" jukebox, or null when no music session is running. */
+  music: MusicSession | null
 }
 
 /** A durable record of one completed mini-game, independent of the live (and overwritten-on-next-game)

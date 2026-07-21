@@ -19,6 +19,7 @@ Les salles, réponses et parties sont partagées en temps réel entre tous les m
 - **Moteur de jeu modulaire** (`server/games/`, `src/party/games/`) — chaque jeu est un module indépendant avec ses propres phases, actions et récompenses XP, prêt à accueillir de futurs jeux.
 - **Mode 18+** — réglage activable par l'hôte (avec un rappel à la modération) qui débloque les packs de contenu trash et les jeux à boire.
 - **Ambiance party-game** — fond animé, musique d'ambiance générative (aucun fichier audio à télécharger — tout est synthétisé en direct dans le navigateur) et effets sonores, avec des réglages dédiés (musique/effets, volume) accessibles partout dans l'app.
+- **Mode Soirée (la platine partagée)** 🎶 — une file d'attente musicale collective (ce n'est pas un jeu). Chacun ajoute des morceaux depuis son téléphone (recherche ou lien collé), la file s'ordonne de façon **équitable** (round-robin : chacun son tour, personne ne monopolise l'enceinte), avec **vote pour passer** un morceau et **bump** pour faire remonter un titre. Un seul appareil — la « platine » (`/platine/:code`), branché à l'enceinte Bluetooth — lit réellement le son ; les téléphones ne sont que des télécommandes. Source **YouTube** prête à l'emploi (sans compte ni configuration) ; **Spotify** disponible en option moyennant configuration serveur (voir plus bas).
 
 **Neuf jeux jouables** :
 - **Qui est le plus ?** 🎯 — vote anonyme sur une question ("Qui est le/la plus susceptible de...?"), révélation animée avec confettis, classement en direct.
@@ -38,6 +39,26 @@ Les salles, réponses et parties sont partagées en temps réel entre tous les m
 - **Backend** — Node.js + Express + Socket.IO.
 - **Persistance** — SQLite (`better-sqlite3`), un seul fichier `db.sqlite3` (mode WAL), zéro service supplémentaire à installer ou administrer. Groupes et membres sont stockés dans de vraies tables relationnelles ; les données propres à chaque jeu (réponses en cours, historique de manche...) sont stockées en JSON dans quelques colonnes dédiées, plus adapté qu'un schéma rigide vu que chaque mini-jeu a son propre état.
 - **Déploiement** — `Dockerfile` (multi-stage) + `docker-compose.yml` fournis pour un déploiement conteneurisé en une commande ; fonctionne aussi en Node.js direct sur l'hôte (voir plus bas).
+
+## Mode Soirée — configuration musique (optionnel)
+
+Le **Mode Soirée** (file musicale partagée) fonctionne **sans aucune configuration** avec la source **YouTube** :
+- Les invités ajoutent des musiques en **collant un lien YouTube** (youtube.com ou youtu.be) — aucune clé, aucun compte.
+- La **platine** (l'appareil branché à l'enceinte) ouvre `/#/platine/<CODE>` et lit le son via le lecteur intégré YouTube (l'API IFrame, gratuite et sans authentification).
+
+Deux améliorations facultatives, activées par des variables d'environnement au **build** du frontend :
+
+| Variable | Effet | Requis ? |
+| --- | --- | --- |
+| `VITE_YOUTUBE_API_KEY` | Active la **recherche** YouTube directement depuis les téléphones (sinon on colle un lien). | Optionnel. Clé « YouTube Data API v3 » (Google Cloud). Le quota gratuit est limité ; pense à restreindre la clé par référent HTTP. |
+| `VITE_SPOTIFY_CLIENT_ID` | Prépare la source **Spotify** (lecture via le Web Playback SDK). | Optionnel. Nécessite une app Spotify Developer **et** un compte **Spotify Premium** sur la platine. La source YouTube reste recommandée par défaut. |
+
+```bash
+# exemple : build avec la recherche YouTube activée
+VITE_YOUTUBE_API_KEY=xxxx npm run build
+```
+
+> Sans `VITE_YOUTUBE_API_KEY`, tout marche : on colle simplement les liens. Sans `VITE_SPOTIFY_CLIENT_ID`, l'option Spotify reste visible mais renvoie vers YouTube (qui ne demande aucune configuration).
 
 ## Développement local
 

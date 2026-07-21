@@ -28,7 +28,8 @@ sqlite.exec(`
     party_phase TEXT,
     party_round INTEGER NOT NULL DEFAULT 0,
     party_round_data TEXT,
-    party_participant_ids TEXT NOT NULL DEFAULT '[]'
+    party_participant_ids TEXT NOT NULL DEFAULT '[]',
+    music TEXT
   );
 
   CREATE TABLE IF NOT EXISTS members (
@@ -67,6 +68,10 @@ if (!groupColumns.some((c) => c.name === 'party_participant_ids')) {
   sqlite.exec("ALTER TABLE groups ADD COLUMN party_participant_ids TEXT NOT NULL DEFAULT '[]'")
 }
 
+if (!groupColumns.some((c) => c.name === 'music')) {
+  sqlite.exec('ALTER TABLE groups ADD COLUMN music TEXT')
+}
+
 const memberColumns = sqlite.prepare('PRAGMA table_info(members)').all() as { name: string }[]
 if (!memberColumns.some((c) => c.name === 'photo_url')) {
   sqlite.exec('ALTER TABLE members ADD COLUMN photo_url TEXT')
@@ -85,6 +90,7 @@ interface GroupRow {
   party_round: number
   party_round_data: string | null
   party_participant_ids: string
+  music: string | null
 }
 
 interface MemberRow {
@@ -137,6 +143,7 @@ function rowToGroup(row: GroupRow, members: StoredMember[]): StoredGroup {
       roundData: row.party_round_data ? JSON.parse(row.party_round_data) : null,
       participantIds: JSON.parse(row.party_participant_ids),
     },
+    music: row.music ? JSON.parse(row.music) : null,
   }
 }
 
@@ -158,8 +165,8 @@ export function readDb(): Database {
 }
 
 const upsertGroup = sqlite.prepare(`
-  INSERT INTO groups (id, code, name, created_at, adult_mode_enabled, party_status, party_host_member_id, party_current_game_id, party_phase, party_round, party_round_data, party_participant_ids)
-  VALUES (@id, @code, @name, @created_at, @adult_mode_enabled, @party_status, @party_host_member_id, @party_current_game_id, @party_phase, @party_round, @party_round_data, @party_participant_ids)
+  INSERT INTO groups (id, code, name, created_at, adult_mode_enabled, party_status, party_host_member_id, party_current_game_id, party_phase, party_round, party_round_data, party_participant_ids, music)
+  VALUES (@id, @code, @name, @created_at, @adult_mode_enabled, @party_status, @party_host_member_id, @party_current_game_id, @party_phase, @party_round, @party_round_data, @party_participant_ids, @music)
   ON CONFLICT(id) DO UPDATE SET
     code = excluded.code,
     name = excluded.name,
@@ -170,7 +177,8 @@ const upsertGroup = sqlite.prepare(`
     party_phase = excluded.party_phase,
     party_round = excluded.party_round,
     party_round_data = excluded.party_round_data,
-    party_participant_ids = excluded.party_participant_ids
+    party_participant_ids = excluded.party_participant_ids,
+    music = excluded.music
 `)
 
 const upsertMember = sqlite.prepare(`
@@ -205,6 +213,7 @@ const writeTx = sqlite.transaction((db: Database) => {
       party_round: group.party.round,
       party_round_data: group.party.roundData ? JSON.stringify(group.party.roundData) : null,
       party_participant_ids: JSON.stringify(group.party.participantIds ?? []),
+      music: group.music ? JSON.stringify(group.music) : null,
     })
     for (const member of group.members) {
       upsertMember.run({

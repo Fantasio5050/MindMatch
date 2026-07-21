@@ -3,7 +3,9 @@ import type { Server as HttpServer } from 'node:http'
 import { readDb } from './db'
 import { findAuthorizedMember, sanitizeGroup, isApiError, kickMember } from './store'
 import { startGame, submitAction, hostAdvance, endGame, setAdultMode } from './party'
+import { startMusic, stopMusic, musicAction, claimPlatine, platineTrackEnded } from './music'
 import { EMOTES } from '../src/data/emotes'
+import type { MusicSource } from '../src/types'
 
 const EMOTE_COOLDOWN_MS = 400
 
@@ -68,6 +70,35 @@ export function attachRealtime(httpServer: HttpServer): { broadcastRoom: (groupI
       socket.data.memberId = null
       socket.join(group.id)
       broadcastRoom(group.id)
+
+      // Platine (jukebox playback device): a read-only spectator page can claim the single
+      // playback-authority role and report when a track ends, so the server advances the queue.
+      socket.on('music:platine', (payload: { type?: string; platineId?: string; trackId?: string }) => {
+        const platineId = payload?.platineId
+        if (!platineId) return
+        const result =
+          payload?.type === 'claim'
+            ? claimPlatine(group.id, platineId)
+            : payload?.type === 'ended'
+              ? platineTrackEnded(group.id, platineId, payload?.trackId ?? '')
+              : null
+        if (!result) return
+        if (isApiError(result)) {
+          socket.emit('party:error', { error: result.error })
+          return
+        }
+        broadcastRoom(group.id)
+      })
+
+      // Live playback position — pure ambiance for the phones' now-playing bar, so it's a
+      // fire-and-forget broadcast (no db write, no full room snapshot) like the emotes.
+      socket.on('music:position', (payload: { positionMs?: number; durationMs?: number; isPlaying?: boolean }) => {
+        io.to(group.id).emit('music:position', {
+          positionMs: typeof payload?.positionMs === 'number' ? payload.positionMs : 0,
+          durationMs: typeof payload?.durationMs === 'number' ? payload.durationMs : null,
+          isPlaying: !!payload?.isPlaying,
+        })
+      })
       return
     }
 
@@ -177,6 +208,37 @@ export function attachRealtime(httpServer: HttpServer): { broadcastRoom: (groupI
     socket.on('party:endGame', () => {
       if (!socket.data.memberId) return
       const result = endGame(groupId, socket.data.memberId, memberToken)
+      if (isApiError(result)) {
+        socket.emit('party:error', { error: result.error })
+        return
+      }
+      broadcastRoom(groupId)
+    })
+
+    // ---- Mode Soirée (jukebox) ----
+    socket.on('music:start', (payload: { source?: string }) => {
+      if (!socket.data.memberId) return
+      const result = startMusic(groupId, socket.data.memberId, memberToken, (payload?.source ?? 'youtube') as MusicSource)
+      if (isApiError(result)) {
+        socket.emit('party:error', { error: result.error })
+        return
+      }
+      broadcastRoom(groupId)
+    })
+
+    socket.on('music:stop', () => {
+      if (!socket.data.memberId) return
+      const result = stopMusic(groupId, socket.data.memberId, memberToken)
+      if (isApiError(result)) {
+        socket.emit('party:error', { error: result.error })
+        return
+      }
+      broadcastRoom(groupId)
+    })
+
+    socket.on('music:action', (payload: { type?: string; payload?: unknown }) => {
+      if (!socket.data.memberId) return
+      const result = musicAction(groupId, socket.data.memberId, memberToken, payload?.type ?? '', payload?.payload)
       if (isApiError(result)) {
         socket.emit('party:error', { error: result.error })
         return

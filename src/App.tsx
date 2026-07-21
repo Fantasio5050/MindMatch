@@ -15,6 +15,8 @@ import { DebatesPage } from './pages/DebatesPage'
 import { LobbyPage } from './pages/LobbyPage'
 import { PlayPage } from './pages/PlayPage'
 import { ScreenPage } from './pages/ScreenPage'
+import { SoireePage } from './pages/SoireePage'
+import { PlatinePage } from './pages/PlatinePage'
 
 function Splash() {
   return (
@@ -142,6 +144,15 @@ function AnimatedRoutes() {
               }
             />
             <Route path="/screen/:code?" element={<ScreenPage />} />
+            <Route
+              path="/soiree"
+              element={
+                <RequireMember>
+                  <SoireePage />
+                </RequireMember>
+              }
+            />
+            <Route path="/platine/:code?" element={<PlatinePage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AnimatePresence>
