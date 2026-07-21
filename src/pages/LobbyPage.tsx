@@ -56,6 +56,8 @@ export function LobbyPage() {
   const [dilemmaPack, setDilemmaPack] = useState<PackChoice>('classic')
   const [partyCardsPack, setPartyCardsPack] = useState<PackChoice>('classic')
   const [autorouteCycles, setAutorouteCycles] = useState(3)
+  const [crayonRounds, setCrayonRounds] = useState(3)
+  const [crayonWords, setCrayonWords] = useState('')
   const [history, setHistory] = useState<GameHistoryEntry[]>([])
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -122,6 +124,9 @@ export function LobbyPage() {
       startGame(e.id, { pack: e.id === 'dilemmas' ? dilemmaPack : partyCardsPack })
     } else if (e.config === 'autoroute') {
       startGame(e.id, { cycles: autorouteCycles })
+    } else if (e.config === 'crayon') {
+      const customWords = crayonWords.split(/[\n,;]+/).map((w) => w.trim()).filter(Boolean)
+      startGame(e.id, { rounds: crayonRounds, customWords })
     } else {
       startGame(e.id)
     }
@@ -426,6 +431,10 @@ export function LobbyPage() {
                 setPartyCardsPack={setPartyCardsPack}
                 autorouteCycles={autorouteCycles}
                 setAutorouteCycles={setAutorouteCycles}
+                crayonRounds={crayonRounds}
+                setCrayonRounds={setCrayonRounds}
+                crayonWords={crayonWords}
+                setCrayonWords={setCrayonWords}
                 onLaunch={() => launchGame(selectedGame)}
               />
             </motion.div>
@@ -505,6 +514,10 @@ function GameSheet({
   setPartyCardsPack,
   autorouteCycles,
   setAutorouteCycles,
+  crayonRounds,
+  setCrayonRounds,
+  crayonWords,
+  setCrayonWords,
   onLaunch,
 }: {
   entry: GameLibraryEntry
@@ -518,6 +531,10 @@ function GameSheet({
   setPartyCardsPack: (p: PackChoice) => void
   autorouteCycles: number
   setAutorouteCycles: (n: number) => void
+  crayonRounds: number
+  setCrayonRounds: (n: number) => void
+  crayonWords: string
+  setCrayonWords: (s: string) => void
   onLaunch: () => void
 }) {
   const pack = entry.id === 'dilemmas' ? dilemmaPack : partyCardsPack
@@ -592,6 +609,35 @@ function GameSheet({
                 className="w-full accent-fuchsia-400"
                 aria-label="Nombre de cycles de l'autoroute"
               />
+            </div>
+          )}
+
+          {entry.config === 'crayon' && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-white/50">Nombre de manches</span>
+                <span className="text-xs font-bold text-fuchsia-300">{crayonRounds} manche{crayonRounds > 1 ? 's' : ''}</span>
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={6}
+                step={1}
+                value={crayonRounds}
+                onChange={(e) => setCrayonRounds(Number(e.target.value))}
+                className="w-full accent-fuchsia-400 mb-3"
+                aria-label="Nombre de manches"
+              />
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-white/50">Tes mots custom (optionnel, séparés par des virgules)</span>
+                <textarea
+                  value={crayonWords}
+                  onChange={(e) => setCrayonWords(e.target.value)}
+                  placeholder="ex : le chien de Kevin, la voiture de tonton…"
+                  rows={2}
+                  className="rounded-2xl bg-white/6 border border-white/10 px-3 py-2.5 text-sm text-white/90 placeholder:text-white/25 resize-none"
+                />
+              </label>
             </div>
           )}
         </>

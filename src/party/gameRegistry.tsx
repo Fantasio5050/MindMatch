@@ -29,6 +29,8 @@ import { BlancController } from './games/blanc/ControllerView'
 import { BlancScreen } from './games/blanc/ScreenView'
 import { PetitsChevauxController } from './games/petitsChevaux/ControllerView'
 import { PetitsChevauxScreen } from './games/petitsChevaux/ScreenView'
+import { CoupDeCrayonController } from './games/coupDeCrayon/ControllerView'
+import { CoupDeCrayonScreen } from './games/coupDeCrayon/ScreenView'
 
 interface ClientGameEntry {
   Controller: ComponentType
@@ -51,4 +53,5 @@ export const CLIENT_GAME_REGISTRY: Record<string, ClientGameEntry> = {
   blackjack: { Controller: BlackjackController, Screen: BlackjackScreen },
   blanc: { Controller: BlancController, Screen: BlancScreen },
   'petits-chevaux': { Controller: PetitsChevauxController, Screen: PetitsChevauxScreen },
+  'coup-de-crayon': { Controller: CoupDeCrayonController, Screen: CoupDeCrayonScreen },
 }
