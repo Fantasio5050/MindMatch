@@ -76,3 +76,19 @@ export function isValidSourceId(source: MusicSession['source'], sourceId: string
   if (source === 'spotify') return /^[a-zA-Z0-9]{22}$/.test(sourceId)
   return false
 }
+
+/** Formats a duration in ms as `m:ss` (or `h:mm:ss`), or `—` when unknown. */
+export function formatDuration(ms: number | null | undefined): string {
+  if (!ms || ms <= 0) return '—'
+  const totalSec = Math.round(ms / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  const mm = h > 0 ? String(m).padStart(2, '0') : String(m)
+  return `${h > 0 ? `${h}:` : ''}${mm}:${String(s).padStart(2, '0')}`
+}
+
+/** Sum of known durations (unknown ones count as 0). */
+export function totalDurationMs(tracks: { durationMs: number | null }[]): number {
+  return tracks.reduce((sum, t) => sum + (t.durationMs ?? 0), 0)
+}

@@ -5,19 +5,28 @@ import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 import { usePartyStore } from '../store/usePartyStore'
 import { loadYouTubeApi, type YTPlayer } from '../lib/youtube'
-import { orderedQueue } from '../lib/jukebox'
-import { stopMusic as stopAppMusic } from '../lib/music'
+import { orderedQueue, formatDuration, totalDurationMs } from '../lib/jukebox'
 
 function makePlatineId(): string {
   const uuid = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2)
   return `pl-${uuid}`
 }
 
-/** Fenêtre de fondu enchaîné : le morceau suivant démarre et monte pendant que l'actuel descend. */
-const CROSSFADE_SEC = 5
+/** Fondu enchaîné : le morceau suivant démarre et monte pendant que l'actuel descend. Durée
+ * réglable par l'utilisateur sur la platine (0 = coupure nette), persistée localement. */
+const DEFAULT_CROSSFADE_SEC = 5
+const MAX_CROSSFADE_SEC = 20
+const CROSSFADE_STORE_KEY = 'mindmatch-platine-crossfade-sec'
 const FADE_IN_MS = 900
 const SKIP_FADE_MS = 500
 const RAMP_STEP_MS = 50
+
+function readCrossfadeSec(): number {
+  if (typeof window === 'undefined') return DEFAULT_CROSSFADE_SEC
+  const raw = Number(window.localStorage.getItem(CROSSFADE_STORE_KEY))
+  if (!Number.isFinite(raw)) return DEFAULT_CROSSFADE_SEC
+  return Math.max(0, Math.min(MAX_CROSSFADE_SEC, raw))
+}
 
 /**
  * La "platine" : la seule page qui lit réellement le son. On l'ouvre sur l'appareil branché à
@@ -86,6 +95,15 @@ function PlatinePlayer({ code }: { code: string }) {
   const [readyTick, setReadyTick] = useState(0)
   const [opacity, setOpacity] = useState<[number, number]>([1, 0])
   const [crossfadeUi, setCrossfadeUi] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [crossfadeSec, setCrossfadeSec] = useState(readCrossfadeSec)
+  const crossfadeSecRef = useRef(crossfadeSec)
+  crossfadeSecRef.current = crossfadeSec
+  const updateCrossfade = (v: number) => {
+    const clamped = Math.max(0, Math.min(MAX_CROSSFADE_SEC, Math.round(v)))
+    setCrossfadeSec(clamped)
+    try { window.localStorage.setItem(CROSSFADE_STORE_KEY, String(clamped)) } catch { /* stockage indispo */ }
+  }
 
   const players = useRef<Array<YTPlayer | null>>([null, null])
   const ready = useRef<[boolean, boolean]>([false, false])
@@ -194,9 +212,6 @@ function PlatinePlayer({ code }: { code: string }) {
   }
 
   useEffect(() => {
-    // La platine tient l'enceinte : on coupe la musique d'ambiance de l'appli pour ne pas jouer
-    // deux sources en même temps.
-    stopAppMusic()
     connectAsSpectator(code)
     return () => disconnect()
   }, [code, connectAsSpectator, disconnect])
@@ -274,11 +289,16 @@ function PlatinePlayer({ code }: { code: string }) {
       try { ct = player.getCurrentTime(); dur = player.getDuration(); state = player.getPlayerState() } catch { return }
       reportPosition({ positionMs: Math.round(ct * 1000), durationMs: dur ? Math.round(dur * 1000) : null, isPlaying: state === 1 })
       if (!session.isPlaying || crossfading.current) return
-      if (dur > CROSSFADE_SEC * 2) {
+      const cf = crossfadeSecRef.current
+      // Fondu désactivé (0), durée inconnue, ou piste trop courte → coupure nette gérée par
+      // l'événement "fin de piste". Sinon on borne la fenêtre de fondu pour ne jamais dépasser la
+      // durée réelle de la vidéo (cas d'une vidéo plus courte que le fondu choisi).
+      if (cf >= 1 && dur >= 8) {
+        const windowSec = Math.min(cf, dur * 0.45, dur - 1.5)
         const remaining = dur - ct
-        if (remaining > 0.4 && remaining <= CROSSFADE_SEC) {
+        if (windowSec > 0.5 && remaining > 0.4 && remaining <= windowSec) {
           const next = orderedQueue(session)[0]
-          if (next) startCrossfade(next.sourceId, Math.max(1500, Math.round(remaining * 1000) - 300))
+          if (next) startCrossfade(next.sourceId, Math.max(1200, Math.round(windowSec * 1000)))
         }
       }
     }, 500)
@@ -330,8 +350,15 @@ function PlatinePlayer({ code }: { code: string }) {
   const queue = orderedQueue(music)
 
   return (
-    <div className="min-h-svh flex flex-col bg-black">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+    <div className="min-h-svh flex flex-col bg-black relative overflow-hidden">
+      {/* Ambiance : la pochette du morceau en cours, floutée en fond, plutôt qu'un noir plat. */}
+      {current?.thumbnail && (
+        <div className="absolute inset-0 pointer-events-none" aria-hidden>
+          <img src={current.thumbnail} alt="" className="w-full h-full object-cover blur-3xl scale-125 opacity-30" />
+          <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-900/20 via-black/70 to-black/95" />
+        </div>
+      )}
+      <div className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-white/10">
         <div className="flex items-center gap-2">
           <span className="text-xl">🎛️</span>
           <span className="font-bold">Platine</span>
@@ -345,15 +372,47 @@ function PlatinePlayer({ code }: { code: string }) {
             <span className="text-[10px] rounded-full bg-fuchsia-500/20 text-fuchsia-200 px-2 py-0.5">⤫ fondu…</span>
           )}
         </div>
-        <button
-          onClick={() => { disconnect(); navigate('/') }}
-          className="rounded-full bg-white/8 px-3 h-8 text-white/60 text-xs"
-        >
-          Quitter
-        </button>
+        <div className="relative flex items-center gap-2">
+          <button
+            onClick={() => setSettingsOpen((o) => !o)}
+            className="rounded-full bg-white/8 h-8 w-8 flex items-center justify-center text-white/60 text-sm"
+            aria-label="Réglages de la platine"
+          >
+            ⚙️
+          </button>
+          <button
+            onClick={() => { disconnect(); navigate('/') }}
+            className="rounded-full bg-white/8 px-3 h-8 text-white/60 text-xs"
+          >
+            Quitter
+          </button>
+          {settingsOpen && (
+            <div className="absolute right-0 top-10 z-30 w-64 rounded-2xl border border-white/10 bg-[#171122] p-4 shadow-xl">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-semibold">Fondu enchaîné</span>
+                <span className="text-sm text-fuchsia-300 tabular-nums">{crossfadeSec === 0 ? 'Coupé' : `${crossfadeSec}s`}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={MAX_CROSSFADE_SEC}
+                step={1}
+                value={crossfadeSec}
+                onChange={(e) => updateCrossfade(Number(e.target.value))}
+                className="w-full accent-fuchsia-400"
+                aria-label="Durée du fondu enchaîné"
+              />
+              <p className="text-[11px] text-white/40 mt-1">
+                {crossfadeSec === 0
+                  ? 'Coupure nette entre les morceaux.'
+                  : "Le morceau suivant démarre en douceur avant la fin de l'actuel."}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="flex-1 flex flex-col lg:flex-row">
+      <div className="relative z-10 flex-1 flex flex-col lg:flex-row">
         <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
           {/* Zone lecteur : deux decks YouTube superposés (fondu enchaîné) */}
           <div className="w-full max-w-3xl aspect-video rounded-2xl overflow-hidden bg-[#0c0c12] border border-white/10 relative">
@@ -389,17 +448,26 @@ function PlatinePlayer({ code }: { code: string }) {
           {current && (
             <div className="mt-4 text-center">
               <p className="text-lg font-bold">{current.title}</p>
-              {current.artist && <p className="text-white/50 text-sm">{current.artist}</p>}
+              {(current.artist || current.durationMs) && (
+                <p className="text-white/50 text-sm">
+                  {current.artist}{current.artist && current.durationMs ? ' · ' : ''}
+                  {current.durationMs ? formatDuration(current.durationMs) : ''}
+                </p>
+              )}
             </div>
           )}
         </div>
 
-        {/* File d'attente (aperçu) */}
+        {/* File d'attente + stats */}
         <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-white/10 p-4 overflow-y-auto max-h-[40svh] lg:max-h-none">
-          <p className="text-xs uppercase tracking-widest text-white/40 mb-3">À suivre ({queue.length})</p>
+          <p className="text-xs uppercase tracking-widest text-white/40 mb-1">À suivre</p>
+          <p className="text-sm text-white/70 mb-3">
+            {queue.length} titre{queue.length > 1 ? 's' : ''}
+            {totalDurationMs(queue) > 0 ? ` · ${formatDuration(totalDurationMs(queue))} en file` : ''}
+          </p>
           {queue.length === 0 && <p className="text-white/30 text-sm">Rien pour l'instant.</p>}
           <div className="flex flex-col gap-2">
-            {queue.slice(0, 12).map((t, i) => (
+            {queue.slice(0, 14).map((t, i) => (
               <div key={t.id} className="flex items-center gap-2.5">
                 <span className="text-xs text-white/30 w-4 text-right">{i + 1}</span>
                 {t.thumbnail ? (
@@ -409,7 +477,11 @@ function PlatinePlayer({ code }: { code: string }) {
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm truncate">{t.title}</p>
-                  {t.artist && <p className="text-[11px] text-white/40 truncate">{t.artist}</p>}
+                  {(t.artist || t.durationMs) && (
+                    <p className="text-[11px] text-white/40 truncate">
+                      {t.artist}{t.artist && t.durationMs ? ' · ' : ''}{t.durationMs ? formatDuration(t.durationMs) : ''}
+                    </p>
+                  )}
                 </div>
                 {t.bumpVotes.length > 0 && <span className="text-[11px] text-fuchsia-300">▲{t.bumpVotes.length}</span>}
               </div>

@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'r
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from './store/useAppStore'
 import { usePartyStore } from './store/usePartyStore'
-import { setMusicTrack } from './lib/music'
+import { setMusicTrack, setMusicSuppressed } from './lib/music'
 import { BottomNav } from './components/BottomNav'
 import { AmbientBackground } from './components/AmbientBackground'
 import { AudioControls } from './components/AudioControls'
@@ -73,8 +73,16 @@ function KickWatcher() {
 function MusicDirector() {
   const location = useLocation()
   const partyStatus = usePartyStore((s) => s.group?.party.status)
-  const onGameRoute = location.pathname === '/play' || location.pathname.startsWith('/screen')
+  const path = location.pathname
+  const onGameRoute = path === '/play' || path.startsWith('/screen')
   const inGame = onGameRoute && partyStatus === 'playing'
+  // Pages qui possèdent leur propre son (ou qui doivent rester silencieuses) : test de
+  // personnalité, platine et mode soirée. La musique d'ambiance reprend en sortant.
+  const silentRoute = path.startsWith('/quiz') || path.startsWith('/platine') || path.startsWith('/soiree')
+
+  useEffect(() => {
+    setMusicSuppressed(silentRoute)
+  }, [silentRoute])
 
   useEffect(() => {
     setMusicTrack(inGame ? 'game' : 'menu')

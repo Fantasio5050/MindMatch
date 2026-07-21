@@ -7,6 +7,8 @@
  * (VITE_YOUTUBE_API_KEY). Without a key, users add songs by pasting a link — which always works.
  */
 
+import { youtubeThumb } from './jukebox'
+
 export interface YTPlayer {
   playVideo(): void
   pauseVideo(): void
@@ -94,17 +96,96 @@ export async function fetchYouTubeMeta(videoId: string): Promise<YouTubeMeta | n
 }
 
 export const YOUTUBE_API_KEY: string | undefined = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined
-export const youtubeSearchEnabled = !!YOUTUBE_API_KEY
 
 export interface YouTubeSearchResult {
   videoId: string
   title: string
   artist: string
   thumbnail: string
+  durationMs: number | null
 }
 
-/** Searches YouTube (music category) via the Data API. Only usable when a key is configured. */
-export async function searchYouTube(query: string): Promise<YouTubeSearchResult[]> {
+function splitEnv(value: unknown, fallback: string[]): string[] {
+  if (typeof value !== 'string' || !value.trim()) return fallback
+  return value.split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean)
+}
+
+/** Instances publiques (open-source) qui exposent une recherche YouTube en JSON, sans clé. Ces
+ * instances vont et viennent — surchargeables via VITE_PIPED_INSTANCES / VITE_INVIDIOUS_INSTANCES. */
+const PIPED_INSTANCES = splitEnv(import.meta.env.VITE_PIPED_INSTANCES, [
+  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.adminforge.de',
+  'https://api.piped.private.coffee',
+])
+const INVIDIOUS_INSTANCES = splitEnv(import.meta.env.VITE_INVIDIOUS_INSTANCES, [
+  'https://invidious.fdn.fr',
+  'https://inv.nadeko.net',
+  'https://invidious.nerdvpn.de',
+])
+
+async function fetchJson(url: string, ms = 5000): Promise<unknown | null> {
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), ms)
+    const res = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timeout))
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+interface PipedItem { url?: string; title?: string; uploaderName?: string; duration?: number; thumbnail?: string }
+async function searchViaPiped(query: string): Promise<YouTubeSearchResult[] | null> {
+  for (const base of PIPED_INSTANCES) {
+    const data = await fetchJson(`${base}/search?q=${encodeURIComponent(query)}&filter=videos`)
+    const items = (data as { items?: PipedItem[] } | null)?.items
+    if (!Array.isArray(items) || items.length === 0) continue
+    const results = items
+      .map((it): YouTubeSearchResult | null => {
+        const q = it.url?.split('?')[1]
+        const videoId = q ? new URLSearchParams(q).get('v') ?? '' : ''
+        if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return null
+        return {
+          videoId,
+          title: it.title ?? 'Vidéo YouTube',
+          artist: it.uploaderName ?? '',
+          thumbnail: it.thumbnail || youtubeThumb(videoId),
+          durationMs: typeof it.duration === 'number' && it.duration > 0 ? it.duration * 1000 : null,
+        }
+      })
+      .filter((r): r is YouTubeSearchResult => r !== null)
+    if (results.length) return results.slice(0, 15)
+  }
+  return null
+}
+
+interface InvidiousItem { videoId?: string; title?: string; author?: string; lengthSeconds?: number; videoThumbnails?: { url?: string }[] }
+async function searchViaInvidious(query: string): Promise<YouTubeSearchResult[] | null> {
+  for (const base of INVIDIOUS_INSTANCES) {
+    const data = await fetchJson(`${base}/api/v1/search?q=${encodeURIComponent(query)}&type=video`)
+    if (!Array.isArray(data) || data.length === 0) continue
+    const results = (data as InvidiousItem[])
+      .map((it): YouTubeSearchResult | null => {
+        const videoId = it.videoId ?? ''
+        if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return null
+        return {
+          videoId,
+          title: it.title ?? 'Vidéo YouTube',
+          artist: it.author ?? '',
+          thumbnail: it.videoThumbnails?.[0]?.url || youtubeThumb(videoId),
+          durationMs: typeof it.lengthSeconds === 'number' && it.lengthSeconds > 0 ? it.lengthSeconds * 1000 : null,
+        }
+      })
+      .filter((r): r is YouTubeSearchResult => r !== null)
+    if (results.length) return results.slice(0, 15)
+  }
+  return null
+}
+
+/** Official YouTube Data API search — only when a key is configured. No duration (that needs a
+ * second contentDetails call), so durationMs stays null here. */
+async function searchViaOfficialApi(query: string): Promise<YouTubeSearchResult[]> {
   if (!YOUTUBE_API_KEY) throw new Error('YouTube search is not configured')
   const url =
     `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=12` +
@@ -120,6 +201,21 @@ export async function searchYouTube(query: string): Promise<YouTubeSearchResult[
       videoId: it.id.videoId,
       title: it.snippet.title,
       artist: it.snippet.channelTitle,
-      thumbnail: it.snippet.thumbnails.medium?.url ?? it.snippet.thumbnails.default?.url ?? '',
+      thumbnail: it.snippet.thumbnails.medium?.url ?? it.snippet.thumbnails.default?.url ?? youtubeThumb(it.id.videoId),
+      durationMs: null,
     }))
+}
+
+/**
+ * Recherche YouTube "hybride" : on tente d'abord une instance publique sans clé (Piped puis
+ * Invidious), et on retombe sur l'API officielle si une clé est configurée. Les joueurs n'ont
+ * ainsi jamais à coller de lien ni à configurer quoi que ce soit.
+ */
+export async function searchYouTubeHybrid(query: string): Promise<YouTubeSearchResult[]> {
+  const piped = await searchViaPiped(query)
+  if (piped && piped.length) return piped
+  const invidious = await searchViaInvidious(query)
+  if (invidious && invidious.length) return invidious
+  if (YOUTUBE_API_KEY) return searchViaOfficialApi(query)
+  throw new Error('Recherche indisponible pour le moment — colle un lien YouTube.')
 }

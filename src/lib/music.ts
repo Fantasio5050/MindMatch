@@ -16,8 +16,16 @@ const elements: Partial<Record<MusicTrack, HTMLAudioElement>> = {}
 const fadeTimers: Partial<Record<MusicTrack, ReturnType<typeof setInterval>>> = {}
 
 let currentTrack: MusicTrack = 'menu'
-let playing = false
+/** The user's intent (music toggle on + first gesture happened). */
+let wantPlaying = false
+/** Route-based suppression (quiz, platine, mode soirée…) — pauses playback without forgetting the
+ * user's intent, so leaving the route resumes it. */
+let suppressed = false
 let targetVolume = 0.45
+
+function shouldPlay(): boolean {
+  return wantPlaying && !suppressed
+}
 
 function getElement(track: MusicTrack): HTMLAudioElement | null {
   if (typeof window === 'undefined') return null
@@ -64,23 +72,42 @@ function playCurrent(): void {
 
 export function startMusic(volume: number): void {
   targetVolume = Math.min(1, Math.max(0, volume))
-  if (playing) return
-  playing = true
+  const alreadyWanted = wantPlaying
+  wantPlaying = true
+  if (!shouldPlay()) return
+  if (alreadyWanted) {
+    // Already wanted but maybe paused by a route change that just cleared — ensure it plays.
+    playCurrent()
+    return
+  }
   playCurrent()
 }
 
 export function stopMusic(): void {
-  playing = false
+  wantPlaying = false
   for (const track of Object.keys(elements) as MusicTrack[]) fadeTo(track, 0)
 }
 
+/** Pauses/resumes the ambiance for a route WITHOUT touching the user's on/off choice — used to
+ * silence the app music where a page owns the sound itself (personality test, platine, mode
+ * soirée). Leaving the route resumes whatever the user had chosen. */
+export function setMusicSuppressed(value: boolean): void {
+  if (suppressed === value) return
+  suppressed = value
+  if (value) {
+    for (const track of Object.keys(elements) as MusicTrack[]) fadeTo(track, 0)
+  } else if (wantPlaying) {
+    playCurrent()
+  }
+}
+
 export function isMusicPlaying(): boolean {
-  return playing
+  return shouldPlay()
 }
 
 export function setMusicVolume(volume: number): void {
   targetVolume = Math.min(1, Math.max(0, volume))
-  if (!playing) return
+  if (!shouldPlay()) return
   const el = elements[currentTrack]
   // Only adjust if no fade is in flight — an active fade already targets the right destination
   // via playCurrent/fadeTo, and volume-slider drags shouldn't restart a long ramp each tick.
@@ -94,7 +121,7 @@ export function setMusicTrack(track: MusicTrack): void {
   if (track === currentTrack) return
   const previous = currentTrack
   currentTrack = track
-  if (!playing) return
+  if (!shouldPlay()) return
   fadeTo(previous, 0)
   playCurrent()
 }

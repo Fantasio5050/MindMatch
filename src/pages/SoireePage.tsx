@@ -8,8 +8,8 @@ import { Avatar } from '../components/Avatar'
 import { useAppStore } from '../store/useAppStore'
 import { usePartyStore } from '../store/usePartyStore'
 import { useSound } from '../hooks/useSound'
-import { orderedQueue, skipThreshold, parseYouTubeId, youtubeThumb } from '../lib/jukebox'
-import { fetchYouTubeMeta, searchYouTube, youtubeSearchEnabled, type YouTubeSearchResult } from '../lib/youtube'
+import { orderedQueue, skipThreshold, parseYouTubeId, youtubeThumb, formatDuration, totalDurationMs } from '../lib/jukebox'
+import { fetchYouTubeMeta, searchYouTubeHybrid, type YouTubeSearchResult } from '../lib/youtube'
 import type { Member, MusicSession, MusicTrack } from '../types'
 
 export function SoireePage() {
@@ -115,7 +115,9 @@ export function SoireePage() {
 
         {/* File d'attente */}
         <div className="flex items-baseline justify-between mt-6 mb-2 px-1">
-          <h3 className="text-sm font-bold text-white/70">À suivre ({queue.length})</h3>
+          <h3 className="text-sm font-bold text-white/70">
+            À suivre ({queue.length}{totalDurationMs(queue) > 0 ? ` · ${formatDuration(totalDurationMs(queue))}` : ''})
+          </h3>
           <span className="text-[10px] text-white/30">▲ = fais monter dans la file</span>
         </div>
         <div className="flex flex-col gap-2">
@@ -260,27 +262,33 @@ function NowPlaying({
 
 function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type: string, payload?: unknown) => void }) {
   const { play } = useSound()
-  const [mode, setMode] = useState<'search' | 'link'>(youtubeSearchEnabled ? 'search' : 'link')
+  const [mode, setMode] = useState<'search' | 'link'>('search')
   const [link, setLink] = useState('')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<YouTubeSearchResult[]>([])
   const [busy, setBusy] = useState(false)
+  const [searched, setSearched] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
 
   if (source === 'spotify') {
     return (
       <Card className="mt-4 text-center">
         <span className="text-3xl">🎧</span>
-        <p className="text-sm font-semibold mt-1 mb-1">Source Spotify sélectionnée</p>
+        <p className="text-sm font-semibold mt-1 mb-1">Source Spotify</p>
         <p className="text-xs text-white/50">
-          L'ajout et la lecture Spotify nécessitent une clé d'application Spotify + un compte Premium pour la
-          platine. Relance le Mode Soirée en choisissant <b>YouTube</b> pour une file qui marche sans config.
+          Relance le Mode Soirée en choisissant <b>YouTube</b> pour une file qui marche tout de suite.
         </p>
       </Card>
     )
   }
 
-  const addYouTube = async (videoId: string, title?: string, artist?: string, thumbnail?: string) => {
+  const addYouTube = async (
+    videoId: string,
+    title?: string,
+    artist?: string,
+    thumbnail?: string,
+    durationMs?: number | null,
+  ) => {
     setBusy(true)
     setLocalError(null)
     let finalTitle = title ?? ''
@@ -298,7 +306,7 @@ function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type
       title: finalTitle || 'Vidéo YouTube',
       artist: finalArtist,
       thumbnail: thumbnail ?? youtubeThumb(videoId),
-      durationMs: null,
+      durationMs: durationMs ?? null,
     })
     play('pop')
     setBusy(false)
@@ -317,12 +325,13 @@ function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type
   const submitSearch = async () => {
     if (!query.trim()) return
     setBusy(true)
+    setSearched(true)
     setLocalError(null)
     try {
-      setResults(await searchYouTube(query.trim()))
+      setResults(await searchYouTubeHybrid(query.trim()))
     } catch {
-      setLocalError('Recherche indisponible — colle plutôt un lien YouTube.')
-      setMode('link')
+      setResults([])
+      setLocalError('Recherche indisponible pour le moment — bascule sur « Lien » et colle une URL YouTube.')
     } finally {
       setBusy(false)
     }
@@ -332,15 +341,13 @@ function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type
     <Card className="mt-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-white/70">➕ Ajouter une musique</h3>
-        {youtubeSearchEnabled && (
-          <div className="flex gap-1 text-xs">
-            <TabPill active={mode === 'search'} onClick={() => setMode('search')}>Rechercher</TabPill>
-            <TabPill active={mode === 'link'} onClick={() => setMode('link')}>Lien</TabPill>
-          </div>
-        )}
+        <div className="flex gap-1 text-xs">
+          <TabPill active={mode === 'search'} onClick={() => setMode('search')}>Rechercher</TabPill>
+          <TabPill active={mode === 'link'} onClick={() => setMode('link')}>Lien</TabPill>
+        </div>
       </div>
 
-      {mode === 'link' || !youtubeSearchEnabled ? (
+      {mode === 'link' ? (
         <div className="flex gap-2">
           <input
             value={link}
@@ -376,32 +383,32 @@ function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type
             </button>
           </div>
           {results.length > 0 && (
-            <div className="flex flex-col gap-1.5 mt-3 max-h-64 overflow-y-auto">
+            <div className="flex flex-col gap-1.5 mt-3 max-h-72 overflow-y-auto">
               {results.map((r) => (
                 <button
                   key={r.videoId}
-                  onClick={() => addYouTube(r.videoId, r.title, r.artist, r.thumbnail)}
+                  onClick={() => addYouTube(r.videoId, r.title, r.artist, r.thumbnail, r.durationMs)}
                   className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-white/10"
                 >
                   <img src={r.thumbnail} alt="" className="w-12 h-9 rounded object-cover shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm truncate">{r.title}</p>
-                    <p className="text-[11px] text-white/40 truncate">{r.artist}</p>
+                    <p className="text-[11px] text-white/40 truncate">
+                      {r.artist}{r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}
+                    </p>
                   </div>
                   <span className="text-fuchsia-300 text-lg shrink-0">＋</span>
                 </button>
               ))}
             </div>
           )}
+          {searched && !busy && results.length === 0 && !localError && (
+            <p className="text-[11px] text-white/30 mt-2">Aucun résultat.</p>
+          )}
         </>
       )}
 
       {localError && <p className="text-xs text-pink-300 mt-2">{localError}</p>}
-      {!youtubeSearchEnabled && (
-        <p className="text-[11px] text-white/30 mt-2">
-          Astuce : partage YouTube → « Copier le lien », puis colle-le ici.
-        </p>
-      )}
     </Card>
   )
 }
@@ -443,7 +450,9 @@ function QueueRow({
         <p className="text-sm truncate">{track.title}</p>
         <div className="flex items-center gap-1.5">
           {addedBy && <Avatar pseudo={addedBy.pseudo} color={addedBy.color} size={14} photoUrl={addedBy.photoUrl} />}
-          <span className="text-[11px] text-white/40 truncate">{addedBy?.pseudo ?? '?'}</span>
+          <span className="text-[11px] text-white/40 truncate">
+            {addedBy?.pseudo ?? '?'}{track.durationMs ? ` · ${formatDuration(track.durationMs)}` : ''}
+          </span>
         </div>
       </div>
       <button

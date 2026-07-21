@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useMusic } from '../hooks/useMusic'
 import { useSound } from '../hooks/useSound'
@@ -7,6 +8,7 @@ import { useSound } from '../hooks/useSound'
  * available everywhere — menus, lobby, games, TV screen. Also owns the one-time "first user
  * gesture" listener that kicks off background music (browsers block autoplay before that). */
 export function AudioControls() {
+  const location = useLocation()
   const music = useMusic()
   const sound = useSound()
   const { requestStart } = music
@@ -23,6 +25,10 @@ export function AudioControls() {
   }, [requestStart])
 
   const allMuted = music.muted && sound.muted
+
+  // La platine tient l'enceinte et n'utilise ni musique d'ambiance ni effets sonores : ce bouton
+  // n'y sert à rien, on le masque.
+  if (location.pathname.startsWith('/platine')) return null
 
   return (
     <div className="fixed top-3 right-3 z-40 safe-top">
