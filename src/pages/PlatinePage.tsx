@@ -346,7 +346,7 @@ function PlatinePlayer({ code }: { code: string }) {
           <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-900/20 via-black/70 to-black/95" />
         </div>
       )}
-      <div className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-white/10">
+      <div className="relative z-40 flex items-center justify-between px-4 py-3 border-b border-white/10">
         <div className="flex items-center gap-2">
           <span className="text-xl">🎛️</span>
           <span className="font-bold">Platine</span>
@@ -375,7 +375,7 @@ function PlatinePlayer({ code }: { code: string }) {
             Quitter
           </button>
           {settingsOpen && (
-            <div className="absolute right-0 top-10 z-30 w-64 rounded-2xl border border-white/10 bg-[#171122] p-4 shadow-xl">
+            <div className="absolute right-0 top-10 z-50 w-64 rounded-2xl border border-white/10 bg-[#171122] p-4 shadow-xl">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm font-semibold">Fondu enchaîné</span>
                 <span className="text-sm text-fuchsia-300 tabular-nums">{crossfadeSec === 0 ? 'Coupé' : `${crossfadeSec}s`}</span>
