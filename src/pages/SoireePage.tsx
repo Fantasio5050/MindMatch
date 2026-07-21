@@ -10,6 +10,7 @@ import { usePartyStore } from '../store/usePartyStore'
 import { useSound } from '../hooks/useSound'
 import { orderedQueue, skipThreshold, parseYouTubeId, youtubeThumb, formatDuration, totalDurationMs } from '../lib/jukebox'
 import { fetchYouTubeMeta, searchYouTubeHybrid, type YouTubeSearchResult } from '../lib/youtube'
+import { searchSpotify, type SpotifySearchResult } from '../lib/spotify'
 import type { Member, MusicSession, MusicTrack } from '../types'
 
 export function SoireePage() {
@@ -271,15 +272,7 @@ function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type
   const [localError, setLocalError] = useState<string | null>(null)
 
   if (source === 'spotify') {
-    return (
-      <Card className="mt-4 text-center">
-        <span className="text-3xl">🎧</span>
-        <p className="text-sm font-semibold mt-1 mb-1">Source Spotify</p>
-        <p className="text-xs text-white/50">
-          Relance le Mode Soirée en choisissant <b>YouTube</b> pour une file qui marche tout de suite.
-        </p>
-      </Card>
-    )
+    return <SpotifyAddSong onAdd={onAdd} />
   }
 
   const addYouTube = async (
@@ -477,6 +470,76 @@ function QueueRow({
         </button>
       )}
     </motion.div>
+  )
+}
+
+function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) => void }) {
+  const { play } = useSound()
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<SpotifySearchResult[]>([])
+  const [busy, setBusy] = useState(false)
+  const [searched, setSearched] = useState(false)
+  const [localError, setLocalError] = useState<string | null>(null)
+
+  const submit = async () => {
+    if (!query.trim()) return
+    setBusy(true)
+    setSearched(true)
+    setLocalError(null)
+    try {
+      setResults(await searchSpotify(query.trim()))
+    } catch {
+      setResults([])
+      setLocalError('Recherche Spotify indisponible pour le moment.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const add = (r: SpotifySearchResult) => {
+    onAdd('add', { source: 'spotify', sourceId: r.id, title: r.title, artist: r.artist, thumbnail: r.thumbnail, durationMs: r.durationMs })
+    play('pop')
+  }
+
+  return (
+    <Card className="mt-4">
+      <h3 className="text-sm font-bold text-white/70 mb-3">➕ Ajouter une musique</h3>
+      <div className="flex gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          placeholder="Titre, artiste…"
+          className="flex-1 rounded-2xl bg-white/8 border border-white/10 px-3.5 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-emerald-400/60"
+        />
+        <button
+          onClick={submit}
+          disabled={busy || !query.trim()}
+          className="rounded-2xl bg-emerald-500/80 px-4 text-sm font-bold disabled:opacity-40 active:bg-emerald-500"
+        >
+          {busy ? '…' : '🔍'}
+        </button>
+      </div>
+      {results.length > 0 && (
+        <div className="flex flex-col gap-1.5 mt-3 max-h-72 overflow-y-auto">
+          {results.map((r) => (
+            <button key={r.id} onClick={() => add(r)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-white/10">
+              {r.thumbnail ? (
+                <img src={r.thumbnail} alt="" className="w-11 h-11 rounded object-cover shrink-0" />
+              ) : (
+                <div className="w-11 h-11 rounded bg-white/10 flex items-center justify-center shrink-0">🎵</div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm truncate">{r.title}</p>
+                <p className="text-[11px] text-white/40 truncate">{r.artist}{r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}</p>
+              </div>
+              <span className="text-emerald-300 text-lg shrink-0">＋</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {searched && !busy && results.length === 0 && !localError && <p className="text-[11px] text-white/30 mt-2">Aucun résultat.</p>}
+      {localError && <p className="text-xs text-pink-300 mt-2">{localError}</p>}
+    </Card>
   )
 }
 

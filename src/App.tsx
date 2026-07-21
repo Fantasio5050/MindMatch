@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from './store/useAppStore'
 import { usePartyStore } from './store/usePartyStore'
 import { setMusicTrack, setMusicSuppressed } from './lib/music'
+import { handleSpotifyRedirect } from './lib/spotify'
 import { BottomNav } from './components/BottomNav'
 import { AmbientBackground } from './components/AmbientBackground'
 import { AudioControls } from './components/AudioControls'
@@ -176,6 +177,11 @@ function AppBootstrap() {
   const refreshGroup = useAppStore((s) => s.refreshGroup)
   const leaveGroup = useAppStore((s) => s.leaveGroup)
   const [bootstrapped, setBootstrapped] = useState(!identity)
+
+  useEffect(() => {
+    // Retour d'une connexion Spotify (?code=…) sur la platine : échange le jeton et restaure la route.
+    void handleSpotifyRedirect()
+  }, [])
 
   useEffect(() => {
     if (!identity || group) {

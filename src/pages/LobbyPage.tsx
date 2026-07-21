@@ -15,6 +15,7 @@ import { compressImage } from '../lib/compressImage'
 import { GAME_META } from '../data/gameMeta'
 import { GAME_LIBRARY, type GameLibraryEntry } from '../data/gameLibrary'
 import { QUIZ_LEVELS } from '../data/quizLevels'
+import { spotifyEnabled } from '../lib/spotify'
 import type { Group, GameHistoryEntry } from '../types'
 
 type PackChoice = 'classic' | 'trash' | 'mixed'
@@ -492,12 +493,15 @@ function SoireeLaunchCard({ isHost, onLaunch }: { isHost: boolean; onLaunch: (so
               <p className="text-[10px] text-emerald-300/80">Prêt · sans compte</p>
             </button>
             <button
-              onClick={() => onLaunch('spotify')}
-              className="rounded-2xl bg-black/20 border border-white/10 px-3 py-3 text-center active:bg-white/10 transition-colors"
+              onClick={() => spotifyEnabled && onLaunch('spotify')}
+              disabled={!spotifyEnabled}
+              className={`rounded-2xl border px-3 py-3 text-center transition-colors ${
+                spotifyEnabled ? 'bg-black/20 border-white/10 active:bg-white/10' : 'bg-black/10 border-white/8 opacity-60'
+              }`}
             >
               <span className="text-2xl block mb-0.5">🎧</span>
               <p className="text-sm font-bold">Spotify</p>
-              <p className="text-[10px] text-white/40">Premium + config</p>
+              <p className="text-[10px] text-white/40">{spotifyEnabled ? 'Compte Premium' : 'Bientôt'}</p>
             </button>
           </div>
           <button onClick={() => setPicking(false)} className="text-[11px] text-white/40 mt-2">Annuler</button>

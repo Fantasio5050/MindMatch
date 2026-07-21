@@ -6,6 +6,7 @@ import { Button } from '../components/Button'
 import { usePartyStore } from '../store/usePartyStore'
 import { loadYouTubeApi, type YTPlayer } from '../lib/youtube'
 import { orderedQueue, formatDuration, totalDurationMs } from '../lib/jukebox'
+import { SpotifyDeck } from './SpotifyDeck'
 
 function makePlatineId(): string {
   const uuid = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2)
@@ -331,20 +332,7 @@ function PlatinePlayer({ code }: { code: string }) {
   }
 
   if (source === 'spotify') {
-    return (
-      <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center gap-4 max-w-md mx-auto">
-        <span className="text-5xl">🎧</span>
-        <h1 className="text-2xl font-extrabold">Platine Spotify</h1>
-        <p className="text-white/60 text-sm">
-          La lecture Spotify nécessite un compte <b>Spotify Premium</b> et une clé d'application configurée
-          côté serveur. En attendant, choisis la source <b>YouTube</b> au lancement du Mode Soirée : elle
-          fonctionne sans aucune configuration.
-        </p>
-        <Button variant="ghost" onClick={() => { disconnect(); navigate('/') }} className="!py-2 text-sm">
-          ← Accueil
-        </Button>
-      </div>
-    )
+    return <SpotifyDeck code={code} />
   }
 
   const queue = orderedQueue(music)

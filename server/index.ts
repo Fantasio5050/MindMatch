@@ -15,6 +15,7 @@ import {
 } from './store'
 import { attachRealtime } from './realtime'
 import { readDb, getRecentGameHistory } from './db'
+import { spotifyConfigHandler, spotifySearchHandler } from './spotify'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT) || 3001
@@ -103,6 +104,10 @@ api.get('/groups/:groupId/history', (req, res) => {
   if (isApiError(authResult)) return res.status(authResult.status).json({ error: authResult.error })
   res.json({ history: getRecentGameHistory(groupId) })
 })
+
+// Mode Soirée — source Spotify (recherche du catalogue côté serveur, sans exposer les identifiants).
+api.get('/spotify/config', spotifyConfigHandler)
+api.get('/spotify/search', spotifySearchHandler)
 
 app.use('/api', api)
 
