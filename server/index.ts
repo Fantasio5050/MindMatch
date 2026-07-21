@@ -1,3 +1,6 @@
+// Charge un éventuel fichier .env AVANT tout le reste (db, spotify… lisent process.env au chargement).
+// En Docker, les variables viennent de docker-compose ; ce fichier .env est simplement absent.
+import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import http from 'node:http'
