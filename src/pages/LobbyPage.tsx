@@ -170,17 +170,23 @@ export function LobbyPage() {
           {confirmingLeave ? (
             <div className="flex items-center justify-center gap-2 mt-3">
               <span className="text-xs text-white/50">Quitter ce salon ?</span>
-              <button onClick={handleLeave} className="text-xs font-semibold text-pink-300 underline">
+              <button
+                onClick={handleLeave}
+                className="rounded-full bg-pink-500/80 px-4 py-2 text-xs font-bold text-white shadow active:bg-pink-500"
+              >
                 Confirmer
               </button>
-              <button onClick={() => setConfirmingLeave(false)} className="text-xs text-white/40 underline">
+              <button
+                onClick={() => setConfirmingLeave(false)}
+                className="rounded-full bg-white/8 border border-white/15 px-4 py-2 text-xs font-semibold text-white/60 active:bg-white/15"
+              >
                 Annuler
               </button>
             </div>
           ) : (
             <button
               onClick={() => setConfirmingLeave(true)}
-              className="text-xs text-white/30 mt-3 underline underline-offset-2"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-pink-500/12 border border-pink-400/30 px-4 py-2 text-xs font-semibold text-pink-200/90 active:bg-pink-500/25 transition-colors"
             >
               🚪 Quitter le salon
             </button>
@@ -244,13 +250,13 @@ export function LobbyPage() {
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           onClick={() => handleKick(m.id)}
-                          className="text-[11px] font-semibold text-pink-300 underline"
+                          className="rounded-full bg-pink-500/80 px-3 py-1.5 text-[11px] font-bold text-white shadow active:bg-pink-500"
                         >
                           Exclure ?
                         </button>
                         <button
                           onClick={() => setConfirmingKickId(null)}
-                          className="text-[11px] text-white/40 underline"
+                          className="rounded-full bg-white/8 border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/60 active:bg-white/15"
                         >
                           Annuler
                         </button>
@@ -258,7 +264,7 @@ export function LobbyPage() {
                     ) : (
                       <button
                         onClick={() => setConfirmingKickId(m.id)}
-                        className="text-[11px] text-white/30 underline underline-offset-2 shrink-0"
+                        className="shrink-0 rounded-full bg-pink-500/12 border border-pink-400/30 px-3 py-1.5 text-[11px] font-semibold text-pink-200/80 active:bg-pink-500/25 transition-colors"
                         aria-label={`Exclure ${m.pseudo}`}
                       >
                         🚫 Kick

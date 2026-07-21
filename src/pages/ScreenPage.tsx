@@ -8,6 +8,30 @@ import { PartyGameShell } from '../party/PartyGameShell'
 import { EmoteOverlay } from '../components/EmoteLayer'
 import { useSound } from '../hooks/useSound'
 
+/** Plein écran via l'API Fullscreen (avec fallback webkit pour les navigateurs de TV) : certains
+ * navigateurs TV n'ont aucun bouton plein écran natif, on l'expose donc dans l'UI. */
+function fullscreenSupported(): boolean {
+  const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void }
+  return typeof el.requestFullscreen === 'function' || typeof el.webkitRequestFullscreen === 'function'
+}
+function isFullscreenActive(): boolean {
+  const doc = document as Document & { webkitFullscreenElement?: Element | null }
+  return !!(doc.fullscreenElement ?? doc.webkitFullscreenElement)
+}
+async function toggleFullscreen(): Promise<void> {
+  const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> }
+  const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }
+  try {
+    if (isFullscreenActive()) {
+      await (doc.exitFullscreen?.() ?? doc.webkitExitFullscreen?.())
+    } else {
+      await (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.())
+    }
+  } catch {
+    // Refusé par le navigateur (politique TV) — on n'affiche pas d'erreur, le bouton reste dispo.
+  }
+}
+
 export function ScreenPage() {
   const { code } = useParams<{ code?: string }>()
   const navigate = useNavigate()
@@ -15,7 +39,19 @@ export function ScreenPage() {
   const disconnect = usePartyStore((s) => s.disconnect)
   const partyError = usePartyStore((s) => s.error)
   const [input, setInput] = useState('')
+  const [fullscreen, setFullscreen] = useState(false)
   const { play } = useSound()
+
+  // Suit l'état réel du plein écran (touche Échap, télécommande…) pour garder le label juste.
+  useEffect(() => {
+    const onChange = () => setFullscreen(isFullscreenActive())
+    document.addEventListener('fullscreenchange', onChange)
+    document.addEventListener('webkitfullscreenchange', onChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange)
+      document.removeEventListener('webkitfullscreenchange', onChange)
+    }
+  }, [])
   const memberCount = usePartyStore((s) => s.group?.members.length ?? null)
   const prevMemberCount = useRef<number | null>(null)
 
@@ -62,6 +98,11 @@ export function ScreenPage() {
             <Button fullWidth disabled={!input.trim()} onClick={() => navigate(`/screen/${input.trim()}`)}>
               Afficher
             </Button>
+            {fullscreenSupported() && (
+              <Button variant="ghost" fullWidth onClick={toggleFullscreen} className="mt-2 !py-2.5 text-sm">
+                {fullscreen ? '🗕 Quitter le plein écran' : '⛶ Passer en plein écran'}
+              </Button>
+            )}
           </Card>
           <Button variant="ghost" onClick={() => navigate('/')} className="mt-4 !py-2 text-sm">
             ← Retour à l'accueil
@@ -104,6 +145,15 @@ export function ScreenPage() {
         >
           🏠 Accueil
         </button>
+        {fullscreenSupported() && (
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center gap-1.5 rounded-full bg-white/8 px-3 h-9 text-white/50 text-sm"
+            aria-label={fullscreen ? 'Quitter le plein écran' : 'Passer en plein écran'}
+          >
+            {fullscreen ? '🗕 Réduire' : '⛶ Plein écran'}
+          </button>
+        )}
       </div>
       <PartyGameShell mode="screen" />
       <EmoteOverlay big />
