@@ -294,6 +294,9 @@ function MatchingView({
         Carte {state.currentIndex + 1} / {state.pyramid.length}
       </p>
 
+      {/* Mini-pyramide : suivre la progression sans écran TV (fallback téléphone seul). */}
+      <MiniPyramid state={state} />
+
       <div className="flex flex-col items-center mb-4">
         <PlayingCard key={state.currentIndex} rank={card.rank} suit={card.suit} size={72} flipReveal />
         <p className="mt-2 text-lg font-bold">{sipLabel(card.sips)}</p>
@@ -405,6 +408,33 @@ function MatchingView({
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+/** Pyramide compacte sur le téléphone — permet de suivre la révélation sans écran TV. */
+function MiniPyramid({ state }: { state: PyramidClientState }) {
+  const rows: Record<number, PyramidClientState['pyramid']> = {}
+  for (const card of state.pyramid) {
+    rows[card.row] = rows[card.row] ?? []
+    rows[card.row].push(card)
+  }
+  const rowIndexes = Object.keys(rows).map(Number).sort((a, b) => b - a)
+
+  return (
+    <div className="flex flex-col items-center gap-1 mb-3">
+      {rowIndexes.map((rowIdx) => (
+        <div key={rowIdx} className="flex gap-1">
+          {rows[rowIdx].map((card) => {
+            const isCurrent = state.pyramid[state.currentIndex]?.id === card.id
+            return (
+              <div key={card.id} className={isCurrent ? 'ring-2 ring-fuchsia-400 rounded' : ''}>
+                <CardFace rank={card.rank} suit={card.suit} size={18} faceDown={!card.revealed} />
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }

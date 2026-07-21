@@ -6,7 +6,7 @@ import { useSound } from '../../../hooks/useSound'
 import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
-import { PC_FINISH_INDEX, PC_HORSE_COLORS, pcColorHex } from '../../../data/petitsChevaux'
+import { PC_TRACK, PC_FINISH_INDEX, PC_HORSE_COLORS, pcColorHex, type PCCell } from '../../../data/petitsChevaux'
 import type { PetitsChevauxClientState } from './types'
 import type { Member } from '../../../types'
 
@@ -92,6 +92,9 @@ export function PetitsChevauxController() {
         )}
       </AnimatePresence>
 
+      {/* Mini-plateau : permet de suivre la course sans écran TV (fallback téléphone seul). */}
+      <MiniTrack state={state} />
+
       <div className="flex-1 flex flex-col items-center justify-center">
         {iFinished ? (
           <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
@@ -138,6 +141,48 @@ export function PetitsChevauxController() {
         </Button>
       )}
       <p className="text-center text-white/20 text-xs mt-4">📺 Suis la course sur la TV</p>
+    </div>
+  )
+}
+
+function miniCellTint(type: PCCell['type']): string {
+  switch (type) {
+    case 'drink': return 'rgba(244,114,182,0.55)'
+    case 'culsec': return 'rgba(255,255,255,0.75)'
+    case 'everyone': return 'rgba(96,165,250,0.55)'
+    case 'forward': return 'rgba(52,211,153,0.55)'
+    case 'back': return 'rgba(251,146,60,0.55)'
+    case 'gage': return 'rgba(217,130,250,0.55)'
+    case 'finish': return 'rgba(251,191,36,0.8)'
+    default: return 'rgba(255,255,255,0.14)'
+  }
+}
+
+/** Piste compacte sur le téléphone — le jeu reste jouable sans affichage TV. */
+function MiniTrack({ state }: { state: PetitsChevauxClientState }) {
+  return (
+    <div className="glass-card rounded-2xl px-3 pt-4 pb-2.5 mb-4">
+      <div className="flex flex-wrap items-center justify-center gap-[3px]">
+        {PC_TRACK.map((cell, i) => {
+          const here = state.order.filter((id) => (state.positions[id] ?? 0) === i && !state.finishOrder.includes(id))
+          return (
+            <div key={i} className="relative w-2.5 h-2.5 rounded-full shrink-0" style={{ background: miniCellTint(cell.type) }}>
+              {here.length > 0 && (
+                <span className="absolute -top-[7px] left-1/2 -translate-x-1/2 flex -space-x-1">
+                  {here.map((id) => (
+                    <span
+                      key={id}
+                      className="w-2.5 h-2.5 rounded-full border border-black/60"
+                      style={{ background: pcColorHex(state.horseColors[id]) }}
+                    />
+                  ))}
+                </span>
+              )}
+            </div>
+          )
+        })}
+        <span className="text-[11px] leading-none ml-0.5">🏆</span>
+      </div>
     </div>
   )
 }

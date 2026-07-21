@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { PageTransition } from '../components/PageTransition'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
@@ -12,10 +13,11 @@ import { BADGE_MAP } from '../data/badges'
 import { apiGetGameHistory, apiUpdatePhoto, ApiError } from '../lib/api'
 import { compressImage } from '../lib/compressImage'
 import { GAME_META } from '../data/gameMeta'
+import { GAME_LIBRARY, type GameLibraryEntry } from '../data/gameLibrary'
+import { QUIZ_LEVELS } from '../data/quizLevels'
 import type { Group, GameHistoryEntry } from '../types'
 
-type DilemmaPackChoice = 'classic' | 'trash' | 'mixed'
-type PartyCardsPackChoice = 'classic' | 'trash' | 'mixed'
+type PackChoice = 'classic' | 'trash' | 'mixed'
 
 function relativeTime(timestamp: number): string {
   const diffMs = Date.now() - timestamp
@@ -50,8 +52,9 @@ export function LobbyPage() {
   const [confirmingAdultMode, setConfirmingAdultMode] = useState(false)
   const [confirmingLeave, setConfirmingLeave] = useState(false)
   const [confirmingKickId, setConfirmingKickId] = useState<string | null>(null)
-  const [dilemmaPack, setDilemmaPack] = useState<DilemmaPackChoice>('classic')
-  const [partyCardsPack, setPartyCardsPack] = useState<PartyCardsPackChoice>('classic')
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null)
+  const [dilemmaPack, setDilemmaPack] = useState<PackChoice>('classic')
+  const [partyCardsPack, setPartyCardsPack] = useState<PackChoice>('classic')
   const [autorouteCycles, setAutorouteCycles] = useState(3)
   const [history, setHistory] = useState<GameHistoryEntry[]>([])
   const [photoError, setPhotoError] = useState<string | null>(null)
@@ -101,21 +104,29 @@ export function LobbyPage() {
   const me = group.members.find((m) => m.id === identity.memberId)
   const quizDone = !!me?.scores
   const finishedCount = group.members.filter((m) => m.scores !== null).length
-  const canPlayMostLikely = group.members.length >= 3
-  const canPlayPyramid = group.members.length >= 2
-  const canPlayPartyCards = group.members.length >= 2
-  const canPlaySecretProfile = group.members.length >= 3 && finishedCount >= 2
-  const canPlayWhoWroteIt = group.members.length >= 3
-  const canPlayGuessMyAnswer = group.members.length >= 3 && finishedCount >= 1
-  const canPlayPalmier = group.members.length >= 2
-  const canPlayAutoroute = group.members.length >= 2
-  const canPlayPmu = group.members.length >= 2
-  const canPlayWheel = group.members.length >= 2
-  const canPlayRoulette = group.members.length >= 2
-  const canPlayBlackjack = group.members.length >= 2
-  const canPlayBlanc = group.members.length >= 3
-  const canPlayPetitsChevaux = group.members.length >= 2
   const adultMode = group.adultModeEnabled
+
+  /** Raison pour laquelle le jeu ne peut pas se lancer (null = jouable). */
+  const requirementFor = (e: GameLibraryEntry): string | null => {
+    if (group.members.length < e.minPlayers) return `Il faut au moins ${e.minPlayers} joueurs`
+    if (e.quizFinishedNeed && finishedCount < e.quizFinishedNeed) {
+      return e.quizFinishedNeed === 1
+        ? 'Il faut 1 joueur ayant fini le test'
+        : `Il faut ${e.quizFinishedNeed} joueurs ayant fini le test`
+    }
+    return null
+  }
+
+  const launchGame = (e: GameLibraryEntry) => {
+    if (e.config === 'pack') {
+      startGame(e.id, { pack: e.id === 'dilemmas' ? dilemmaPack : partyCardsPack })
+    } else if (e.config === 'autoroute') {
+      startGame(e.id, { cycles: autorouteCycles })
+    } else {
+      startGame(e.id)
+    }
+    setSelectedGameId(null)
+  }
 
   const copyCode = async () => {
     play('pop')
@@ -156,6 +167,8 @@ export function LobbyPage() {
       setUploadingPhoto(false)
     }
   }
+
+  const selectedGame = GAME_LIBRARY.find((e) => e.id === selectedGameId) ?? null
 
   return (
     <PageTransition>
@@ -318,461 +331,280 @@ export function LobbyPage() {
           onDisable={() => setAdultMode(false)}
         />
 
-        <h3 className="text-sm font-bold text-white/70 mb-3 px-1">Activités</h3>
-        <div className="flex flex-col gap-3 mb-4">
-          <Card delay={0.1}>
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">🧠</span>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Test de personnalité MindMatch</p>
-                <p className="text-xs text-white/40">
-                  {quizDone ? 'Terminé — voir ton profil' : '36 questions, ~5 minutes'}
-                </p>
-              </div>
-              <Button
-                variant={quizDone ? 'secondary' : 'primary'}
-                onClick={() => navigate(quizDone ? '/profile' : '/quiz')}
-                className="!px-4 !py-2 text-sm"
+        {/* ---- Jaquette "à la une" : le test de personnalité + ses 3 niveaux ---- */}
+        <div className="relative overflow-hidden rounded-3xl border border-fuchsia-400/25 mb-5 p-5"
+          style={{ background: 'linear-gradient(150deg, rgba(217,70,239,0.28), rgba(124,58,237,0.18) 45%, rgba(20,16,31,0.9) 90%)' }}
+        >
+          <span className="absolute -right-4 -top-6 text-[7rem] opacity-15 rotate-12 select-none pointer-events-none">🧠</span>
+          <p className="text-[10px] uppercase tracking-widest text-fuchsia-200/70 mb-1">À la une</p>
+          <h3 className="text-lg font-extrabold mb-1">Test de personnalité MindMatch</h3>
+          <p className="text-xs text-white/50 mb-4">
+            {quizDone ? 'Terminé ! Tu peux revoir ton profil, ou refaire le test.' : 'Découvre ton archétype — choisis ta précision :'}
+          </p>
+          {quizDone && (
+            <Button variant="secondary" fullWidth onClick={() => navigate('/profile')} className="!py-2.5 text-sm mb-3">
+              Voir mon profil 🧠
+            </Button>
+          )}
+          <div className="grid grid-cols-3 gap-2">
+            {QUIZ_LEVELS.map((l) => (
+              <motion.button
+                key={l.key}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate(`/quiz?niveau=${l.key}`)}
+                className="rounded-2xl bg-black/30 border border-white/10 px-2 py-3 text-center active:bg-white/10 transition-colors"
               >
-                {quizDone ? 'Voir' : 'Jouer'}
-              </Button>
-            </div>
-          </Card>
-
-          <Card delay={0.15}>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl">🎯</span>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Qui est le plus ?</p>
-                <p className="text-xs text-white/40">Votes anonymes, révélations en direct</p>
-              </div>
-            </div>
-            {isHost ? (
-              <Button
-                fullWidth
-                disabled={!canPlayMostLikely}
-                onClick={() => startGame('who-is-most-likely')}
-                className="!py-2.5 text-sm"
-              >
-                {canPlayMostLikely ? 'Lancer la partie' : 'Il faut au moins 3 joueurs'}
-              </Button>
-            ) : (
-              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-            )}
-          </Card>
-
-          <Card delay={0.18}>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl">🃏</span>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Blackjack</p>
-                <p className="text-xs text-white/40">
-                  Bats le croupier — {adultMode ? 'mises en gorgées 🍻' : 'mises en jetons'}
-                </p>
-              </div>
-            </div>
-            {isHost ? (
-              <Button
-                fullWidth
-                disabled={!canPlayBlackjack}
-                onClick={() => startGame('blackjack')}
-                className="!py-2.5 text-sm"
-              >
-                {canPlayBlackjack ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
-              </Button>
-            ) : (
-              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-            )}
-          </Card>
-
-          <Card delay={0.2}>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-3xl">⚖️</span>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Dilemmes & Débats</p>
-                <p className="text-xs text-white/40">Le groupe vote, on regarde qui penche où</p>
-              </div>
-            </div>
-            <div className="flex gap-1.5 mb-3">
-              <PackPill label="Classique" active={dilemmaPack === 'classic'} onClick={() => setDilemmaPack('classic')} />
-              <PackPill
-                label="Trash 18+"
-                active={dilemmaPack === 'trash'}
-                locked={!adultMode}
-                onClick={() => adultMode && setDilemmaPack('trash')}
-              />
-              <PackPill
-                label="Mixte"
-                active={dilemmaPack === 'mixed'}
-                locked={!adultMode}
-                onClick={() => adultMode && setDilemmaPack('mixed')}
-              />
-            </div>
-            {isHost ? (
-              <Button fullWidth onClick={() => startGame('dilemmas', { pack: dilemmaPack })} className="!py-2.5 text-sm">
-                Lancer la partie
-              </Button>
-            ) : (
-              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-            )}
-          </Card>
-
-          {adultMode ? (
-            <Card delay={0.25}>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-3xl">🍻</span>
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">Pyramide</p>
-                  <p className="text-xs text-white/40">Cartes, gorgées et cul sec au sommet 🥃</p>
-                </div>
-              </div>
-              {isHost ? (
-                <Button
-                  fullWidth
-                  disabled={!canPlayPyramid}
-                  onClick={() => startGame('pyramid')}
-                  className="!py-2.5 text-sm"
-                >
-                  {canPlayPyramid ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
-                </Button>
-              ) : (
-                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-              )}
-            </Card>
-          ) : (
-            <LockedGameCard icon="🍻" name="Pyramide" note="Jeu à boire — active le mode 18+" />
-          )}
-
-          {adultMode ? (
-            <Card delay={0.26}>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-3xl">🌴</span>
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">Palmier</p>
-                  <p className="text-xs text-white/40">Le Cercle — 52 cartes, cul sec au centre 🥃</p>
-                </div>
-              </div>
-              {isHost ? (
-                <Button
-                  fullWidth
-                  disabled={!canPlayPalmier}
-                  onClick={() => startGame('palmier')}
-                  className="!py-2.5 text-sm"
-                >
-                  {canPlayPalmier ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
-                </Button>
-              ) : (
-                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-              )}
-            </Card>
-          ) : (
-            <LockedGameCard icon="🌴" name="Palmier" note="Jeu à boire — active le mode 18+" />
-          )}
-
-          {adultMode ? (
-            <Card delay={0.27}>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-3xl">🛣️</span>
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">Autoroute</p>
-                  <p className="text-xs text-white/40">Plus haut/bas, rouge/noir, inter/exter — et des péages</p>
-                </div>
-              </div>
-              {isHost && (
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-white/50">Longueur de l'autoroute</span>
-                    <span className="text-xs font-bold text-fuchsia-300">
-                      {autorouteCycles} cycles · {autorouteCycles * 4 - 1} cases
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={2}
-                    max={6}
-                    step={1}
-                    value={autorouteCycles}
-                    onChange={(e) => setAutorouteCycles(Number(e.target.value))}
-                    className="w-full accent-fuchsia-400"
-                    aria-label="Nombre de cycles de l'autoroute"
-                  />
-                </div>
-              )}
-              {isHost ? (
-                <Button
-                  fullWidth
-                  disabled={!canPlayAutoroute}
-                  onClick={() => startGame('autoroute', { cycles: autorouteCycles })}
-                  className="!py-2.5 text-sm"
-                >
-                  {canPlayAutoroute ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
-                </Button>
-              ) : (
-                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-              )}
-            </Card>
-          ) : (
-            <LockedGameCard icon="🛣️" name="Autoroute" note="Jeu à boire — active le mode 18+" />
-          )}
-
-          {adultMode ? (
-            <Card delay={0.275}>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-3xl">🏇</span>
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">
-                    PMU <span className="text-[10px] font-bold text-fuchsia-300 align-middle">3D sur TV</span>
-                  </p>
-                  <p className="text-xs text-white/40">Pariez sur un cheval, la course se joue en 3D 📺</p>
-                </div>
-              </div>
-              {isHost ? (
-                <Button
-                  fullWidth
-                  disabled={!canPlayPmu}
-                  onClick={() => startGame('pmu')}
-                  className="!py-2.5 text-sm"
-                >
-                  {canPlayPmu ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
-                </Button>
-              ) : (
-                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-              )}
-            </Card>
-          ) : (
-            <LockedGameCard icon="🏇" name="PMU" note="Jeu à boire — active le mode 18+" />
-          )}
-
-          {adultMode ? (
-            <Card delay={0.28}>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-3xl">🎡</span>
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">
-                    Roue Infernale <span className="text-[10px] font-bold text-fuchsia-300 align-middle">3D sur TV</span>
-                  </p>
-                  <p className="text-xs text-white/40">Swipe pour lancer la roue — gages, gorgées, immunités</p>
-                </div>
-              </div>
-              {isHost ? (
-                <Button
-                  fullWidth
-                  disabled={!canPlayWheel}
-                  onClick={() => startGame('wheel')}
-                  className="!py-2.5 text-sm"
-                >
-                  {canPlayWheel ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
-                </Button>
-              ) : (
-                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-              )}
-            </Card>
-          ) : (
-            <LockedGameCard icon="🎡" name="Roue Infernale" note="Jeu à boire — active le mode 18+" />
-          )}
-
-          {adultMode ? (
-            <Card delay={0.285}>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-3xl">🔫</span>
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">
-                    Roulette russe <span className="text-[10px] font-bold text-red-300 align-middle">HARDCORE</span>
-                  </p>
-                  <p className="text-xs text-white/40">Barillet, probas qui montent, gages hardcore 💥</p>
-                </div>
-              </div>
-              {isHost ? (
-                <Button
-                  fullWidth
-                  disabled={!canPlayRoulette}
-                  onClick={() => startGame('russian-roulette')}
-                  className="!py-2.5 text-sm"
-                >
-                  {canPlayRoulette ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
-                </Button>
-              ) : (
-                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-              )}
-            </Card>
-          ) : (
-            <LockedGameCard icon="🔫" name="Roulette russe" note="Jeu à boire hardcore — active le mode 18+" />
-          )}
-
-          {adultMode ? (
-            <Card delay={0.288}>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-3xl">🖊️</span>
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">
-                    Le Grand Blanc <span className="text-[10px] font-bold text-red-300 align-middle">18+</span>
-                  </p>
-                  <p className="text-xs text-white/40">Cartes à trous trash — posez, votez la plus drôle 🃏</p>
-                </div>
-              </div>
-              {isHost ? (
-                <Button
-                  fullWidth
-                  disabled={!canPlayBlanc}
-                  onClick={() => startGame('blanc')}
-                  className="!py-2.5 text-sm"
-                >
-                  {canPlayBlanc ? 'Lancer la partie' : 'Il faut au moins 3 joueurs'}
-                </Button>
-              ) : (
-                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-              )}
-            </Card>
-          ) : (
-            <LockedGameCard icon="🖊️" name="Le Grand Blanc" note="Cartes à trous trash — active le mode 18+" />
-          )}
-
-          {adultMode ? (
-            <Card delay={0.289}>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-3xl">🐴</span>
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">
-                    Petits Chevaux <span className="text-[10px] font-bold text-fuchsia-300 align-middle">plateau sur TV</span>
-                  </p>
-                  <p className="text-xs text-white/40">Lancez le dé, avancez, capturez — cases à boire et gages 🎲</p>
-                </div>
-              </div>
-              {isHost ? (
-                <Button
-                  fullWidth
-                  disabled={!canPlayPetitsChevaux}
-                  onClick={() => startGame('petits-chevaux')}
-                  className="!py-2.5 text-sm"
-                >
-                  {canPlayPetitsChevaux ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
-                </Button>
-              ) : (
-                <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-              )}
-            </Card>
-          ) : (
-            <LockedGameCard icon="🐴" name="Petits Chevaux" note="Jeu à boire (plateau) — active le mode 18+" />
-          )}
-
-          <Card delay={0.28}>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl">🔍</span>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Profil secret</p>
-                <p className="text-xs text-white/40">Des indices sur les traits, devinez qui c'est</p>
-              </div>
-            </div>
-            {isHost ? (
-              <Button
-                fullWidth
-                disabled={!canPlaySecretProfile}
-                onClick={() => startGame('secret-profile')}
-                className="!py-2.5 text-sm"
-              >
-                {canPlaySecretProfile
-                  ? 'Lancer la partie'
-                  : 'Il faut 3 joueurs, dont 2 ayant fini le test'}
-              </Button>
-            ) : (
-              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-            )}
-          </Card>
-
-          <Card delay={0.3}>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl">🕵️</span>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Devine ma réponse</p>
-                <p className="text-xs text-white/40">Devinez ce qu'un·e ami·e a répondu au quiz</p>
-              </div>
-            </div>
-            {isHost ? (
-              <Button
-                fullWidth
-                disabled={!canPlayGuessMyAnswer}
-                onClick={() => startGame('guess-my-answer')}
-                className="!py-2.5 text-sm"
-              >
-                {canPlayGuessMyAnswer ? 'Lancer la partie' : 'Il faut 3 joueurs, dont 1 ayant fini le test'}
-              </Button>
-            ) : (
-              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-            )}
-          </Card>
-
-          <Card delay={0.32}>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl">✍️</span>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Qui a écrit ça ?</p>
-                <p className="text-xs text-white/40">Écrivez, mélangez, devinez les auteur·rice·s</p>
-              </div>
-            </div>
-            {isHost ? (
-              <Button
-                fullWidth
-                disabled={!canPlayWhoWroteIt}
-                onClick={() => startGame('who-wrote-it')}
-                className="!py-2.5 text-sm"
-              >
-                {canPlayWhoWroteIt ? 'Lancer la partie' : 'Il faut au moins 3 joueurs'}
-              </Button>
-            ) : (
-              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-            )}
-          </Card>
-
-          <Card delay={0.34}>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-3xl">🃏</span>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Cartes de soirée</p>
-                <p className="text-xs text-white/40">Action, vérité, défi — à tour de rôle</p>
-              </div>
-            </div>
-            <div className="flex gap-1.5 mb-3">
-              <PackPill label="Classique" active={partyCardsPack === 'classic'} onClick={() => setPartyCardsPack('classic')} />
-              <PackPill
-                label="Trash 18+"
-                active={partyCardsPack === 'trash'}
-                locked={!adultMode}
-                onClick={() => adultMode && setPartyCardsPack('trash')}
-              />
-              <PackPill
-                label="Mixte"
-                active={partyCardsPack === 'mixed'}
-                locked={!adultMode}
-                onClick={() => adultMode && setPartyCardsPack('mixed')}
-              />
-            </div>
-            {isHost ? (
-              <Button
-                fullWidth
-                disabled={!canPlayPartyCards}
-                onClick={() => startGame('party-cards', { pack: partyCardsPack })}
-                className="!py-2.5 text-sm"
-              >
-                {canPlayPartyCards ? 'Lancer la partie' : 'Il faut au moins 2 joueurs'}
-              </Button>
-            ) : (
-              <p className="text-xs text-white/40 text-center">Seul·e l'hôte peut lancer ce jeu</p>
-            )}
-          </Card>
+                <span className="text-xl block mb-0.5">{l.emoji}</span>
+                <p className="text-xs font-bold">{l.name}</p>
+                <p className="text-[10px] text-white/40">{l.count} questions · {l.duration}</p>
+              </motion.button>
+            ))}
+          </div>
         </div>
 
-        <Card delay={0.3} className="text-center">
+        {/* ---- Bibliothèque de jeux façon console ---- */}
+        <div className="flex items-baseline justify-between mb-3 px-1">
+          <h3 className="text-sm font-bold text-white/70">🎮 Jeux</h3>
+          <p className="text-[10px] text-white/30">📺 = optimisé pour affichage TV</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          {GAME_LIBRARY.map((e, i) => (
+            <GameTile
+              key={e.id}
+              entry={e}
+              index={i}
+              locked={!!e.adult && !adultMode}
+              onOpen={() => {
+                play('pop')
+                setSelectedGameId(e.id)
+              }}
+            />
+          ))}
+        </div>
+
+        <Card delay={0.15} className="text-center">
           <p className="text-sm font-semibold mb-1">📺 Mode écran partagé</p>
           <p className="text-xs text-white/40 mb-3">
-            Sur une TV ou un ordinateur, ouvre l'appli et entre le code <b>{group.code}</b> dans "Afficher sur un
-            écran".
+            Sur une TV ou un ordinateur, entre le code <b>{group.code}</b> dans "Afficher sur un écran".
+            L'écran TV est <b>fortement conseillé</b> (l'appli est pensée pour), mais jamais obligatoire :
+            tous les jeux restent jouables sur téléphone.
           </p>
           <Button variant="secondary" fullWidth onClick={() => navigate(`/screen/${group.code}`)} className="!py-2.5 text-sm">
             Ouvrir l'écran ici
           </Button>
         </Card>
       </div>
+
+      {/* ---- Fiche jeu (bottom sheet façon console) ---- */}
+      <AnimatePresence>
+        {selectedGame && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setSelectedGameId(null)}>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+              onClick={(ev) => ev.stopPropagation()}
+              className="relative w-full max-w-md rounded-t-3xl border-t border-x border-white/10 bg-[#171122] px-6 pt-5 pb-8"
+            >
+              <div className="mx-auto w-10 h-1 rounded-full bg-white/15 mb-4" />
+              <GameSheet
+                entry={selectedGame}
+                locked={!!selectedGame.adult && !adultMode}
+                requirement={requirementFor(selectedGame)}
+                isHost={isHost}
+                adultMode={adultMode}
+                dilemmaPack={dilemmaPack}
+                setDilemmaPack={setDilemmaPack}
+                partyCardsPack={partyCardsPack}
+                setPartyCardsPack={setPartyCardsPack}
+                autorouteCycles={autorouteCycles}
+                setAutorouteCycles={setAutorouteCycles}
+                onLaunch={() => launchGame(selectedGame)}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </PageTransition>
+  )
+}
+
+/** Jaquette de jeu façon console : dégradé teinté, grosse icône, chips 18+/TV/joueurs. */
+function GameTile({
+  entry,
+  index,
+  locked,
+  onOpen,
+}: {
+  entry: GameLibraryEntry
+  index: number
+  locked: boolean
+  onOpen: () => void
+}) {
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.04 * index, duration: 0.3 }}
+      whileTap={{ scale: 0.96 }}
+      onClick={onOpen}
+      className="relative overflow-hidden rounded-2xl border border-white/10 aspect-[4/5] text-left shadow-lg"
+      style={{ background: `linear-gradient(165deg, ${entry.hue}66 0%, ${entry.hue}1f 40%, #14101f 85%)` }}
+    >
+      <span
+        className={`absolute -right-3 -top-4 text-[4.6rem] rotate-12 select-none pointer-events-none ${locked ? 'opacity-10 grayscale' : 'opacity-20'}`}
+      >
+        {entry.icon}
+      </span>
+
+      <div className="absolute inset-0 p-3 flex flex-col">
+        <div className="flex flex-wrap gap-1">
+          {entry.adult && <TileChip className="bg-red-500/30 text-red-200">18+</TileChip>}
+          {entry.tvOptimized && <TileChip className="bg-sky-500/25 text-sky-200">📺 TV</TileChip>}
+          {entry.badge && <TileChip className="bg-fuchsia-500/30 text-fuchsia-200">{entry.badge}</TileChip>}
+        </div>
+
+        <span className={`text-4xl mt-auto mb-1.5 drop-shadow-lg ${locked ? 'grayscale opacity-60' : ''}`}>{entry.icon}</span>
+        <p className="text-[13px] font-extrabold leading-tight mb-0.5">{entry.name}</p>
+        <p className="text-[10px] text-white/50 leading-snug line-clamp-2">{entry.tagline}</p>
+        <p className="text-[9px] text-white/35 mt-1">👥 {entry.minPlayers}+ joueurs</p>
+      </div>
+
+      {locked && (
+        <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+          <span className="rounded-full bg-black/60 border border-white/15 px-3 py-1.5 text-[11px] font-bold">🔒 Mode 18+</span>
+        </div>
+      )}
+    </motion.button>
+  )
+}
+
+function TileChip({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide ${className}`}>{children}</span>
+  )
+}
+
+/** Contenu de la fiche jeu : pitch, pré-requis, options, bouton de lancement. */
+function GameSheet({
+  entry,
+  locked,
+  requirement,
+  isHost,
+  adultMode,
+  dilemmaPack,
+  setDilemmaPack,
+  partyCardsPack,
+  setPartyCardsPack,
+  autorouteCycles,
+  setAutorouteCycles,
+  onLaunch,
+}: {
+  entry: GameLibraryEntry
+  locked: boolean
+  requirement: string | null
+  isHost: boolean
+  adultMode: boolean
+  dilemmaPack: PackChoice
+  setDilemmaPack: (p: PackChoice) => void
+  partyCardsPack: PackChoice
+  setPartyCardsPack: (p: PackChoice) => void
+  autorouteCycles: number
+  setAutorouteCycles: (n: number) => void
+  onLaunch: () => void
+}) {
+  const pack = entry.id === 'dilemmas' ? dilemmaPack : partyCardsPack
+  const setPack = entry.id === 'dilemmas' ? setDilemmaPack : setPartyCardsPack
+
+  return (
+    <div>
+      <div className="flex items-center gap-4 mb-3">
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl shrink-0 border border-white/10"
+          style={{ background: `linear-gradient(150deg, ${entry.hue}55, ${entry.hue}18)` }}
+        >
+          {entry.icon}
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-lg font-extrabold leading-tight">{entry.name}</h2>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {entry.adult && <TileChip className="bg-red-500/30 text-red-200">18+</TileChip>}
+            {entry.badge && <TileChip className="bg-fuchsia-500/30 text-fuchsia-200">{entry.badge}</TileChip>}
+            <TileChip className="bg-white/10 text-white/60">👥 {entry.minPlayers}+ joueurs</TileChip>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-sm text-white/70 mb-3">{entry.tagline}</p>
+
+      {entry.tvOptimized && (
+        <p className="text-[11px] text-sky-200/80 bg-sky-500/10 border border-sky-400/20 rounded-xl px-3 py-2 mb-3">
+          📺 <b>Optimisé pour affichage TV</b> — jouable sans écran partagé, mais fortement conseillé pour l'ambiance.
+        </p>
+      )}
+
+      {locked ? (
+        <p className="text-xs text-white/50 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 mb-4">
+          🔒 Ce jeu fait partie du contenu 18+. {isHost ? 'Active le mode 18+ dans le salon pour le débloquer.' : "Demande à l'hôte d'activer le mode 18+."}
+        </p>
+      ) : (
+        <>
+          {entry.config === 'pack' && (
+            <div className="flex gap-1.5 mb-4">
+              <PackPill label="Classique" active={pack === 'classic'} onClick={() => setPack('classic')} />
+              <PackPill
+                label="Trash 18+"
+                active={pack === 'trash'}
+                locked={!adultMode}
+                onClick={() => adultMode && setPack('trash')}
+              />
+              <PackPill
+                label="Mixte"
+                active={pack === 'mixed'}
+                locked={!adultMode}
+                onClick={() => adultMode && setPack('mixed')}
+              />
+            </div>
+          )}
+
+          {entry.config === 'autoroute' && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-white/50">Longueur de l'autoroute</span>
+                <span className="text-xs font-bold text-fuchsia-300">
+                  {autorouteCycles} cycles · {autorouteCycles * 4 - 1} cases
+                </span>
+              </div>
+              <input
+                type="range"
+                min={2}
+                max={6}
+                step={1}
+                value={autorouteCycles}
+                onChange={(e) => setAutorouteCycles(Number(e.target.value))}
+                className="w-full accent-fuchsia-400"
+                aria-label="Nombre de cycles de l'autoroute"
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {isHost ? (
+        <Button fullWidth disabled={locked || requirement !== null} onClick={onLaunch}>
+          {locked ? 'Verrouillé (18+)' : requirement ?? '▶ Lancer la partie'}
+        </Button>
+      ) : (
+        <p className="text-xs text-white/40 text-center py-2">Seul·e l'hôte peut lancer ce jeu</p>
+      )}
+    </div>
   )
 }
 
@@ -797,20 +629,6 @@ function PackPill({
     >
       {locked ? `🔒 ${label}` : label}
     </button>
-  )
-}
-
-function LockedGameCard({ icon, name, note }: { icon: string; name: string; note: string }) {
-  return (
-    <div className="glass-card rounded-3xl p-5 opacity-50">
-      <div className="flex items-center gap-3">
-        <span className="text-3xl grayscale">{icon}</span>
-        <div className="flex-1">
-          <p className="font-semibold text-sm">{name}</p>
-          <p className="text-xs text-white/40">{note}</p>
-        </div>
-      </div>
-    </div>
   )
 }
 
