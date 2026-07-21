@@ -50,6 +50,8 @@ export function SpotifyDeck({ code }: { code: string }) {
   const endedGuardRef = useRef<string | null>(null)
   const lastPosRef = useRef(0)
   const lastDurRef = useRef(0)
+  const loadedAtRef = useRef(0)
+  const everPlayedRef = useRef(false)
 
   const isActive = !platineOwner || platineOwner === platineId
   const isActiveRef = useRef(isActive)
@@ -91,6 +93,8 @@ export function SpotifyDeck({ code }: { code: string }) {
       endedGuardRef.current = null
       lastPosRef.current = 0
       lastDurRef.current = 0
+      loadedAtRef.current = Date.now()
+      everPlayedRef.current = false
       playSpotifyTrack(deviceIdRef.current, current.sourceId)
       if (!isPlaying) window.setTimeout(() => playerRef.current?.pause().catch(() => {}), 500)
     } else if (isPlaying) {
@@ -111,10 +115,15 @@ export function SpotifyDeck({ code }: { code: string }) {
       if (!state) return
       reportPosition({ positionMs: state.position, durationMs: state.duration || null, isPlaying: !state.paused })
 
-      const cur = usePartyStore.getState().group?.music?.current
+      const session = usePartyStore.getState().group?.music
+      const cur = session?.current
+      if (state.position > 0) everPlayedRef.current = true
+
       const endedNaturally =
         state.paused && state.position === 0 && lastPosRef.current > 3000 && lastPosRef.current >= lastDurRef.current - 4000
-      if (cur && endedNaturally && endedGuardRef.current !== cur.id) {
+      // Piste injouable (indisponible dans le pays, lecture refusée…) : rien n'a démarré au bout de 12 s → on passe.
+      const stuck = !!session?.isPlaying && !everPlayedRef.current && Date.now() - loadedAtRef.current > 12000
+      if (cur && (endedNaturally || stuck) && endedGuardRef.current !== cur.id) {
         endedGuardRef.current = cur.id
         platineEnded(platineId, cur.id)
       }

@@ -98,6 +98,7 @@ function PlatinePlayer({ code }: { code: string }) {
   const [crossfadeUi, setCrossfadeUi] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [crossfadeSec, setCrossfadeSec] = useState(readCrossfadeSec)
+  const [skipNotice, setSkipNotice] = useState<string | null>(null)
   const crossfadeSecRef = useRef(crossfadeSec)
   crossfadeSecRef.current = crossfadeSec
   const updateCrossfade = (v: number) => {
@@ -115,6 +116,12 @@ function PlatinePlayer({ code }: { code: string }) {
   const firstLoad = useRef(true)
   const deck0Ref = useRef<HTMLDivElement | null>(null)
   const deck1Ref = useRef<HTMLDivElement | null>(null)
+  // Gestion des vidéos injouables (bloquées par pays/uploader, intégration désactivée, supprimées…).
+  const errorGuard = useRef<string | null>(null)
+  const loadedAt = useRef(0)
+  const everPlayed = useRef(false)
+  const tickCurrent = useRef<string | null>(null)
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isActive = !platineOwner || platineOwner === platineId
 
@@ -211,6 +218,29 @@ function PlatinePlayer({ code }: { code: string }) {
     const cur = usePartyStore.getState().group?.music?.current
     if (cur) platineEnded(platineId, cur.id)
   }
+  function flashNotice(msg: string) {
+    setSkipNotice(msg)
+    if (noticeTimer.current) clearTimeout(noticeTimer.current)
+    noticeTimer.current = setTimeout(() => setSkipNotice(null), 3500)
+  }
+  /** Passe la piste courante quand elle est injouable : bloquée par pays/uploader, intégration
+   * désactivée, supprimée/privée (erreur YouTube), OU bloquée sans erreur (watchdog). Garde-fou
+   * anti-boucle : une même piste n'est sautée qu'une fois. */
+  function skipBroken(reason: string) {
+    const cur = usePartyStore.getState().group?.music?.current
+    if (!cur || errorGuard.current === cur.id) return
+    errorGuard.current = cur.id
+    clearRamp()
+    crossfading.current = false
+    flashNotice(reason)
+    platineEnded(platineId, cur.id)
+  }
+  function onDeckError(deck: number) {
+    // On ne saute que si le deck qui plante porte bien la piste en cours (pas un vieux deck en fondu).
+    const cur = usePartyStore.getState().group?.music?.current
+    if (!cur || deckLoaded.current[deck] !== cur.sourceId) return
+    skipBroken('Vidéo indisponible — passage au suivant')
+  }
 
   useEffect(() => {
     connectAsSpectator(code)
@@ -219,6 +249,7 @@ function PlatinePlayer({ code }: { code: string }) {
 
   useEffect(() => () => {
     clearRamp()
+    if (noticeTimer.current) clearTimeout(noticeTimer.current)
     for (const p of players.current) { try { p?.destroy() } catch { /* déjà détruit */ } }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -240,6 +271,7 @@ function PlatinePlayer({ code }: { code: string }) {
         events: {
           onReady: () => { ready.current[i] = true; setReadyTick((t) => t + 1) },
           onStateChange: (e) => { if (e.data === YT.PlayerState.ENDED) onDeckEnded(i) },
+          onError: () => onDeckError(i),
         },
       })
     })
@@ -289,6 +321,21 @@ function PlatinePlayer({ code }: { code: string }) {
       let ct = 0, dur = 0, state = -1
       try { ct = player.getCurrentTime(); dur = player.getDuration(); state = player.getPlayerState() } catch { return }
       reportPosition({ positionMs: Math.round(ct * 1000), durationMs: dur ? Math.round(dur * 1000) : null, isPlaying: state === 1 })
+
+      // Watchdog : si on veut lire mais que rien n'a jamais démarré au bout de 12 s, la vidéo est
+      // sans doute bloquée (certaines n'émettent pas d'erreur exploitable) → on passe.
+      const cur = session.current
+      if (cur && tickCurrent.current !== cur.sourceId) {
+        tickCurrent.current = cur.sourceId
+        loadedAt.current = Date.now()
+        everPlayed.current = false
+      }
+      if (state === 1) everPlayed.current = true
+      if (cur && session.isPlaying && !everPlayed.current && !crossfading.current && Date.now() - loadedAt.current > 12000) {
+        skipBroken('Lecture impossible — passage au suivant')
+        return
+      }
+
       if (!session.isPlaying || crossfading.current) return
       const cf = crossfadeSecRef.current
       // Fondu désactivé (0), durée inconnue, ou piste trop courte → coupure nette gérée par
@@ -410,6 +457,11 @@ function PlatinePlayer({ code }: { code: string }) {
             <div className="absolute inset-0" style={{ opacity: opacity[1], pointerEvents: opacity[1] > 0.5 ? 'auto' : 'none' }}>
               <div ref={deck1Ref} className="w-full h-full" />
             </div>
+            {skipNotice && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 rounded-full bg-amber-500/90 text-black text-sm font-semibold px-4 py-1.5 shadow-lg">
+                ⚠️ {skipNotice}
+              </div>
+            )}
             {!started && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/70 backdrop-blur-sm">
                 <span className="text-5xl">🔊</span>
