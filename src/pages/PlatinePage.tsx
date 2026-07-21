@@ -29,6 +29,28 @@ function readCrossfadeSec(): number {
   return Math.max(0, Math.min(MAX_CROSSFADE_SEC, raw))
 }
 
+// Plein écran sur un ÉLÉMENT précis (le conteneur des deux decks), pas sur l'iframe YouTube : ainsi
+// les changements de vidéo et les fondus enchaînés restent visibles en plein écran.
+function fullscreenSupported(): boolean {
+  const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void }
+  return typeof el.requestFullscreen === 'function' || typeof el.webkitRequestFullscreen === 'function'
+}
+function fullscreenActive(): boolean {
+  const doc = document as Document & { webkitFullscreenElement?: Element | null }
+  return !!(doc.fullscreenElement ?? doc.webkitFullscreenElement)
+}
+async function toggleElementFullscreen(el: HTMLElement | null): Promise<void> {
+  if (!el) return
+  const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> }
+  const target = el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }
+  try {
+    if (fullscreenActive()) await (doc.exitFullscreen?.() ?? doc.webkitExitFullscreen?.())
+    else await (target.requestFullscreen?.() ?? target.webkitRequestFullscreen?.())
+  } catch {
+    /* refusé par le navigateur — sans conséquence */
+  }
+}
+
 /**
  * La "platine" : la seule page qui lit réellement le son. On l'ouvre sur l'appareil branché à
  * l'enceinte Bluetooth (téléphone, PC, ou TV). Les téléphones ne font qu'alimenter la file ; la
@@ -99,6 +121,8 @@ function PlatinePlayer({ code }: { code: string }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [crossfadeSec, setCrossfadeSec] = useState(readCrossfadeSec)
   const [skipNotice, setSkipNotice] = useState<string | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const playerZoneRef = useRef<HTMLDivElement | null>(null)
   const crossfadeSecRef = useRef(crossfadeSec)
   crossfadeSecRef.current = crossfadeSec
   const updateCrossfade = (v: number) => {
@@ -254,6 +278,17 @@ function PlatinePlayer({ code }: { code: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Suit l'état réel du plein écran (touche Échap, bouton…) pour garder l'icône juste.
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(fullscreenActive())
+    document.addEventListener('fullscreenchange', onChange)
+    document.addEventListener('webkitfullscreenchange', onChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange)
+      document.removeEventListener('webkitfullscreenchange', onChange)
+    }
+  }, [])
+
   // Démarrage sur geste utilisateur (indispensable pour l'autoplay audio) + revendication du rôle
   // de platine active. Crée les DEUX lecteurs YouTube (decks A/B).
   const startPlatine = async () => {
@@ -267,7 +302,9 @@ function PlatinePlayer({ code }: { code: string }) {
       players.current[i] = new YT.Player(mount, {
         width: '100%',
         height: '100%',
-        playerVars: { autoplay: 0, controls: 1, playsinline: 1, rel: 0, modestbranding: 1 },
+        // fs: 0 retire le bouton plein écran NATIF de YouTube (il ne fullscreen qu'une iframe et
+        // resterait figé sur l'ancienne vidéo lors d'un changement) — on fournit le nôtre à la place.
+        playerVars: { autoplay: 0, controls: 1, playsinline: 1, rel: 0, modestbranding: 1, fs: 0 },
         events: {
           onReady: () => { ready.current[i] = true; setReadyTick((t) => t + 1) },
           onStateChange: (e) => { if (e.data === YT.PlayerState.ENDED) onDeckEnded(i) },
@@ -449,14 +486,29 @@ function PlatinePlayer({ code }: { code: string }) {
 
       <div className="relative z-10 flex-1 flex flex-col lg:flex-row">
         <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
-          {/* Zone lecteur : deux decks YouTube superposés (fondu enchaîné) */}
-          <div className="w-full max-w-3xl aspect-video rounded-2xl overflow-hidden bg-[#0c0c12] border border-white/10 relative">
+          {/* Zone lecteur : deux decks YouTube superposés (fondu enchaîné). Le plein écran cible CE
+              conteneur (pas l'iframe) pour que les changements de vidéo restent visibles. */}
+          <div
+            ref={playerZoneRef}
+            className={`overflow-hidden bg-[#0c0c12] border-white/10 relative ${
+              isFullscreen ? 'w-screen h-screen max-w-none rounded-none border-0' : 'w-full max-w-3xl aspect-video rounded-2xl border'
+            }`}
+          >
             <div className="absolute inset-0" style={{ opacity: opacity[0], pointerEvents: opacity[0] > 0.5 ? 'auto' : 'none' }}>
               <div ref={deck0Ref} className="w-full h-full" />
             </div>
             <div className="absolute inset-0" style={{ opacity: opacity[1], pointerEvents: opacity[1] > 0.5 ? 'auto' : 'none' }}>
               <div ref={deck1Ref} className="w-full h-full" />
             </div>
+            {started && fullscreenSupported() && (
+              <button
+                onClick={() => toggleElementFullscreen(playerZoneRef.current)}
+                className="absolute top-2 right-2 z-40 rounded-full bg-black/55 hover:bg-black/75 text-white w-9 h-9 flex items-center justify-center text-sm"
+                aria-label={isFullscreen ? 'Quitter le plein écran' : 'Plein écran du lecteur'}
+              >
+                {isFullscreen ? '🗕' : '⛶'}
+              </button>
+            )}
             {skipNotice && (
               <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 rounded-full bg-amber-500/90 text-black text-sm font-semibold px-4 py-1.5 shadow-lg">
                 ⚠️ {skipNotice}
