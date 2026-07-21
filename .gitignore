@@ -13,6 +13,11 @@ dist-ssr
 dist-server
 *.local
 
+# Variables d'environnement (contiennent le secret Spotify — ne jamais committer)
+.env
+.env.*
+!.env.example
+
 # Runtime data (created on first server start)
 server/data/
 

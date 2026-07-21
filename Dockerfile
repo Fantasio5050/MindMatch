@@ -9,6 +9,15 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+
+# Variables VITE_* : lues au BUILD du frontend (elles sont figées dans le bundle). Passées en
+# build-args par docker-compose depuis le fichier .env. Vides par défaut = fonctionnalités
+# optionnelles simplement désactivées (YouTube marche sans, Spotify affiche "Bientôt").
+ARG VITE_YOUTUBE_API_KEY=""
+ARG VITE_SPOTIFY_CLIENT_ID=""
+ENV VITE_YOUTUBE_API_KEY=$VITE_YOUTUBE_API_KEY
+ENV VITE_SPOTIFY_CLIENT_ID=$VITE_SPOTIFY_CLIENT_ID
+
 RUN npm run build && npm run build:server
 RUN npm prune --omit=dev
 

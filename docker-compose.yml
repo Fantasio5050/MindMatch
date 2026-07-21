@@ -1,11 +1,19 @@
 services:
   mindmatch:
-    build: .
+    build:
+      context: .
+      # Variables VITE_* (frontend) : figées au build. docker compose les lit depuis ./.env
+      args:
+        VITE_YOUTUBE_API_KEY: ${VITE_YOUTUBE_API_KEY:-}
+        VITE_SPOTIFY_CLIENT_ID: ${VITE_SPOTIFY_CLIENT_ID:-}
     container_name: mindmatch
     restart: unless-stopped
     environment:
       - PORT=3001
       - MINDMATCH_DB_PATH=/app/data/db.sqlite3
+      # Recherche Spotify côté serveur (le secret ne quitte jamais le serveur) — depuis ./.env
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-}
     volumes:
       - ./data:/app/data
     ports:
