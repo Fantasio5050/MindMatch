@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { PageTransition } from '../components/PageTransition'
 import { ProgressBar } from '../components/ProgressBar'
-import { questions } from '../data/questions'
+import { questionsForLevel, quizLevelMeta, type QuizLevel } from '../data/quizLevels'
 import { useAppStore } from '../store/useAppStore'
 import { useSound } from '../hooks/useSound'
 
@@ -20,15 +20,23 @@ function wait(ms: number): Promise<void> {
 
 export function QuizPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const member = useAppStore((s) => s.currentMember())
   const saveAnswer = useAppStore((s) => s.saveAnswer)
   const finishQuestionnaire = useAppStore((s) => s.finishQuestionnaire)
 
+  // Niveau choisi dans le salon (?niveau=rapide|normal|precis) — précis par défaut.
+  const levelParam = searchParams.get('niveau')
+  const level: QuizLevel = levelParam === 'rapide' || levelParam === 'normal' ? levelParam : 'precis'
+  const questions = useMemo(() => questionsForLevel(level), [level])
+  const levelMeta = quizLevelMeta(level)
+
   const startIndex = useMemo(() => {
     if (!member) return 0
-    const answered = Object.keys(member.answers).length
-    return Math.min(answered, questions.length - 1)
-  }, [member])
+    // Reprise : première question du niveau encore sans réponse.
+    const firstUnanswered = questions.findIndex((q) => !member.answers[q.id])
+    return firstUnanswered === -1 ? questions.length - 1 : firstUnanswered
+  }, [member, questions])
 
   const [index, setIndex] = useState(startIndex)
   const [direction, setDirection] = useState(1)
@@ -81,6 +89,9 @@ export function QuizPage() {
             ←
           </button>
           <ProgressBar value={index} total={questions.length} />
+          <span className="text-[10px] text-white/40 shrink-0 px-2 py-1.5 rounded-full bg-white/8" title={levelMeta.blurb}>
+            {levelMeta.emoji} {levelMeta.name}
+          </span>
           <button
             onClick={() => navigate('/lobby')}
             className="text-xs text-white/50 shrink-0 px-2 py-1.5 rounded-full bg-white/8"

@@ -13,18 +13,18 @@ export function computeScores(answers: Record<string, string>): TraitScores {
     max[t.key] = 0
   }
 
+  // Normalisation sur les questions RÉPONDUES uniquement : le test existe en 3 longueurs
+  // (rapide/normal/précis), un test court doit produire des scores 0-100 aussi étalés qu'un test
+  // complet. Pour un test complet le résultat est identique à l'ancienne formule.
   for (const q of questions) {
+    const chosenId = answers[q.id]
+    const chosen = q.options.find((o) => o.id === chosenId)
+    if (!chosen) continue
     for (const t of TRAITS) {
       const weightsForTrait = q.options.map((o) => o.weights[t.key] ?? 0)
       min[t.key] += Math.min(0, ...weightsForTrait)
       max[t.key] += Math.max(0, ...weightsForTrait)
-    }
-    const chosenId = answers[q.id]
-    const chosen = q.options.find((o) => o.id === chosenId)
-    if (chosen) {
-      for (const t of TRAITS) {
-        raw[t.key] += chosen.weights[t.key] ?? 0
-      }
+      raw[t.key] += chosen.weights[t.key] ?? 0
     }
   }
 
