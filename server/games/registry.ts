@@ -14,6 +14,7 @@ import { russianRoulette } from './russianRoulette'
 import { blackjack } from './blackjack'
 import { blanc } from './blanc'
 import { petitsChevaux } from './petitsChevaux'
+import { coupDeCrayon } from './coupDeCrayon'
 
 export const GAME_REGISTRY: Record<string, GameModule> = {
   [whoIsMostLikely.id]: whoIsMostLikely,
@@ -31,6 +32,7 @@ export const GAME_REGISTRY: Record<string, GameModule> = {
   [blackjack.id]: blackjack,
   [blanc.id]: blanc,
   [petitsChevaux.id]: petitsChevaux,
+  [coupDeCrayon.id]: coupDeCrayon,
 }
 
 export function getGame(gameId: string): GameModule | null {

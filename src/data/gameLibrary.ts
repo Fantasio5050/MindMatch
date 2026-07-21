@@ -18,7 +18,7 @@ export interface GameLibraryEntry {
   /** Petit label spécial affiché sur la jaquette (ex. HARDCORE, 3D TV). */
   badge?: string
   /** Options à afficher avant lancement. */
-  config?: 'pack' | 'autoroute'
+  config?: 'pack' | 'autoroute' | 'crayon'
 }
 
 export const GAME_LIBRARY: GameLibraryEntry[] = [
@@ -30,6 +30,7 @@ export const GAME_LIBRARY: GameLibraryEntry[] = [
   { id: 'who-wrote-it', icon: '✍️', name: 'Qui a écrit ça ?', tagline: 'Écrivez, mélangez, démasquez les auteurs', hue: '#38bdf8', minPlayers: 3 },
   { id: 'guess-my-answer', icon: '🕵️', name: 'Devine ma réponse', tagline: "Devinez ce qu'un·e ami·e a répondu au test", hue: '#2dd4bf', minPlayers: 3, quizFinishedNeed: 1 },
   { id: 'secret-profile', icon: '🔍', name: 'Profil secret', tagline: 'Des indices sur les traits, devinez qui c\'est', hue: '#818cf8', minPlayers: 3, quizFinishedNeed: 2 },
+  { id: 'coup-de-crayon', icon: '🖍️', name: 'Coup de Crayon', tagline: 'Tous le même mot — votez le plus beau ET le plus drôle', hue: '#fb923c', minPlayers: 3, tvOptimized: true, config: 'crayon', badge: 'NOUVEAU' },
   // --- 18+ ---
   { id: 'blanc', icon: '🖊️', name: 'Le Grand Blanc', tagline: 'Cartes à trous trash — votez la plus drôle', hue: '#e2e8f0', minPlayers: 3, adult: true, tvOptimized: true },
   { id: 'petits-chevaux', icon: '🐴', name: 'Petits Chevaux', tagline: 'Dé, captures, cases à boire et gages', hue: '#ca8a04', minPlayers: 2, adult: true, tvOptimized: true },
