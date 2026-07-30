@@ -19,7 +19,7 @@ export function DilemmasScreen() {
   if (!group) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-xl">Connexion à la salle…</p>
+        <p className="text-chalk-faint text-xl">Connexion à la salle…</p>
       </div>
     )
   }
@@ -31,7 +31,7 @@ export function DilemmasScreen() {
     <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12">
       {status === 'ended' && (
         <div className="text-center">
-          <p className="text-white/40 text-xl uppercase tracking-widest mb-4">Débat terminé</p>
+          <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Débat terminé</p>
           <h1 className="text-6xl font-extrabold shimmer-text">⚖️ Merci d'avoir débattu !</h1>
         </div>
       )}
@@ -42,7 +42,7 @@ export function DilemmasScreen() {
 
       {status !== 'ended' && phase === 'reveal' && state && <RevealScreen state={state} />}
 
-      {status !== 'ended' && !phase && <p className="text-white/40 text-2xl">Préparation du dilemme…</p>}
+      {status !== 'ended' && !phase && <p className="text-chalk-faint text-2xl">Préparation du dilemme…</p>}
     </div>
   )
 }
@@ -56,7 +56,7 @@ function VotingScreen({ state, totalPlayers }: { state: DilemmasClientState; tot
       animate={{ opacity: 1, scale: 1 }}
       className="text-center max-w-5xl w-full"
     >
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-8">
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-8">
         Dilemme {state.history.length + 1} / {state.totalRounds}
       </p>
 
@@ -65,14 +65,14 @@ function VotingScreen({ state, totalPlayers }: { state: DilemmasClientState; tot
           <span className="text-6xl mb-4 block">{d?.emojiA}</span>
           <p className="text-3xl font-bold leading-snug">{d?.textA}</p>
         </div>
-        <div className="flex items-center text-white/30 text-3xl font-bold">OU</div>
+        <div className="flex items-center text-chalk-faint text-3xl font-bold">OU</div>
         <div className="flex-1 glass-card rounded-3xl p-10">
           <span className="text-6xl mb-4 block">{d?.emojiB}</span>
           <p className="text-3xl font-bold leading-snug">{d?.textB}</p>
         </div>
       </div>
 
-      <p className="text-white/40 text-xl">
+      <p className="text-chalk-faint text-xl">
         {state.votedCount}/{totalPlayers} ont voté · Votez sur votre téléphone 📱
       </p>
     </motion.div>
@@ -96,7 +96,7 @@ function RevealScreen({ state }: { state: DilemmasClientState }) {
           <span>{last?.dilemma.emojiA} {last?.dilemma.textA}</span>
           <span>{last?.dilemma.textB} {last?.dilemma.emojiB}</span>
         </div>
-        <div className="h-10 w-full rounded-full bg-white/10 overflow-hidden flex mb-3">
+        <div className="h-10 w-full rounded-full bg-felt-raised overflow-hidden flex mb-3">
           <motion.div
             className="h-full bg-gradient-to-r from-fuchsia-400 to-fuchsia-500 flex items-center justify-end pr-3"
             initial={{ width: 0 }}
@@ -114,7 +114,7 @@ function RevealScreen({ state }: { state: DilemmasClientState }) {
             {100 - pctA > 12 && <span className="text-lg font-bold">{100 - pctA}%</span>}
           </motion.div>
         </div>
-        <p className="text-center text-white/50 text-xl">
+        <p className="text-center text-chalk-soft text-xl">
           {last?.tallyA} vote{last && last.tallyA !== 1 ? 's' : ''} vs {last?.tallyB} vote{last && last.tallyB !== 1 ? 's' : ''}
         </p>
       </motion.div>

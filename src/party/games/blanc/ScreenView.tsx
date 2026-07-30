@@ -27,7 +27,7 @@ export function BlancScreen() {
   }, [phase, state, play])
 
   if (!group || !state) {
-    return <div className="min-h-svh flex items-center justify-center"><p className="text-white/40 text-xl">Connexion à la salle…</p></div>
+    return <div className="min-h-svh flex items-center justify-center"><p className="text-chalk-faint text-xl">Connexion à la salle…</p></div>
   }
 
   const participants = group.members.filter((m) => state.order.includes(m.id))
@@ -47,7 +47,7 @@ export function BlancScreen() {
 
 function BlackCard({ text, size = 'text-4xl' }: { text: string; size?: string }) {
   return (
-    <div className="rounded-3xl bg-[#141019] border border-white/10 px-10 py-8 max-w-3xl shadow-2xl">
+    <div className="rounded-3xl bg-[#141019] border border-line px-10 py-8 max-w-3xl shadow-2xl">
       <p className={`${size} font-extrabold leading-tight text-white`}>{text}</p>
     </div>
   )
@@ -66,13 +66,13 @@ function IntroScreen() {
       <h1 className="text-6xl font-extrabold shimmer-text mb-8">Le Grand Blanc</h1>
       <div className="flex flex-col gap-4 items-start mx-auto w-fit">
         {rules.map(([emoji, text], i) => (
-          <motion.p key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 * i }} className="text-2xl text-white/85 flex gap-3">
+          <motion.p key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 * i }} className="text-2xl text-chalk-muted flex gap-3">
             <span>{emoji}</span>
             <span>{text}</span>
           </motion.p>
         ))}
       </div>
-      <p className="text-white/30 text-xl mt-10">L'hôte distribue les cartes 📱</p>
+      <p className="text-chalk-faint text-xl mt-10">L'hôte distribue les cartes 📱</p>
     </motion.div>
   )
 }
@@ -80,16 +80,16 @@ function IntroScreen() {
 function AnsweringScreen({ state, participants }: { state: BlancClientState; participants: Member[] }) {
   return (
     <div className="w-full flex flex-col items-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-6">
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-6">
         Manche {state.roundsPlayed + 1} / {state.totalRounds}
       </p>
       {state.currentPrompt && <BlackCard text={state.currentPrompt.text} />}
-      <p className="text-2xl text-white/60 mt-10 mb-6">
+      <p className="text-2xl text-chalk-soft mt-10 mb-6">
         Choisissez votre carte sur le téléphone 📱 — {state.submittedCount}/{state.order.length}
       </p>
       <div className="flex flex-wrap gap-3 justify-center max-w-4xl">
         {participants.map((m) => (
-          <div key={m.id} className="glass-card rounded-2xl px-5 py-3 bg-black/40 flex items-center gap-2">
+          <div key={m.id} className="glass-card rounded-2xl px-5 py-3 bg-ink/40 flex items-center gap-2">
             <Avatar pseudo={m.pseudo} color={m.color} size={28} photoUrl={m.photoUrl} />
             <span className="text-lg">{m.pseudo}</span>
           </div>
@@ -102,7 +102,7 @@ function AnsweringScreen({ state, participants }: { state: BlancClientState; par
 function VotingScreen({ state, participants }: { state: BlancClientState; participants: Member[] }) {
   return (
     <div className="w-full flex flex-col items-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">Votez pour la plus drôle</p>
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Votez pour la plus drôle</p>
       {state.currentPrompt && <BlackCard text={state.currentPrompt.text} size="text-3xl" />}
       <div className="flex flex-wrap gap-4 justify-center max-w-5xl mt-8">
         {state.plays.map((p, i) => (
@@ -117,7 +117,7 @@ function VotingScreen({ state, participants }: { state: BlancClientState; partic
           </motion.div>
         ))}
       </div>
-      <p className="text-2xl text-white/60 mt-8">
+      <p className="text-2xl text-chalk-soft mt-8">
         {state.votedCount}/{state.order.length} ont voté 📱
       </p>
       <div className="flex flex-wrap gap-2 justify-center mt-4">
@@ -139,7 +139,7 @@ function ResultsScreen({ state, members }: { state: BlancClientState; members: M
 
   return (
     <div className="w-full flex flex-col items-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-6">Résultat de la manche</p>
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-6">Résultat de la manche</p>
 
       {winner ? (
         <AnimatePresence mode="wait">
@@ -158,20 +158,20 @@ function ResultsScreen({ state, members }: { state: BlancClientState; members: M
                 <Avatar pseudo={memberName(winner.authorId)} color={member(winner.authorId)!.color} size={40} photoUrl={member(winner.authorId)!.photoUrl} />
               )}
               <span className="text-2xl font-bold">{memberName(winner.authorId)}</span>
-              <span className="text-xl text-white/50">· {r.votesByEntry[winnerIdx]} vote{r.votesByEntry[winnerIdx] > 1 ? 's' : ''}</span>
+              <span className="text-xl text-chalk-soft">· {r.votesByEntry[winnerIdx]} vote{r.votesByEntry[winnerIdx] > 1 ? 's' : ''}</span>
             </div>
           </motion.div>
         </AnimatePresence>
       ) : (
-        <p className="text-2xl text-white/50">Aucun vote cette manche…</p>
+        <p className="text-2xl text-chalk-soft">Aucun vote cette manche…</p>
       )}
 
       <div className="flex flex-col gap-2 mt-10 w-full max-w-2xl">
         {r.entries.map((e, i) => (
-          <div key={i} className={`flex items-center gap-3 rounded-xl px-4 py-2 ${r.winnerEntryIndices.includes(i) ? 'bg-amber-300/10' : 'bg-black/30'}`}>
-            <span className="w-8 text-center text-white/50 tabular-nums text-lg">{r.votesByEntry[i]}</span>
-            <span className="flex-1 text-white/80">{e.text}</span>
-            <span className="text-white/40 text-sm">{memberName(e.authorId)}</span>
+          <div key={i} className={`flex items-center gap-3 rounded-xl px-4 py-2 ${r.winnerEntryIndices.includes(i) ? 'bg-amber-300/10' : 'bg-ink/30'}`}>
+            <span className="w-8 text-center text-chalk-soft tabular-nums text-lg">{r.votesByEntry[i]}</span>
+            <span className="flex-1 text-chalk-muted">{e.text}</span>
+            <span className="text-chalk-faint text-sm">{memberName(e.authorId)}</span>
           </div>
         ))}
       </div>
@@ -183,15 +183,15 @@ function FinalPodium({ members, scores, rounds }: { members: Member[]; scores: R
   const ranked = [...members].sort((a, b) => (scores[b.id] ?? 0) - (scores[a.id] ?? 0))
   return (
     <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12 text-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">Le Grand Blanc — {rounds} manche{rounds > 1 ? 's' : ''}</p>
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Le Grand Blanc — {rounds} manche{rounds > 1 ? 's' : ''}</p>
       <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏆 Classement final</h1>
       <div className="flex flex-col gap-4 items-center">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={480}>
-            <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
-            <span className="text-lg text-white/60 tabular-nums">{scores[m.id] ?? 0} 🏆</span>
+            <span className="text-lg text-chalk-soft tabular-nums">{scores[m.id] ?? 0} 🏆</span>
           </PodiumRow>
         ))}
       </div>

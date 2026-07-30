@@ -65,7 +65,7 @@ export function WhoWroteItController() {
 
   return (
     <div className="min-h-svh flex items-center justify-center px-6">
-      <p className="text-white/50 text-sm">Préparation de la manche…</p>
+      <p className="text-chalk-soft text-sm">Préparation de la manche…</p>
     </div>
   )
 }
@@ -84,7 +84,7 @@ function WritingView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Manche {state.history.length + 1} / {state.totalRounds}
       </p>
       <div className="text-center mb-6">
@@ -96,7 +96,7 @@ function WritingView({
         <Card className="text-center">
           <p className="text-3xl mb-2">✅</p>
           <p className="font-semibold mb-1">Réponse envoyée</p>
-          <p className="text-white/50 text-sm">
+          <p className="text-chalk-soft text-sm">
             En attente des autres… ({state.submittedCount}/{totalPlayers})
           </p>
         </Card>
@@ -107,9 +107,9 @@ function WritingView({
             onChange={(e) => setText(e.target.value.slice(0, MAX_TEXT_LENGTH))}
             placeholder="Écris ta réponse ici…"
             rows={4}
-            className="w-full rounded-2xl bg-white/6 border border-white/10 px-4 py-3 text-[15px] text-white/90 placeholder:text-white/30 resize-none"
+            className="w-full rounded-2xl bg-felt-raised border border-line px-4 py-3 text-[15px] text-chalk-muted placeholder:text-chalk-faint resize-none"
           />
-          <p className="text-right text-xs text-white/30">{text.length}/{MAX_TEXT_LENGTH}</p>
+          <p className="text-right text-xs text-chalk-faint">{text.length}/{MAX_TEXT_LENGTH}</p>
           <Button fullWidth disabled={!text.trim()} onClick={() => onSubmit(text.trim())}>
             Envoyer
           </Button>
@@ -157,17 +157,17 @@ function GuessingView({
   if (!entry) {
     return (
       <div className="min-h-svh flex items-center justify-center px-6">
-        <p className="text-white/50 text-sm">Préparation des textes…</p>
+        <p className="text-chalk-soft text-sm">Préparation des textes…</p>
       </div>
     )
   }
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Texte {clampedPos + 1} / {guessableIndexes.length}
       </p>
-      <p className="text-white/50 text-sm text-center mb-4">{state.currentPrompt?.text}</p>
+      <p className="text-chalk-soft text-sm text-center mb-4">{state.currentPrompt?.text}</p>
 
       <Card className="mb-6 text-center">
         <p className="text-lg font-bold leading-snug">« {entry.text} »</p>
@@ -177,15 +177,15 @@ function GuessingView({
         <>
           <div className="flex items-center justify-center gap-2 mb-6">
             <Avatar pseudo={guessedAuthor?.pseudo ?? '?'} color={guessedAuthor?.color ?? '#fff'} size={32} />
-            <p className="text-white/70 text-sm">
+            <p className="text-chalk-muted text-sm">
               Tu penses que c'est <b>{guessedAuthor?.pseudo}</b>
             </p>
           </div>
           {isLast ? (
             allGuessed ? (
-              <p className="text-center text-white/40 text-sm">En attente des autres joueurs…</p>
+              <p className="text-center text-chalk-faint text-sm">En attente des autres joueurs…</p>
             ) : (
-              <p className="text-center text-white/40 text-sm">Tu as deviné tous les textes !</p>
+              <p className="text-center text-chalk-faint text-sm">Tu as deviné tous les textes !</p>
             )
           ) : (
             <Button fullWidth onClick={() => setPos((p) => p + 1)}>
@@ -218,7 +218,7 @@ function GuessingView({
             <button
               key={entryIdx}
               onClick={() => setPos(dotPos)}
-              className={`w-2 h-2 rounded-full ${dotPos === clampedPos ? 'bg-fuchsia-400' : yourGuesses[entryIdx] ? 'bg-white/40' : 'bg-white/15'}`}
+              className={`w-2 h-2 rounded-full ${dotPos === clampedPos ? 'bg-fuchsia-400' : yourGuesses[entryIdx] ? 'bg-white/40' : 'bg-felt-raised'}`}
             />
           ))}
         </div>
@@ -247,7 +247,7 @@ function RevealView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-4">Les vrais auteurs</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Les vrais auteurs</p>
 
       <div className="flex flex-col gap-3 mb-6">
         {last?.entries.map((entry, i) => {
@@ -257,7 +257,7 @@ function RevealView({
               <Avatar pseudo={author?.pseudo ?? '?'} color={author?.color ?? '#fff'} size={36} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold mb-1">{author?.pseudo}</p>
-                <p className="text-sm text-white/70 leading-snug">« {entry.text} »</p>
+                <p className="text-sm text-chalk-muted leading-snug">« {entry.text} »</p>
               </div>
             </Card>
           )
@@ -266,13 +266,13 @@ function RevealView({
 
       {detectives.length > 0 && (
         <Card className="mb-4">
-          <p className="text-xs text-white/40 uppercase tracking-widest mb-2 text-center">Meilleurs détectives</p>
+          <p className="text-xs text-chalk-faint uppercase tracking-widest mb-2 text-center">Meilleurs détectives</p>
           <div className="flex flex-col gap-2">
             {detectives.map(({ member, correct }) => (
               <div key={member.id} className="flex items-center gap-3">
                 <Avatar pseudo={member.pseudo} color={member.color} size={28} />
                 <span className="text-sm flex-1">{member.pseudo}</span>
-                <span className="text-sm font-bold text-white/70">{correct} juste{correct !== 1 ? 's' : ''}</span>
+                <span className="text-sm font-bold text-chalk-muted">{correct} juste{correct !== 1 ? 's' : ''}</span>
               </div>
             ))}
           </div>
@@ -284,7 +284,7 @@ function RevealView({
           {isLastRound ? 'Voir les résultats finaux' : 'Manche suivante →'}
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente de l'hôte pour continuer…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte pour continuer…</p>
       )}
     </div>
   )
@@ -294,15 +294,15 @@ function FinalResults({ members, onExit }: { members: Member[]; onExit: () => vo
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Partie terminée</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Partie terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🏆 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-white/60">{m.xp} XP</span>
+            <span className="text-sm text-chalk-soft">{m.xp} XP</span>
           </Card>
         ))}
       </div>

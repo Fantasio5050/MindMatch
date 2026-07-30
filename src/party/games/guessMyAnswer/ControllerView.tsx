@@ -53,7 +53,7 @@ export function GuessMyAnswerController() {
 
   return (
     <div className="min-h-svh flex items-center justify-center px-6">
-      <p className="text-white/50 text-sm">Préparation de la manche…</p>
+      <p className="text-chalk-soft text-sm">Préparation de la manche…</p>
     </div>
   )
 }
@@ -76,7 +76,7 @@ function VotingView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Manche {state.history.length + 1} / {state.totalRounds}
       </p>
       <div className="text-center mb-6">
@@ -84,20 +84,20 @@ function VotingView({
         <h1 className="text-2xl font-extrabold leading-snug mb-2">
           Que répondrait <span className="text-fuchsia-300">{target?.pseudo}</span> ?
         </h1>
-        <p className="text-white/60 text-sm">{state.currentQuestion?.prompt}</p>
+        <p className="text-chalk-soft text-sm">{state.currentQuestion?.prompt}</p>
       </div>
 
       {isTarget ? (
         <Card className="text-center">
           <p className="text-3xl mb-2">🤫</p>
           <p className="font-semibold mb-1">C'est ta réponse qu'on essaie de deviner !</p>
-          <p className="text-white/50 text-sm">Attends la révélation…</p>
+          <p className="text-chalk-soft text-sm">Attends la révélation…</p>
         </Card>
       ) : hasVoted ? (
         <Card className="text-center">
           <p className="text-3xl mb-2">✅</p>
           <p className="font-semibold mb-1">Vote enregistré</p>
-          <p className="text-white/50 text-sm">
+          <p className="text-chalk-soft text-sm">
             En attente des autres… ({state.votedCount}/{expectedVoters})
           </p>
         </Card>
@@ -111,10 +111,10 @@ function VotingView({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05 * i }}
               whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/6 px-4 py-4 text-left active:bg-white/10"
+              className="flex items-center gap-3 rounded-2xl border border-line bg-felt-raised px-4 py-4 text-left active:bg-felt-raised"
             >
               <span className="text-xl shrink-0">{option.emoji}</span>
-              <span className="text-[15px] text-white/90 leading-snug">{option.label}</span>
+              <span className="text-[15px] text-chalk-muted leading-snug">{option.label}</span>
             </motion.button>
           ))}
         </div>
@@ -142,7 +142,7 @@ function RevealView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-4">La vraie réponse</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">La vraie réponse</p>
 
       <Card className="text-center mb-4">
         <div className="flex flex-col items-center gap-2 mb-3">
@@ -154,7 +154,7 @@ function RevealView({
       </Card>
 
       <Card className="mb-4">
-        <p className="text-xs text-white/40 uppercase tracking-widest mb-2 text-center">Ont deviné juste</p>
+        <p className="text-xs text-chalk-faint uppercase tracking-widest mb-2 text-center">Ont deviné juste</p>
         {correctGuessers.length > 0 ? (
           <div className="flex flex-wrap gap-2 justify-center">
             {correctGuessers.map((m) => (
@@ -165,7 +165,7 @@ function RevealView({
             ))}
           </div>
         ) : (
-          <p className="text-center text-white/40 text-sm">Personne n'a trouvé cette fois !</p>
+          <p className="text-center text-chalk-faint text-sm">Personne n'a trouvé cette fois !</p>
         )}
       </Card>
 
@@ -174,7 +174,7 @@ function RevealView({
           {isLastRound ? 'Voir les résultats finaux' : 'Manche suivante →'}
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente de l'hôte pour continuer…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte pour continuer…</p>
       )}
     </div>
   )
@@ -184,15 +184,15 @@ function FinalResults({ members, onExit }: { members: Member[]; onExit: () => vo
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Partie terminée</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Partie terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🏆 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-white/60">{m.xp} XP</span>
+            <span className="text-sm text-chalk-soft">{m.xp} XP</span>
           </Card>
         ))}
       </div>

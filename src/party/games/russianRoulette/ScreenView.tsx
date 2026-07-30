@@ -33,7 +33,7 @@ export function RussianRouletteScreen() {
   if (!group || !state) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-xl">Connexion à la salle…</p>
+        <p className="text-chalk-faint text-xl">Connexion à la salle…</p>
       </div>
     )
   }
@@ -85,8 +85,8 @@ export function RussianRouletteScreen() {
           <h1 className="text-6xl font-extrabold mt-6 mb-3">
             Au tour de <span className="shimmer-text">{memberName(currentId)}</span>
           </h1>
-          <p className="text-white/50 text-2xl">Chambre {state.chamber + 1}/{CHAMBER_COUNT} — risque 1 sur {oddsDenom}</p>
-          <p className="text-white/30 text-xl mt-6">Appuie sur ton téléphone 📱</p>
+          <p className="text-chalk-soft text-2xl">Chambre {state.chamber + 1}/{CHAMBER_COUNT} — risque 1 sur {oddsDenom}</p>
+          <p className="text-chalk-faint text-xl mt-6">Appuie sur ton téléphone 📱</p>
         </motion.div>
       )}
 
@@ -101,8 +101,8 @@ export function RussianRouletteScreen() {
           <h1 className="text-8xl font-extrabold text-red-400 mb-4">BANG !</h1>
           <p className="text-4xl font-bold mb-6">{memberName(state.lastPull.pullerId)} prend la balle</p>
           {state.lastPull.gageText && (
-            <div className="glass-card rounded-3xl px-10 py-6 bg-black/50">
-              <p className="text-white/40 uppercase tracking-widest text-lg mb-2">Gage hardcore</p>
+            <div className="glass-card rounded-3xl px-10 py-6 bg-ink/50">
+              <p className="text-chalk-faint uppercase tracking-widest text-lg mb-2">Gage hardcore</p>
               <p className="text-3xl font-semibold">« {state.lastPull.gageText} »</p>
             </div>
           )}
@@ -118,11 +118,11 @@ export function RussianRouletteScreen() {
       {phase !== 'intro' && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-wrap gap-4 justify-center max-w-5xl">
           {participants.map((m) => (
-            <div key={m.id} className="glass-card rounded-2xl px-4 py-2 bg-black/40 flex items-center gap-2">
+            <div key={m.id} className="glass-card rounded-2xl px-4 py-2 bg-ink/40 flex items-center gap-2">
               <Avatar pseudo={m.pseudo} color={m.color} size={26} photoUrl={m.photoUrl} />
               <span className="text-base font-medium">{m.pseudo}</span>
               {(state.bangs[m.id] ?? 0) > 0 && <span className="text-sm">💥{state.bangs[m.id]}</span>}
-              <span className="text-white/50 tabular-nums">{state.totalSips[m.id] ?? 0} 🍻</span>
+              <span className="text-chalk-soft tabular-nums">{state.totalSips[m.id] ?? 0} 🍻</span>
             </div>
           ))}
         </div>
@@ -139,10 +139,10 @@ function IntroScreen() {
     ['🏆', 'Le·la moins imbibé·e à la fin a survécu.'],
   ] as const
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl px-12 py-10 max-w-2xl bg-black/40 text-center">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl px-12 py-10 max-w-2xl bg-ink/40 text-center">
       <span className="text-8xl">🔫</span>
       <h1 className="text-5xl font-extrabold shimmer-text mt-3 mb-6">Roulette russe</h1>
-      <div className="flex flex-col gap-3 text-2xl text-white/85 text-left">
+      <div className="flex flex-col gap-3 text-2xl text-chalk-muted text-left">
         {rules.map(([e, t], i) => (
           <motion.p key={i} initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.12 * i }} className="flex gap-3">
             <span>{e}</span>
@@ -150,7 +150,7 @@ function IntroScreen() {
           </motion.p>
         ))}
       </div>
-      <p className="text-white/40 text-xl mt-6">L'hôte charge le barillet 📱</p>
+      <p className="text-chalk-faint text-xl mt-6">L'hôte charge le barillet 📱</p>
     </motion.div>
   )
 }
@@ -159,22 +159,22 @@ function FinalPodium({ members, state }: { members: Member[]; state: RussianRoul
   const ranked = [...members].sort((a, b) => (state.totalSips[a.id] ?? 0) - (state.totalSips[b.id] ?? 0))
   return (
     <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12 text-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">
         Roulette russe — {state.barrelsUsed} barillet{state.barrelsUsed > 1 ? 's' : ''}
       </p>
       <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏆 Survivants</h1>
       <div className="flex flex-col gap-4 items-center">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={520} loserEmoji="🍺">
-            <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
-            <span className="text-white/50 text-lg">💥 {state.bangs[m.id] ?? 0}</span>
-            <span className="text-lg text-white/60 tabular-nums">{state.totalSips[m.id] ?? 0} 🍻</span>
+            <span className="text-chalk-soft text-lg">💥 {state.bangs[m.id] ?? 0}</span>
+            <span className="text-lg text-chalk-soft tabular-nums">{state.totalSips[m.id] ?? 0} 🍻</span>
           </PodiumRow>
         ))}
       </div>
-      <p className="text-white/30 text-lg mt-8">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
+      <p className="text-chalk-faint text-lg mt-8">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
     </div>
   )
 }

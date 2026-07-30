@@ -44,7 +44,7 @@ export function DilemmasController() {
 
   return (
     <div className="min-h-svh flex items-center justify-center px-6">
-      <p className="text-white/50 text-sm">Préparation du dilemme…</p>
+      <p className="text-chalk-soft text-sm">Préparation du dilemme…</p>
     </div>
   )
 }
@@ -55,7 +55,7 @@ function VotingView({ state, onVote }: { state: DilemmasClientState; onVote: (si
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-6">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-6">
         Dilemme {state.history.length + 1} / {state.totalRounds}
       </p>
 
@@ -63,7 +63,7 @@ function VotingView({ state, onVote }: { state: DilemmasClientState; onVote: (si
         <Card className="text-center">
           <p className="text-3xl mb-2">✅</p>
           <p className="font-semibold mb-1">Vote enregistré</p>
-          <p className="text-white/50 text-sm">
+          <p className="text-chalk-soft text-sm">
             En attente des autres… ({state.votedCount})
           </p>
         </Card>
@@ -80,7 +80,7 @@ function VotingView({ state, onVote }: { state: DilemmasClientState; onVote: (si
             <p className="text-lg font-bold leading-snug">{d?.textA}</p>
           </motion.button>
 
-          <p className="text-center text-white/30 text-sm font-bold">OU</p>
+          <p className="text-center text-chalk-faint text-sm font-bold">OU</p>
 
           <motion.button
             initial={{ opacity: 0, y: 12 }}
@@ -115,14 +115,14 @@ function RevealView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-4">Résultat du groupe</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Résultat du groupe</p>
 
       <Card className="mb-4">
         <div className="flex items-center justify-between text-sm mb-2">
           <span>{last?.dilemma.emojiA} {last?.tallyA ?? 0}</span>
           <span>{last?.tallyB ?? 0} {last?.dilemma.emojiB}</span>
         </div>
-        <div className="h-4 w-full rounded-full bg-white/10 overflow-hidden flex">
+        <div className="h-4 w-full rounded-full bg-felt-raised overflow-hidden flex">
           <motion.div
             className="h-full bg-gradient-to-r from-fuchsia-400 to-fuchsia-500"
             initial={{ width: 0 }}
@@ -136,7 +136,7 @@ function RevealView({
             transition={{ duration: 0.6 }}
           />
         </div>
-        <p className="text-center text-white/50 text-xs mt-3">
+        <p className="text-center text-chalk-soft text-xs mt-3">
           {pctA >= 50 ? `Le groupe penche pour ${last?.dilemma.textA}` : `Le groupe penche pour ${last?.dilemma.textB}`}
         </p>
       </Card>
@@ -146,7 +146,7 @@ function RevealView({
           {isLastRound ? 'Voir les résultats finaux' : 'Dilemme suivant →'}
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente de l'hôte pour continuer…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte pour continuer…</p>
       )}
     </div>
   )
@@ -162,15 +162,15 @@ function FinalResults({
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Débat terminé</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Débat terminé</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">⚖️ Merci d'avoir débattu !</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-white/60">{m.xp} XP</span>
+            <span className="text-sm text-chalk-soft">{m.xp} XP</span>
           </Card>
         ))}
       </div>

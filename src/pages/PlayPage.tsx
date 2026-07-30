@@ -45,14 +45,14 @@ export function PlayPage() {
         <div className="fixed top-4 left-4 z-40 safe-top flex items-center gap-2">
           <button
             onClick={handleBack}
-            className="flex items-center gap-1.5 rounded-full bg-white/8 px-3 h-9 text-white/70 text-sm"
+            className="flex items-center gap-1.5 rounded-full bg-felt-raised px-3 h-9 text-chalk-muted text-sm"
           >
             ← {isHost ? 'Quitter la partie' : 'Salon'}
           </button>
           {code && (
             <button
               onClick={copyCode}
-              className="flex items-center gap-1 rounded-full bg-white/8 px-3 h-9 text-white/50 text-xs font-semibold tracking-widest"
+              className="flex items-center gap-1 rounded-full bg-felt-raised px-3 h-9 text-chalk-soft text-xs font-semibold tracking-widest"
               aria-label="Copier le code de la salle"
             >
               {copied ? '✓ Copié' : code}

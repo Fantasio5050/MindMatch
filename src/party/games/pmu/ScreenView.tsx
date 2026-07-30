@@ -45,7 +45,7 @@ export function PmuScreen() {
   if (!group) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-xl">Connexion à la salle…</p>
+        <p className="text-chalk-faint text-xl">Connexion à la salle…</p>
       </div>
     )
   }
@@ -62,14 +62,14 @@ export function PmuScreen() {
       <SceneErrorBoundary
         fallback={
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-white/30 text-xl px-10 text-center">🏇 Affichage 3D indisponible sur cet appareil — la course continue ci-dessous.</p>
+            <p className="text-chalk-faint text-xl px-10 text-center">🏇 Affichage 3D indisponible sur cet appareil — la course continue ci-dessous.</p>
           </div>
         }
       >
         <Suspense
           fallback={
             <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-white/40 text-2xl">Préparation de l'hippodrome… 🏇</p>
+              <p className="text-chalk-faint text-2xl">Préparation de l'hippodrome… 🏇</p>
             </div>
           }
         >
@@ -105,10 +105,10 @@ function IntroOverlay() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-card rounded-3xl px-12 py-10 max-w-2xl bg-black/40"
+        className="glass-card rounded-3xl px-12 py-10 max-w-2xl bg-ink/40"
       >
         <h1 className="text-5xl font-extrabold shimmer-text text-center mb-6">🏇 PMU</h1>
-        <div className="flex flex-col gap-3 text-xl text-white/85">
+        <div className="flex flex-col gap-3 text-xl text-chalk-muted">
           {rules.map(([emoji, text], i) => (
             <motion.p key={i} initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.12 * i }} className="flex gap-3">
               <span>{emoji}</span>
@@ -116,7 +116,7 @@ function IntroOverlay() {
             </motion.p>
           ))}
         </div>
-        <p className="text-white/40 text-lg text-center mt-6">L'hôte ouvre les paris sur son téléphone 📱</p>
+        <p className="text-chalk-faint text-lg text-center mt-6">L'hôte ouvre les paris sur son téléphone 📱</p>
       </motion.div>
     </div>
   )
@@ -126,16 +126,16 @@ function BettingOverlay({ state, participants }: { state: PmuClientState; partic
   return (
     <>
       <div className="flex justify-center pt-8">
-        <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl px-10 py-5 bg-black/40 text-center">
+        <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl px-10 py-5 bg-ink/40 text-center">
           <h1 className="text-4xl font-extrabold shimmer-text mb-1">Faites vos jeux ! 💰</h1>
-          <p className="text-white/60 text-xl">
+          <p className="text-chalk-soft text-xl">
             Pariez sur votre téléphone — {state.votedCount}/{participants.length} paris posés
           </p>
         </motion.div>
       </div>
       <div className="mt-auto flex justify-center gap-4 pb-8">
         {HORSES.map((h) => (
-          <div key={h.suit} className="glass-card rounded-2xl px-5 py-3 bg-black/40 flex items-center gap-3">
+          <div key={h.suit} className="glass-card rounded-2xl px-5 py-3 bg-ink/40 flex items-center gap-3">
             <span className="text-3xl" style={{ color: h.color }}>
               {h.symbol}
             </span>
@@ -192,7 +192,7 @@ function RaceHud({
               className="flex flex-col items-center gap-2"
             >
               {event.type !== 'finish' && <CardFace rank={event.card.rank} suit={event.card.suit} size={76} />}
-              <div className="glass-card rounded-full px-6 py-2 bg-black/50 text-xl font-bold" style={{ color: HORSES[event.suit].color }}>
+              <div className="glass-card rounded-full px-6 py-2 bg-ink/50 text-xl font-bold" style={{ color: HORSES[event.suit].color }}>
                 {event.type === 'draw' && `${HORSES[event.suit].symbol} ${HORSES[event.suit].name} avance !`}
                 {event.type === 'setback' && `⚠️ Carte de côté : ${HORSES[event.suit].symbol} recule !`}
                 {event.type === 'finish' && `🏆 ${HORSES[event.suit].name} remporte la course !`}
@@ -204,13 +204,13 @@ function RaceHud({
 
       {/* Mini-classement + paris en bas */}
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-end gap-6">
-        <div className="glass-card rounded-2xl px-5 py-3 bg-black/50 flex flex-col gap-1.5">
+        <div className="glass-card rounded-2xl px-5 py-3 bg-ink/50 flex flex-col gap-1.5">
           {HORSES.map((h) => (
             <div key={h.suit} className="flex items-center gap-2">
               <span className="text-lg w-6" style={{ color: h.color }}>
                 {h.symbol}
               </span>
-              <div className="w-56 h-2.5 rounded-full bg-white/10 overflow-hidden">
+              <div className="w-56 h-2.5 rounded-full bg-felt-raised overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{ width: `${(playback.positions[h.suit] / PMU_TRACK_LEN) * 100}%`, background: h.color }}
@@ -219,7 +219,7 @@ function RaceHud({
             </div>
           ))}
         </div>
-        <div className="glass-card rounded-2xl px-5 py-3 bg-black/50 flex flex-col gap-1 max-h-40 overflow-hidden">
+        <div className="glass-card rounded-2xl px-5 py-3 bg-ink/50 flex flex-col gap-1 max-h-40 overflow-hidden">
           {members.map((m) => {
             const bet = state.bets[m.id]
             if (!bet) return null
@@ -228,7 +228,7 @@ function RaceHud({
                 <Avatar pseudo={m.pseudo} color={m.color} size={22} photoUrl={m.photoUrl} />
                 <span className="w-24 truncate">{m.pseudo}</span>
                 <span style={{ color: HORSES[bet.suit].color }}>{HORSES[bet.suit].symbol}</span>
-                <span className="text-white/50">{bet.sips} 🍻</span>
+                <span className="text-chalk-soft">{bet.sips} 🍻</span>
               </div>
             )
           })}
@@ -242,7 +242,7 @@ function ResultsOverlay({ state, members }: { state: PmuClientState; members: Me
   const winner = state.winnerSuit !== null ? HORSES[state.winnerSuit] : null
   return (
     <div className="flex-1 flex items-center justify-center p-10">
-      <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} className="glass-card rounded-3xl px-12 py-8 bg-black/50 max-w-2xl w-full">
+      <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} className="glass-card rounded-3xl px-12 py-8 bg-ink/50 max-w-2xl w-full">
         {winner && (
           <h1 className="text-4xl font-extrabold text-center mb-6">
             🏆 <span style={{ color: winner.color }}>{winner.symbol} {winner.name}</span> l'emporte !
@@ -268,7 +268,7 @@ function ResultsOverlay({ state, members }: { state: PmuClientState; members: Me
             )
           })}
         </div>
-        <p className="text-white/40 text-lg text-center mt-6">
+        <p className="text-chalk-faint text-lg text-center mt-6">
           Course {state.racesPlayed} — l'hôte peut relancer une course ou clore le PMU 📱
         </p>
       </motion.div>
@@ -280,21 +280,21 @@ function FinalPodium({ members, state }: { members: Member[]; state: PmuClientSt
   const ranked = [...members].sort((a, b) => (state.totalSipsDrunk[a.id] ?? 0) - (state.totalSipsDrunk[b.id] ?? 0))
   return (
     <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12 text-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">PMU terminé — {state.racesPlayed} course{state.racesPlayed > 1 ? 's' : ''}</p>
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">PMU terminé — {state.racesPlayed} course{state.racesPlayed > 1 ? 's' : ''}</p>
       <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏇 Classement final</h1>
       <div className="flex flex-col gap-4 items-center">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={520} loserEmoji="🍺">
-            <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
-            <span className="text-white/50 text-lg">🏅 {state.raceWins[m.id] ?? 0}</span>
+            <span className="text-chalk-soft text-lg">🏅 {state.raceWins[m.id] ?? 0}</span>
             <span className="text-emerald-300/80 text-lg">↗ {state.totalSipsGiven[m.id] ?? 0}</span>
-            <span className="text-lg text-white/60 tabular-nums">{state.totalSipsDrunk[m.id] ?? 0} 🍻</span>
+            <span className="text-lg text-chalk-soft tabular-nums">{state.totalSipsDrunk[m.id] ?? 0} 🍻</span>
           </PodiumRow>
         ))}
       </div>
-      <p className="text-white/30 text-lg mt-8">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
+      <p className="text-chalk-faint text-lg mt-8">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
     </div>
   )
 }

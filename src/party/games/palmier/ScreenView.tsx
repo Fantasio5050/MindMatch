@@ -28,7 +28,7 @@ export function PalmierScreen() {
   if (!group) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-xl">Connexion à la salle…</p>
+        <p className="text-chalk-faint text-xl">Connexion à la salle…</p>
       </div>
     )
   }
@@ -53,7 +53,7 @@ function IntroScreen() {
     <div className="text-center max-w-3xl">
       <span className="text-7xl mb-4 block">🌴</span>
       <h1 className="text-5xl font-extrabold shimmer-text mb-8">Palmier</h1>
-      <div className="flex flex-col gap-3 text-xl text-white/70 text-left">
+      <div className="flex flex-col gap-3 text-xl text-chalk-muted text-left">
         <p>🃏 52 cartes tirées une par une, à tour de rôle.</p>
         <p>❤️♦️ As, 2, 3 rouges = tu bois. ♠️♣️ noirs = tu distribues.</p>
         <p>✋ 4 = Four to the floor, 5 = Five to the fly — le/la dernier·ère boit.</p>
@@ -61,7 +61,7 @@ function IntroScreen() {
         <p>🤝 8 = complice, 9 = rime, 10 = catégorie, Valet = nouvelle règle, Dame = question.</p>
         <p>👑 Roi = tu verses dans le verre central — le 4e Roi le boit cul sec !</p>
       </div>
-      <p className="text-white/30 text-lg mt-8">L'hôte va lancer la première carte…</p>
+      <p className="text-chalk-faint text-lg mt-8">L'hôte va lancer la première carte…</p>
     </div>
   )
 }
@@ -77,7 +77,7 @@ function DrawingScreen({ state, members }: { state: PalmierClientState; members:
         {state.currentCard && (
           <PlayingCard key={state.currentCard.id} rank={state.currentCard.rank} suit={state.currentCard.suit} size={140} flipReveal />
         )}
-        <p className="text-white/40 text-lg uppercase tracking-widest">
+        <p className="text-chalk-faint text-lg uppercase tracking-widest">
           Carte {state.currentIndex + 1} / {state.totalCards}
         </p>
         {drawer && (
@@ -105,7 +105,7 @@ function DrawingScreen({ state, members }: { state: PalmierClientState; members:
         </motion.p>
 
         {!state.resolved && (
-          <p className="text-white/40 text-xl mb-6">
+          <p className="text-chalk-faint text-xl mb-6">
             {state.effect === 'race' || state.effect === 'challenge'
               ? "En attente du jugement de l'hôte…"
               : `En attente de ${drawer?.pseudo}…`}
@@ -122,7 +122,7 @@ function DrawingScreen({ state, members }: { state: PalmierClientState; members:
                 key={`${entry.card.id}-${i}`}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1 - i * 0.15, x: 0 }}
-                className="text-center text-white/50 text-sm"
+                className="text-center text-chalk-soft text-sm"
               >
                 {entry.text}
               </motion.p>
@@ -144,7 +144,7 @@ function SipTally({ members, totals }: { members: Member[]; totals: Record<strin
         <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-3 py-1.5">
           <Avatar pseudo={m.pseudo} color={m.color} size={28} photoUrl={m.photoUrl} />
           <span className="text-sm font-medium">{m.pseudo}</span>
-          <span className="text-sm text-white/50 tabular-nums">{totals[m.id] ?? 0}</span>
+          <span className="text-sm text-chalk-soft tabular-nums">{totals[m.id] ?? 0}</span>
         </div>
       ))}
     </div>
@@ -155,19 +155,19 @@ function FinalPodium({ members, totals }: { members: Member[]; totals: Record<st
   const ranked = [...members].sort((a, b) => (totals[a.id] ?? 0) - (totals[b.id] ?? 0))
   return (
     <div className="text-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">Palmier terminé</p>
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Palmier terminé</p>
       <h1 className="text-6xl font-extrabold shimmer-text mb-12">🌴 Classement final</h1>
       <div className="flex flex-col gap-4 items-center">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={420} loserEmoji="🍺">
-            <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
-            <span className="text-lg text-white/60 tabular-nums">{totals[m.id] ?? 0} gorgées</span>
+            <span className="text-lg text-chalk-soft tabular-nums">{totals[m.id] ?? 0} gorgées</span>
           </PodiumRow>
         ))}
       </div>
-      <p className="text-white/30 text-lg mt-8">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
+      <p className="text-chalk-faint text-lg mt-8">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
     </div>
   )
 }

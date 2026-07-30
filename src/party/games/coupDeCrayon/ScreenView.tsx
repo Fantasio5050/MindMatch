@@ -27,7 +27,7 @@ export function CoupDeCrayonScreen() {
   }, [phase, state, play])
 
   if (!group || !state) {
-    return <div className="min-h-svh flex items-center justify-center"><p className="text-white/40 text-xl">Connexion à la salle…</p></div>
+    return <div className="min-h-svh flex items-center justify-center"><p className="text-chalk-faint text-xl">Connexion à la salle…</p></div>
   }
 
   const participants = group.members.filter((m) => state.order.includes(m.id))
@@ -36,15 +36,15 @@ export function CoupDeCrayonScreen() {
     return (
       <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12 text-center">
         <Confetti trigger={confetti} />
-        <p className="text-white/40 text-xl uppercase tracking-widest mb-4">Coup de Crayon — {state.roundsPlayed} manche{state.roundsPlayed > 1 ? 's' : ''}</p>
+        <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Coup de Crayon — {state.roundsPlayed} manche{state.roundsPlayed > 1 ? 's' : ''}</p>
         <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏆 Classement final</h1>
         <div className="flex flex-col gap-4 items-center">
           {rankArtists(participants, state).map((m, i, arr) => (
             <PodiumRow key={m.id} rank={i} total={arr.length} width={500}>
-              <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+              <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
               <Avatar pseudo={m.pseudo} color={m.color} size={44} photoUrl={m.photoUrl} />
               <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
-              <span className="text-lg text-white/60 tabular-nums">🏆 {state.artScore[m.id] ?? 0} · 🤣 {state.funScore[m.id] ?? 0}</span>
+              <span className="text-lg text-chalk-soft tabular-nums">🏆 {state.artScore[m.id] ?? 0} · 🤣 {state.funScore[m.id] ?? 0}</span>
             </PodiumRow>
           ))}
         </div>
@@ -76,13 +76,13 @@ function IntroScreen({ state }: { state: CoupDeCrayonClientState }) {
       <h1 className="text-6xl font-extrabold shimmer-text mb-8">Coup de Crayon</h1>
       <div className="flex flex-col gap-4 items-start mx-auto w-fit">
         {rules.map(([emoji, text], i) => (
-          <motion.p key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 * i }} className="text-2xl text-white/85 flex gap-3">
+          <motion.p key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 * i }} className="text-2xl text-chalk-muted flex gap-3">
             <span>{emoji}</span>
             <span>{text}</span>
           </motion.p>
         ))}
       </div>
-      <p className="text-white/30 text-xl mt-10">L'hôte distribue les crayons 📱</p>
+      <p className="text-chalk-faint text-xl mt-10">L'hôte distribue les crayons 📱</p>
     </motion.div>
   )
 }
@@ -99,10 +99,10 @@ function DrawingScreen({ state, participants }: { state: CoupDeCrayonClientState
 
   return (
     <div className="text-center w-full max-w-4xl">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-6">
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-6">
         Manche {state.roundsPlayed + 1} / {state.totalRounds} — tout le monde dessine :
       </p>
-      <div className="rounded-3xl bg-[#141019] border border-white/10 px-12 py-8 inline-block mb-8 shadow-2xl">
+      <div className="rounded-3xl bg-[#141019] border border-line px-12 py-8 inline-block mb-8 shadow-2xl">
         <p className="text-5xl font-extrabold">{state.currentWord}</p>
       </div>
       <motion.p
@@ -113,10 +113,10 @@ function DrawingScreen({ state, participants }: { state: CoupDeCrayonClientState
       >
         {secondsLeft}s
       </motion.p>
-      <p className="text-white/50 text-2xl mb-5">✏️ {state.submittedCount}/{participants.length} dessins rendus</p>
+      <p className="text-chalk-soft text-2xl mb-5">✏️ {state.submittedCount}/{participants.length} dessins rendus</p>
       <div className="flex flex-wrap gap-3 justify-center">
         {participants.map((m) => (
-          <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-4 py-1.5 bg-black/30">
+          <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-4 py-1.5 bg-ink/30">
             <Avatar pseudo={m.pseudo} color={m.color} size={28} photoUrl={m.photoUrl} />
             <span className="text-lg">{m.pseudo}</span>
           </div>
@@ -151,7 +151,7 @@ function VotingScreen({ state, participants }: { state: CoupDeCrayonClientState;
   if (inSlideshow) {
     return (
       <div className="text-center">
-        <p className="text-white/40 text-xl uppercase tracking-widest mb-6">« {state.currentWord} » — dessin {slideIndex + 1} / {state.gallery.length}</p>
+        <p className="text-chalk-faint text-xl uppercase tracking-widest mb-6">« {state.currentWord} » — dessin {slideIndex + 1} / {state.gallery.length}</p>
         <AnimatePresence mode="wait">
           <motion.img
             key={slideIndex}
@@ -161,19 +161,19 @@ function VotingScreen({ state, participants }: { state: CoupDeCrayonClientState;
             animate={{ opacity: 1, scale: 1, rotate: 0 }}
             exit={{ opacity: 0, scale: 1.05 }}
             transition={{ duration: 0.4 }}
-            className="mx-auto rounded-3xl border-4 border-white/20 bg-white shadow-2xl"
+            className="mx-auto rounded-3xl border-4 border-line-strong bg-white shadow-2xl"
             style={{ maxHeight: '62vh' }}
           />
         </AnimatePresence>
-        <p className="text-white/30 text-lg mt-6">🤫 Anonyme… votez sur vos téléphones après le défilé</p>
+        <p className="text-chalk-faint text-lg mt-6">🤫 Anonyme… votez sur vos téléphones après le défilé</p>
       </div>
     )
   }
 
   return (
     <div className="text-center w-full max-w-6xl">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-2">« {state.currentWord} »</p>
-      <p className="text-2xl text-white/70 mb-6">
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-2">« {state.currentWord} »</p>
+      <p className="text-2xl text-chalk-muted mb-6">
         Votez 🏆 le mieux réussi et 🤣 le plus drôle — {state.votedCount}/{participants.length} 📱
       </p>
       <div className="flex flex-wrap gap-5 justify-center">
@@ -183,7 +183,7 @@ function VotingScreen({ state, participants }: { state: CoupDeCrayonClientState;
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.06 * i }}
-            className="rounded-2xl overflow-hidden border-2 border-white/20 bg-white shadow-xl"
+            className="rounded-2xl overflow-hidden border-2 border-line-strong bg-white shadow-xl"
           >
             <img src={g.image} alt={`Dessin ${i + 1}`} style={{ height: '30vh' }} />
             <p className="text-center text-[#1a1030] font-bold text-sm py-1">n°{i + 1}</p>
@@ -212,7 +212,7 @@ function ResultsScreen({ state, members }: { state: CoupDeCrayonClientState; mem
                 <div className="flex items-center justify-center gap-2 mt-2">
                   {author && <Avatar pseudo={author.pseudo} color={author.color} size={30} photoUrl={author.photoUrl} />}
                   <span className="text-xl font-bold">{author?.pseudo ?? '?'}</span>
-                  <span className="text-white/50">· {tally[i]} vote{tally[i] > 1 ? 's' : ''}</span>
+                  <span className="text-chalk-soft">· {tally[i]} vote{tally[i] > 1 ? 's' : ''}</span>
                 </div>
               </motion.div>
             )
@@ -223,7 +223,7 @@ function ResultsScreen({ state, members }: { state: CoupDeCrayonClientState; mem
 
   return (
     <div className="w-full max-w-6xl flex flex-col items-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-6">Résultats — « {r.word} »</p>
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-6">Résultats — « {r.word} »</p>
       <div className="flex flex-wrap gap-12 justify-center mb-8">
         {winnerBlock(r.bestWinners, r.bestVotes, '🏆', 'Le mieux réussi', 'border-amber-300/80')}
         {winnerBlock(r.funnyWinners, r.funnyVotes, '🤣', 'Le plus drôle', 'border-fuchsia-400/80')}
@@ -233,13 +233,13 @@ function ResultsScreen({ state, members }: { state: CoupDeCrayonClientState; mem
           const author = member(e.authorId)
           return (
             <div key={i} className="text-center">
-              <img src={e.image} alt="" className="rounded-xl border border-white/15 bg-white" style={{ height: '14vh' }} />
-              <p className="text-xs text-white/60 mt-1">{author?.pseudo ?? '?'} · 🏆{r.bestVotes[i]} 🤣{r.funnyVotes[i]}</p>
+              <img src={e.image} alt="" className="rounded-xl border border-line-strong bg-white" style={{ height: '14vh' }} />
+              <p className="text-xs text-chalk-soft mt-1">{author?.pseudo ?? '?'} · 🏆{r.bestVotes[i]} 🤣{r.funnyVotes[i]}</p>
             </div>
           )
         })}
       </div>
-      <p className="text-white/30 text-lg mt-8">L'hôte enchaîne 📱</p>
+      <p className="text-chalk-faint text-lg mt-8">L'hôte enchaîne 📱</p>
     </div>
   )
 }

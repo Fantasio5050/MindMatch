@@ -21,7 +21,7 @@ export function BottomNav() {
               className={({ isActive }) =>
                 clsx(
                   'relative flex flex-1 flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-medium transition-colors',
-                  isActive ? 'text-white' : 'text-white/40',
+                  isActive ? 'text-white' : 'text-chalk-faint',
                 )
               }
             >
@@ -30,7 +30,7 @@ export function BottomNav() {
                   {isActive && (
                     <motion.div
                       layoutId="nav-pill"
-                      className="absolute inset-0 rounded-2xl bg-white/10"
+                      className="absolute inset-0 rounded-2xl bg-felt-raised"
                       transition={{ type: 'spring', duration: 0.5 }}
                     />
                   )}

@@ -46,22 +46,22 @@ export function ProfilePage() {
           >
             {archetype.emoji}
           </motion.div>
-          <p className="text-xs uppercase tracking-widest text-white/40">{member.pseudo}</p>
+          <p className="text-xs uppercase tracking-widest text-chalk-faint">{member.pseudo}</p>
           <h1 className="text-3xl font-extrabold shimmer-text">{archetype.name}</h1>
-          <p className="text-white/60 text-sm max-w-xs">{archetype.tagline}</p>
+          <p className="text-chalk-soft text-sm max-w-xs">{archetype.tagline}</p>
         </div>
 
         <Card className="mb-4" delay={0.05}>
-          <p className="text-[15px] leading-relaxed text-white/80">{description}</p>
+          <p className="text-[15px] leading-relaxed text-chalk-muted">{description}</p>
         </Card>
 
         <Card className="mb-4 flex flex-col items-center" delay={0.1}>
-          <h3 className="self-start text-sm font-bold text-white/70 mb-1">Ta carte de personnalité</h3>
+          <h3 className="self-start text-sm font-bold text-chalk-muted mb-1">Ta carte de personnalité</h3>
           <RadarChart series={[{ label: member.pseudo, color: '#c084fc', scores: member.scores }]} />
         </Card>
 
         <Card className="mb-4" delay={0.15}>
-          <h3 className="text-sm font-bold text-white/70 mb-4">Tes scores en détail</h3>
+          <h3 className="text-sm font-bold text-chalk-muted mb-4">Tes scores en détail</h3>
           <div className="flex flex-col gap-4">
             {order.map((key, i) => (
               <TraitGauge key={key} trait={key} value={member.scores![key]} delay={0.05 * i} />
@@ -71,24 +71,24 @@ export function ProfilePage() {
 
         {group && (
           <Card className="mb-4" delay={0.2}>
-            <h3 className="text-sm font-bold text-white/70 mb-3">Invite tes amis</h3>
+            <h3 className="text-sm font-bold text-chalk-muted mb-3">Invite tes amis</h3>
             <button
               onClick={copyCode}
-              className="w-full flex items-center justify-between rounded-2xl bg-white/6 border border-white/10 px-4 py-3.5"
+              className="w-full flex items-center justify-between rounded-2xl bg-felt-raised border border-line px-4 py-3.5"
             >
               <div className="text-left">
-                <p className="text-xs text-white/40">Code du groupe {group.name}</p>
+                <p className="text-xs text-chalk-faint">Code du groupe {group.name}</p>
                 <p className="text-xl font-bold tracking-[0.3em]">{group.code}</p>
               </div>
               <span className="text-sm text-fuchsia-300 font-semibold">{copied ? 'Copié ✓' : 'Copier'}</span>
             </button>
-            <p className="text-xs text-white/40 text-center mt-3">
+            <p className="text-xs text-chalk-faint text-center mt-3">
               {group.members.filter((m) => m.finishedAt).length} / {group.members.length} ont terminé le quiz
             </p>
           </Card>
         )}
 
-        <p className="text-center text-[11px] text-white/30 mt-2">
+        <p className="text-center text-[11px] text-chalk-faint mt-2">
           Basé sur {TRAITS.length} traits calculés à partir de tes réponses
         </p>
       </div>

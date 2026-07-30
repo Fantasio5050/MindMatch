@@ -16,10 +16,10 @@ export function CardFace({
   if (faceDown || rank === undefined) {
     return (
       <div
-        className="rounded-lg border-2 border-white/10 bg-gradient-to-br from-fuchsia-500/30 to-purple-600/30 flex items-center justify-center"
+        className="rounded-lg border-2 border-line bg-gradient-to-br from-fuchsia-500/30 to-purple-600/30 flex items-center justify-center"
         style={{ width: size, height: size * 1.4 }}
       >
-        <span className="text-white/20" style={{ fontSize: size * 0.35 }}>
+        <span className="text-chalk-faint" style={{ fontSize: size * 0.35 }}>
           🧠
         </span>
       </div>
@@ -31,7 +31,7 @@ export function CardFace({
   return (
     <div
       className={`rounded-lg border-2 flex flex-col items-center justify-center shadow-lg bg-white ${
-        selected ? 'border-fuchsia-400' : 'border-white/20'
+        selected ? 'border-fuchsia-400' : 'border-line-strong'
       }`}
       style={{ width: size, height: size * 1.4 }}
     >

@@ -39,7 +39,7 @@ export function CoupDeCrayonController() {
     return <FinalResults members={group.members.filter((m) => state.order.includes(m.id))} state={state} onExit={() => navigate('/lobby')} />
   }
   if (!state) {
-    return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-white/50 text-sm">Taille des crayons…</p></div>
+    return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-chalk-soft text-sm">Taille des crayons…</p></div>
   }
 
   if (party.phase === 'intro') return <IntroView state={state} isHost={isHost} onStart={() => hostAdvance()} />
@@ -73,7 +73,7 @@ export function CoupDeCrayonController() {
     return <ResultsView state={state} members={group.members} selfId={currentMember.id} isHost={isHost} onNext={() => hostAdvance()} />
   }
 
-  return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-white/50 text-sm">…</p></div>
+  return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-chalk-soft text-sm">…</p></div>
 }
 
 function IntroView({ state, isHost, onStart }: { state: CoupDeCrayonClientState; isHost: boolean; onStart: () => void }) {
@@ -89,10 +89,10 @@ function IntroView({ state, isHost, onStart }: { state: CoupDeCrayonClientState;
       <div className="text-center mb-6">
         <span className="text-5xl">🖍️</span>
         <h1 className="text-2xl font-extrabold mt-2">Coup de Crayon</h1>
-        <p className="text-white/40 text-sm">{state.totalRounds} manche{state.totalRounds > 1 ? 's' : ''}</p>
+        <p className="text-chalk-faint text-sm">{state.totalRounds} manche{state.totalRounds > 1 ? 's' : ''}</p>
       </div>
       <Card className="mb-6">
-        <ul className="flex flex-col gap-3 text-sm text-white/80">
+        <ul className="flex flex-col gap-3 text-sm text-chalk-muted">
           {rules.map(([emoji, text], i) => (
             <motion.li key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }} className="flex gap-2">
               <span className="shrink-0">{emoji}</span>
@@ -106,7 +106,7 @@ function IntroView({ state, isHost, onStart }: { state: CoupDeCrayonClientState;
           À vos crayons ! 🖍️
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente que l'hôte distribue les crayons…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte distribue les crayons…</p>
       )}
     </div>
   )
@@ -155,21 +155,21 @@ function DrawingView({
   return (
     <div className="min-h-svh flex flex-col px-5 pt-6 pb-6 safe-top">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs uppercase tracking-widest text-white/40">
+        <p className="text-xs uppercase tracking-widest text-chalk-faint">
           Manche {state.roundsPlayed + 1}/{state.totalRounds}
         </p>
         <motion.span
           key={secondsLeft <= 10 ? secondsLeft : 'calm'}
           initial={secondsLeft <= 10 ? { scale: 1.4 } : false}
           animate={{ scale: 1 }}
-          className={`text-lg font-extrabold tabular-nums ${secondsLeft <= 10 ? 'text-pink-300' : 'text-white/70'}`}
+          className={`text-lg font-extrabold tabular-nums ${secondsLeft <= 10 ? 'text-pink-300' : 'text-chalk-muted'}`}
         >
           ⏱️ {secondsLeft}s
         </motion.span>
       </div>
 
-      <div className="rounded-2xl bg-[#141019] border border-white/10 px-4 py-3 mb-3 text-center">
-        <p className="text-[10px] uppercase tracking-widest text-white/35">Dessine</p>
+      <div className="rounded-2xl bg-[#141019] border border-line px-4 py-3 mb-3 text-center">
+        <p className="text-[10px] uppercase tracking-widest text-chalk-faint">Dessine</p>
         <p className="text-lg font-extrabold leading-tight">{state.currentWord}</p>
       </div>
 
@@ -178,7 +178,7 @@ function DrawingView({
           <p className="text-3xl mb-2">✅</p>
           <p className="font-semibold mb-2">Dessin rendu !</p>
           {state.yourSubmission && (
-            <img src={state.yourSubmission} alt="Ton dessin" className="w-32 mx-auto rounded-xl border border-white/15 mb-2" />
+            <img src={state.yourSubmission} alt="Ton dessin" className="w-32 mx-auto rounded-xl border border-line-strong mb-2" />
           )}
           {/* Jeu créatif : mode collectif. On montre la progression du groupe et les visages qui
               s'allument, mais on ne nomme JAMAIS le dernier — dessiner prend du temps, et désigner
@@ -228,8 +228,8 @@ function VotingView({
 
   return (
     <div className="min-h-svh flex flex-col px-5 pt-8 pb-6 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-1">Vote — « {state.results?.word ?? state.currentWord} »</p>
-      <p className="text-center text-sm text-white/60 mb-4">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">Vote — « {state.results?.word ?? state.currentWord} »</p>
+      <p className="text-center text-sm text-chalk-soft mb-4">
         Choisis le <b>🏆 mieux réussi</b> et le <b>🤣 plus drôle</b>
       </p>
 
@@ -237,7 +237,7 @@ function VotingView({
         <Card className="text-center">
           <p className="text-3xl mb-2">🗳️</p>
           <p className="font-semibold mb-1">Vote enregistré !</p>
-          <p className="text-white/40 text-sm">{state.votedCount}/{total} ont voté…</p>
+          <p className="text-chalk-faint text-sm">{state.votedCount}/{total} ont voté…</p>
         </Card>
       ) : (
         <>
@@ -245,7 +245,7 @@ function VotingView({
             {state.gallery.map((g, i) => {
               const isMine = state.yourEntryIndex === i
               return (
-                <div key={i} className={`rounded-2xl overflow-hidden border ${isMine ? 'border-dashed border-white/20 opacity-60' : 'border-white/15'} bg-white`}>
+                <div key={i} className={`rounded-2xl overflow-hidden border ${isMine ? 'border-dashed border-line-strong opacity-60' : 'border-line-strong'} bg-white`}>
                   <img src={g.image} alt={`Dessin ${i + 1}`} className="w-full" />
                   <div className="flex">
                     {isMine ? (
@@ -254,14 +254,14 @@ function VotingView({
                       <>
                         <button
                           onClick={() => setBest(best === i ? null : i)}
-                          className={`flex-1 py-2 text-lg ${best === i ? 'bg-amber-400' : 'bg-black/5 active:bg-black/15'}`}
+                          className={`flex-1 py-2 text-lg ${best === i ? 'bg-amber-400' : 'bg-ink/5 active:bg-ink/15'}`}
                           aria-label={`Mieux réussi : dessin ${i + 1}`}
                         >
                           🏆
                         </button>
                         <button
                           onClick={() => setFunny(funny === i ? null : i)}
-                          className={`flex-1 py-2 text-lg ${funny === i ? 'bg-fuchsia-400' : 'bg-black/5 active:bg-black/15'}`}
+                          className={`flex-1 py-2 text-lg ${funny === i ? 'bg-fuchsia-400' : 'bg-ink/5 active:bg-ink/15'}`}
                           aria-label={`Plus drôle : dessin ${i + 1}`}
                         >
                           🤣
@@ -318,12 +318,12 @@ function ResultsView({
         <div className="flex justify-center gap-3 flex-wrap">
           {indices.map((i) => (
             <div key={i} className="text-center">
-              <img src={r.entries[i].image} alt="" className="w-28 rounded-xl border border-white/20 bg-white" />
+              <img src={r.entries[i].image} alt="" className="w-28 rounded-xl border border-line-strong bg-white" />
               <p className="text-xs font-semibold mt-1">
                 {memberName(r.entries[i].authorId)}
                 {r.entries[i].authorId === selfId ? ' (toi !) 🎉' : ''}
               </p>
-              <p className="text-[10px] text-white/40">{tally[i]} vote{tally[i] > 1 ? 's' : ''}</p>
+              <p className="text-[10px] text-chalk-faint">{tally[i]} vote{tally[i] > 1 ? 's' : ''}</p>
             </div>
           ))}
         </div>
@@ -332,22 +332,22 @@ function ResultsView({
 
   return (
     <div className="min-h-svh flex flex-col px-5 pt-8 pb-6 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-3">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-3">
         Résultats — « {r.word} »
       </p>
 
       {winnerBlock(r.bestWinners, r.bestVotes, '🏆', 'Le mieux réussi', 'border-amber-400/40')}
       {winnerBlock(r.funnyWinners, r.funnyVotes, '🤣', 'Le plus drôle', 'border-fuchsia-400/40')}
       {r.bestWinners.length === 0 && r.funnyWinners.length === 0 && (
-        <Card className="mb-3 text-center"><p className="text-white/50 text-sm">Aucun vote cette manche… les artistes sont incompris.</p></Card>
+        <Card className="mb-3 text-center"><p className="text-chalk-soft text-sm">Aucun vote cette manche… les artistes sont incompris.</p></Card>
       )}
 
       <div className="grid grid-cols-3 gap-2 mb-4">
         {r.entries.map((e, i) => (
           <div key={i} className="text-center">
-            <img src={e.image} alt="" className="w-full rounded-lg border border-white/10 bg-white" />
-            <p className="text-[10px] text-white/50 mt-0.5 truncate">{memberName(e.authorId)}</p>
-            <p className="text-[10px] text-white/35">🏆{r.bestVotes[i]} · 🤣{r.funnyVotes[i]}</p>
+            <img src={e.image} alt="" className="w-full rounded-lg border border-line bg-white" />
+            <p className="text-[10px] text-chalk-soft mt-0.5 truncate">{memberName(e.authorId)}</p>
+            <p className="text-[10px] text-chalk-faint">🏆{r.bestVotes[i]} · 🤣{r.funnyVotes[i]}</p>
           </div>
         ))}
       </div>
@@ -359,7 +359,7 @@ function ResultsView({
           </Button>
         </div>
       ) : (
-        <p className="mt-auto pt-2 text-center text-white/40 text-sm">L'hôte enchaîne…</p>
+        <p className="mt-auto pt-2 text-center text-chalk-faint text-sm">L'hôte enchaîne…</p>
       )}
     </div>
   )
@@ -369,15 +369,15 @@ function FinalResults({ members, state, onExit }: { members: Member[]; state: Co
   const ranked = rankArtists(members, state)
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Coup de Crayon terminé</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Coup de Crayon terminé</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🖍️ Classement</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={32} photoUrl={m.photoUrl} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-white/60">
+            <span className="text-sm text-chalk-soft">
               🏆{state.artScore[m.id] ?? 0} · 🤣{state.funScore[m.id] ?? 0}
             </span>
           </Card>

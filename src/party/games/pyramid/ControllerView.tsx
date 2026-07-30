@@ -138,7 +138,7 @@ export function PyramidController() {
 
   return (
     <div className="min-h-svh flex items-center justify-center px-6">
-      <p className="text-white/50 text-sm">Préparation de la pyramide…</p>
+      <p className="text-chalk-soft text-sm">Préparation de la pyramide…</p>
     </div>
   )
 }
@@ -162,7 +162,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
         <h1 className="text-2xl font-extrabold mt-2">Pyramide</h1>
       </div>
       <Card className="mb-6">
-        <ul className="flex flex-col gap-3 text-sm text-white/80">
+        <ul className="flex flex-col gap-3 text-sm text-chalk-muted">
           {rules.map(([emoji, text], i) => (
             <motion.li
               key={i}
@@ -182,9 +182,9 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
           C'est parti !
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente que l'hôte lance la partie…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte lance la partie…</p>
       )}
-      <p className="text-center text-white/20 text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
+      <p className="text-center text-chalk-faint text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
     </div>
   )
 }
@@ -221,13 +221,13 @@ function MemorizeView({
     <div className="min-h-svh flex flex-col items-center justify-center px-6 safe-top text-center">
       <span className="text-5xl mb-2 block">🧠</span>
       <h1 className="text-2xl font-extrabold mb-2">Mémorise tes cartes !</h1>
-      <p className="text-white/50 text-sm mb-6">Elles seront cachées dès que le temps sera écoulé.</p>
+      <p className="text-chalk-soft text-sm mb-6">Elles seront cachées dès que le temps sera écoulé.</p>
 
       <div className="flex justify-center gap-3 mb-8">
         {state.yourHand.map((c, i) => (
           <div key={c.id} className="flex flex-col items-center gap-1">
             <PlayingCard rank={c.rank} suit={c.suit} size={56} dealDelay={0.12 * i} />
-            <span className="text-[10px] text-white/30">{i + 1}</span>
+            <span className="text-[10px] text-chalk-faint">{i + 1}</span>
           </div>
         ))}
       </div>
@@ -290,7 +290,7 @@ function MatchingView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Carte {state.currentIndex + 1} / {state.pyramid.length}
       </p>
 
@@ -323,14 +323,14 @@ function MatchingView({
           <p className="text-sm text-center mb-1">
             <b>{memberName(myProofNeeded.targetId)}</b> pense que tu bluffes !
           </p>
-          <p className="text-xs text-white/50 text-center mb-3">
+          <p className="text-xs text-chalk-soft text-center mb-3">
             Tes cartes sont face cachée : pointe, de mémoire, celle qui correspond — un seul essai !
           </p>
           <div className="flex justify-center gap-2">
             {state.yourHand.map((c, i) => (
               <button key={c.id} onClick={() => onProveCard(myProofNeeded.id, i)} className="flex flex-col items-center gap-1">
                 <CardFace faceDown size={48} />
-                <span className="text-[10px] text-white/40">{i + 1}</span>
+                <span className="text-[10px] text-chalk-faint">{i + 1}</span>
               </button>
             ))}
           </div>
@@ -344,7 +344,7 @@ function MatchingView({
       )}
 
       {!pickingTarget && !canDistribute && (
-        <p className="text-center text-white/30 text-xs mb-4">
+        <p className="text-center text-chalk-faint text-xs mb-4">
           Tu as déjà distribué cette carte — attends la prochaine !
         </p>
       )}
@@ -380,7 +380,7 @@ function MatchingView({
       {cardAccusations.length > 0 && (
         <div className="flex flex-col gap-1.5 mb-4">
           {cardAccusations.map((a) => (
-            <p key={a.id} className="text-xs text-white/60 text-center">
+            <p key={a.id} className="text-xs text-chalk-soft text-center">
               {accusationLabel(a, memberName)}
             </p>
           ))}
@@ -393,17 +393,17 @@ function MatchingView({
             {isLast ? 'Passer à la récitation →' : 'Carte suivante →'}
           </Button>
         ) : (
-          <p className="text-center text-white/30 text-xs">L'hôte peut avancer à tout moment</p>
+          <p className="text-center text-chalk-faint text-xs">L'hôte peut avancer à tout moment</p>
         )}
       </div>
 
-      <div className="mt-4 pt-4 border-t border-white/10">
-        <p className="text-xs text-white/40 mb-2 text-center">Ta main (face cachée — souviens-toi !)</p>
+      <div className="mt-4 pt-4 border-t border-line">
+        <p className="text-xs text-chalk-faint mb-2 text-center">Ta main (face cachée — souviens-toi !)</p>
         <div className="flex justify-center gap-2">
           {state.yourHand.map((c, i) => (
             <div key={c.id} className="flex flex-col items-center gap-1">
               <CardFace faceDown size={40} />
-              <span className="text-[10px] text-white/30">{i + 1}</span>
+              <span className="text-[10px] text-chalk-faint">{i + 1}</span>
             </div>
           ))}
         </div>
@@ -477,13 +477,13 @@ function RecitationView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Récitation finale</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Récitation finale</p>
       <h1 className="text-xl font-extrabold text-center mb-4">🧠 Récite tes cartes, dans l'ordre</h1>
 
       {!entry ? (
         <>
           <Card className="mb-4">
-            <p className="text-xs text-white/50 mb-3 text-center">
+            <p className="text-xs text-chalk-soft mb-3 text-center">
               Tes cartes sont toujours cachées : donne la valeur ET le signe de chacune, dans l'ordre du départ. 1
               gorgée à distribuer par bonne réponse !
             </p>
@@ -500,7 +500,7 @@ function RecitationView({
                         <CardFace faceDown size={44} />
                       </div>
                     )}
-                    <span className="text-[10px] text-white/40">{i + 1}</span>
+                    <span className="text-[10px] text-chalk-faint">{i + 1}</span>
                   </div>
                 )
               })}
@@ -517,7 +517,7 @@ function RecitationView({
                       <button
                         key={r}
                         onClick={() => pickRank(r)}
-                        className="glass-card rounded-xl py-2.5 text-sm font-bold text-white active:bg-white/15"
+                        className="glass-card rounded-xl py-2.5 text-sm font-bold text-white active:bg-felt-raised"
                       >
                         {rankLabel(r)}
                       </button>
@@ -529,7 +529,7 @@ function RecitationView({
                       <button
                         key={suit}
                         onClick={() => pickSuit(suit)}
-                        className={`glass-card rounded-xl w-14 h-14 text-2xl active:bg-white/15 ${s.red ? 'text-red-400' : 'text-white'}`}
+                        className={`glass-card rounded-xl w-14 h-14 text-2xl active:bg-felt-raised ${s.red ? 'text-red-400' : 'text-white'}`}
                       >
                         {s.symbol}
                       </button>
@@ -540,7 +540,7 @@ function RecitationView({
             )}
 
             {guesses.length > 0 && (
-              <button onClick={restart} className="block mx-auto mt-3 text-xs text-white/40 underline">
+              <button onClick={restart} className="block mx-auto mt-3 text-xs text-chalk-faint underline">
                 Recommencer
               </button>
             )}
@@ -574,7 +574,7 @@ function RecitationView({
 
           {entry.remaining > 0 ? (
             <Card>
-              <p className="text-center text-white/50 text-sm mb-3">
+              <p className="text-center text-chalk-soft text-sm mb-3">
                 Touche un joueur pour lui donner 1 gorgée — reste{' '}
                 <b className="text-fuchsia-300">{entry.remaining}</b> à distribuer (tu peux répartir !)
               </p>
@@ -602,13 +602,13 @@ function RecitationView({
             <Card className="text-center">
               <p className="text-2xl mb-1">✅</p>
               {entry.bonusSips > 0 && (
-                <p className="text-white/50 text-xs mb-1">
+                <p className="text-chalk-soft text-xs mb-1">
                   {Object.entries(entry.given)
                     .map(([id, n]) => `${n} → ${members.find((m) => m.id === id)?.pseudo ?? '?'}`)
                     .join(' · ')}
                 </p>
               )}
-              <p className="text-white/60 text-sm">En attente des autres…</p>
+              <p className="text-chalk-soft text-sm">En attente des autres…</p>
             </Card>
           )}
         </>
@@ -620,7 +620,7 @@ function RecitationView({
             Voir le classement final →
           </Button>
         ) : (
-          <p className="text-center text-white/30 text-xs">L'hôte peut conclure à tout moment</p>
+          <p className="text-center text-chalk-faint text-xs">L'hôte peut conclure à tout moment</p>
         )}
       </div>
     </div>
@@ -639,19 +639,19 @@ function FinalResults({
   const ranked = [...members].sort((a, b) => (totals[a.id] ?? 0) - (totals[b.id] ?? 0))
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Pyramide terminée</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Pyramide terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🍻 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-white/60">{totals[m.id] ?? 0} gorgées</span>
+            <span className="text-sm text-chalk-soft">{totals[m.id] ?? 0} gorgées</span>
           </Card>
         ))}
       </div>
-      <p className="text-center text-white/30 text-xs mb-4">💧 Pense à boire de l'eau entre deux verres !</p>
+      <p className="text-center text-chalk-faint text-xs mb-4">💧 Pense à boire de l'eau entre deux verres !</p>
       <Button fullWidth onClick={onExit}>
         Retour au salon
       </Button>

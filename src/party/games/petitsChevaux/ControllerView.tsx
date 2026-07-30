@@ -38,7 +38,7 @@ export function PetitsChevauxController() {
     return <FinalResults members={group.members.filter((m) => state.order.includes(m.id))} state={state} onExit={() => navigate('/lobby')} />
   }
   if (!state) {
-    return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-white/50 text-sm">Préparation du plateau…</p></div>
+    return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-chalk-soft text-sm">Préparation du plateau…</p></div>
   }
 
   if (party.phase === 'intro') {
@@ -66,7 +66,7 @@ export function PetitsChevauxController() {
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-8 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Tour {state.turnsPlayed + 1}</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Tour {state.turnsPlayed + 1}</p>
 
       <AnimatePresence mode="wait">
         {state.lastRoll && (
@@ -82,7 +82,7 @@ export function PetitsChevauxController() {
               🎲 <b>{group.members.find((m) => m.id === state.lastRoll!.playerId)?.pseudo ?? '?'}</b> a fait un{' '}
               <b className="text-fuchsia-300">{state.lastRoll.die}</b>
             </p>
-            {state.lastRoll.text && <p className="text-xs text-white/60 mt-1">{state.lastRoll.text}</p>}
+            {state.lastRoll.text && <p className="text-xs text-chalk-soft mt-1">{state.lastRoll.text}</p>}
             {state.lastRoll.captured.length > 0 && (
               <p className="text-xs text-pink-300 mt-1">
                 💥 {state.lastRoll.captured.map((id) => group.members.find((m) => m.id === id)?.pseudo ?? '?').join(', ')} renvoyé·e au départ !
@@ -101,12 +101,12 @@ export function PetitsChevauxController() {
             <Card className="text-center">
               <p className="text-5xl mb-2">🏆</p>
               <p className="font-bold">Ton cheval est à l'arrivée !</p>
-              <p className="text-white/50 text-sm">Regarde les autres galérer 😏</p>
+              <p className="text-chalk-soft text-sm">Regarde les autres galérer 😏</p>
             </Card>
           </motion.div>
         ) : isMyTurn ? (
           <motion.div key="myturn" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="flex flex-col items-center">
-            <p className="text-white/50 text-sm mb-3">
+            <p className="text-chalk-soft text-sm mb-3">
               Case {myPos} / {PC_FINISH_INDEX} — à toi de jouer !
             </p>
             <motion.button
@@ -117,19 +117,19 @@ export function PetitsChevauxController() {
                 play('tick')
                 sendAction('roll', {})
               }}
-              className="w-40 h-40 rounded-3xl text-white text-6xl font-extrabold shadow-2xl flex items-center justify-center border-4 border-white/20"
+              className="w-40 h-40 rounded-3xl text-white text-6xl font-extrabold shadow-2xl flex items-center justify-center border-4 border-line-strong"
               style={{ background: `linear-gradient(135deg, ${myColor}, ${myColor}bb)` }}
             >
               🎲
             </motion.button>
-            <p className="text-white/40 text-sm mt-4">Lance le dé pour ton cheval 🐴</p>
+            <p className="text-chalk-faint text-sm mt-4">Lance le dé pour ton cheval 🐴</p>
           </motion.div>
         ) : (
           <motion.div key="wait" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
             <Card className="text-center">
-              <p className="text-white/50 text-sm mb-2">En attente…</p>
+              <p className="text-chalk-soft text-sm mb-2">En attente…</p>
               <p className="font-semibold">C'est au tour de {currentPseudo} 🎲</p>
-              <p className="text-white/40 text-sm mt-2">Ton cheval : case {myPos} / {PC_FINISH_INDEX}</p>
+              <p className="text-chalk-faint text-sm mt-2">Ton cheval : case {myPos} / {PC_FINISH_INDEX}</p>
             </Card>
           </motion.div>
         )}
@@ -140,7 +140,7 @@ export function PetitsChevauxController() {
           Passer le tour de {currentPseudo} (absent·e)
         </Button>
       )}
-      <p className="text-center text-white/20 text-xs mt-4">📺 Suis la course sur la TV</p>
+      <p className="text-center text-chalk-faint text-xs mt-4">📺 Suis la course sur la TV</p>
     </div>
   )
 }
@@ -208,7 +208,7 @@ function IntroView({
       <div className="text-center mb-5">
         <span className="text-5xl">🐴</span>
         <h1 className="text-2xl font-extrabold mt-2">Petits Chevaux</h1>
-        <p className="text-white/40 text-sm">Le plateau est sur la TV 📺</p>
+        <p className="text-chalk-faint text-sm">Le plateau est sur la TV 📺</p>
       </div>
 
       <Card className="mb-4">
@@ -239,7 +239,7 @@ function IntroView({
       </Card>
 
       <Card className="mb-6">
-        <ul className="flex flex-col gap-2 text-xs text-white/75">
+        <ul className="flex flex-col gap-2 text-xs text-chalk-muted">
           <li className="flex gap-2"><span>🎯</span><span>Tombe pile sur l'arrivée au centre — si tu dépasses, tu rebondis !</span></li>
           <li className="flex gap-2"><span>💥</span><span>Atterris pile sur un cheval adverse et il repart au départ (il boit 2).</span></li>
           <li className="flex gap-2"><span>🍺</span><span>Les cases déclenchent : bois, tournée, avance, recule, gage, cul sec.</span></li>
@@ -251,9 +251,9 @@ function IntroView({
           Lancer la course ! 🐴
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente que l'hôte lance la course…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte lance la course…</p>
       )}
-      <p className="text-center text-white/20 text-xs mt-4">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
+      <p className="text-center text-chalk-faint text-xs mt-4">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
     </div>
   )
 }
@@ -262,20 +262,20 @@ function FinalResults({ members, state, onExit }: { members: Member[]; state: Pe
   const ranked = rankPlayers(members, state)
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Course terminée</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Course terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🐴 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <span className="text-2xl" style={{ filter: `drop-shadow(0 1px 2px ${pcColorHex(state.horseColors[m.id])})` }}>🐎</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={32} photoUrl={m.photoUrl} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-white/60">{state.totalSips[m.id] ?? 0} 🍻</span>
+            <span className="text-sm text-chalk-soft">{state.totalSips[m.id] ?? 0} 🍻</span>
           </Card>
         ))}
       </div>
-      <p className="text-center text-white/30 text-xs mb-4">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
+      <p className="text-center text-chalk-faint text-xs mb-4">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
       <Button fullWidth onClick={onExit}>
         Retour au salon
       </Button>

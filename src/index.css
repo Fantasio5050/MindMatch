@@ -36,10 +36,21 @@ body {
   z-index: 1;
 }
 
+/**
+ * `.glass-card` — la surface par défaut, autrefois en verre dépoli.
+ *
+ * Le glassmorphism généralisé (61 usages) posait deux problèmes : il datait le produit, et
+ * surtout un flou d'arrière-plan partout ne hiérarchise plus rien — si TOUT flotte, rien ne
+ * flotte. Le socle réserve désormais le flou au flottant réel (feuilles, modales) et dessine les
+ * objets au liseré.
+ *
+ * Comme pour `.shimmer-text`, on garde le nom (câblé dans les 17 jeux) et on change ce qu'il
+ * produit : du feutre posé sur la table, sans flou. Les usages disparaîtront au profit de
+ * `<Surface>` au fil des migrations.
+ */
 .glass-card {
-  background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
-  border: 1px solid rgba(255,255,255,0.08);
-  backdrop-filter: blur(20px);
+  background: var(--color-felt);
+  border: 1px solid var(--color-line);
 }
 
 /* margin, not padding: these are meant to ADD safe-area inset on top of an element's own

@@ -60,7 +60,7 @@ export function WhoIsMostLikelyController() {
 
   return (
     <div className="min-h-svh flex items-center justify-center px-6">
-      <p className="text-white/50 text-sm">Préparation de la manche…</p>
+      <p className="text-chalk-soft text-sm">Préparation de la manche…</p>
     </div>
   )
 }
@@ -77,7 +77,7 @@ function VotingView({
   const hasVoted = !!state.yourVote
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Manche {state.history.length + 1} / {state.totalRounds}
       </p>
       <div className="text-center mb-8">
@@ -133,7 +133,7 @@ function RevealView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-4">Résultat</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Résultat</p>
 
       <Card className="text-center mb-4">
         {winner ? (
@@ -142,10 +142,10 @@ function RevealView({
               <Avatar pseudo={winner.pseudo} color={winner.color} size={64} />
             </motion.div>
             <p className="font-extrabold text-lg">{winner.pseudo}</p>
-            <p className="text-white/50 text-sm mt-1">a été élu·e {last?.question.text}</p>
+            <p className="text-chalk-soft text-sm mt-1">a été élu·e {last?.question.text}</p>
           </>
         ) : (
-          <p className="text-white/60 text-sm py-4">Égalité parfaite — personne ne l'emporte cette fois !</p>
+          <p className="text-chalk-soft text-sm py-4">Égalité parfaite — personne ne l'emporte cette fois !</p>
         )}
       </Card>
 
@@ -157,7 +157,7 @@ function RevealView({
             <div key={member.id} className="flex items-center gap-3">
               <Avatar pseudo={member.pseudo} color={member.color} size={30} />
               <span className="text-sm flex-1">{member.pseudo}</span>
-              <span className="text-sm font-bold text-white/70">{votes} vote{votes !== 1 ? 's' : ''}</span>
+              <span className="text-sm font-bold text-chalk-muted">{votes} vote{votes !== 1 ? 's' : ''}</span>
             </div>
           ))}
       </div>
@@ -167,7 +167,7 @@ function RevealView({
           {isLastRound ? 'Voir les résultats finaux' : 'Manche suivante →'}
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente de l'hôte pour continuer…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte pour continuer…</p>
       )}
     </div>
   )
@@ -183,15 +183,15 @@ function FinalResults({
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Partie terminée</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Partie terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🏆 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-white/60">{m.xp} XP</span>
+            <span className="text-sm text-chalk-soft">{m.xp} XP</span>
           </Card>
         ))}
       </div>

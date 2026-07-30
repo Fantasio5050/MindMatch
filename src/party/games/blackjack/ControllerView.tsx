@@ -26,7 +26,7 @@ export function BlackjackController() {
   if (!group || !me || !state) {
     return (
       <div className="min-h-svh flex items-center justify-center px-6">
-        <p className="text-white/50 text-sm">Préparation du tapis…</p>
+        <p className="text-chalk-soft text-sm">Préparation du tapis…</p>
       </div>
     )
   }
@@ -41,7 +41,7 @@ export function BlackjackController() {
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
       {isHost && (
         <div className="flex justify-end mb-2">
-          <button onClick={() => { play('pop'); endGame() }} className="text-xs text-white/40 underline">
+          <button onClick={() => { play('pop'); endGame() }} className="text-xs text-chalk-faint underline">
             Terminer la partie
           </button>
         </div>
@@ -88,7 +88,7 @@ function IntroView({ adult, isHost, onStart }: { adult: boolean; isHost: boolean
         <h1 className="text-3xl font-extrabold shimmer-text mt-2">Blackjack</h1>
       </div>
       <Card className="mb-6">
-        <div className="flex flex-col gap-3 text-sm text-white/85">
+        <div className="flex flex-col gap-3 text-sm text-chalk-muted">
           <p className="flex gap-3"><span>🎯</span><span>Approche-toi de 21 sans dépasser. Bats le croupier.</span></p>
           <p className="flex gap-3"><span>💰</span><span>Tu mises {adult ? '1 à 5 gorgées' : '1 à 5 jetons'} avant de recevoir tes cartes.</span></p>
           {adult ? (
@@ -101,7 +101,7 @@ function IntroView({ adult, isHost, onStart }: { adult: boolean; isHost: boolean
       {isHost ? (
         <Button fullWidth onClick={onStart} className="!py-3">Distribuer 🃏</Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente de l'hôte…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte…</p>
       )}
     </div>
   )
@@ -117,13 +117,13 @@ function BettingView({ state, meId, onBet }: { state: BlackjackClientState; meId
     <div className="flex-1 flex flex-col justify-center text-center">
       <span className="text-5xl mb-2">💰</span>
       <h1 className="text-2xl font-extrabold mb-1">Faites vos jeux !</h1>
-      <p className="text-white/40 text-sm mb-8">{betCount}/{state.order.length} ont misé</p>
+      <p className="text-chalk-faint text-sm mb-8">{betCount}/{state.order.length} ont misé</p>
 
       {myBet !== undefined ? (
         <Card className="text-center">
           <p className="text-3xl mb-1">✅</p>
           <p className="font-semibold">Mise : {myBet} {unit}{myBet > 1 ? 's' : ''}</p>
-          <p className="text-white/40 text-sm mt-1">En attente des autres…</p>
+          <p className="text-chalk-faint text-sm mt-1">En attente des autres…</p>
         </Card>
       ) : (
         <>
@@ -133,14 +133,14 @@ function BettingView({ state, meId, onBet }: { state: BlackjackClientState; meId
                 key={n}
                 onClick={() => setAmount(n)}
                 className={`w-14 h-14 rounded-full font-bold text-lg transition-all ${
-                  amount === n ? 'bg-fuchsia-500 text-white scale-110 shadow-lg' : 'bg-white/8 text-white/60'
+                  amount === n ? 'bg-fuchsia-500 text-white scale-110 shadow-lg' : 'bg-felt-raised text-chalk-soft'
                 }`}
               >
                 {n}
               </button>
             ))}
           </div>
-          <p className="text-white/50 text-sm mb-6">
+          <p className="text-chalk-soft text-sm mb-6">
             Miser <b>{amount}</b> {unit}{amount > 1 ? 's' : ''} {state.adult ? '🍻' : '🎰'}
           </p>
           <Button fullWidth onClick={() => onBet(amount)} className="!py-3">Miser</Button>
@@ -171,7 +171,7 @@ function PlayingView({
     <div className="flex-1 flex flex-col">
       {/* Croupier */}
       <div className="text-center mb-6">
-        <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Croupier</p>
+        <p className="text-xs uppercase tracking-widest text-chalk-faint mb-2">Croupier</p>
         <div className="flex justify-center gap-1.5">
           {state.dealerUp && <PlayingCard rank={state.dealerUp.rank} suit={state.dealerUp.suit} size={44} />}
           <PlayingCard faceDown size={44} dealDelay={0.08} />
@@ -180,7 +180,7 @@ function PlayingView({
 
       {/* Ma main */}
       <div className="text-center mb-6">
-        <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Ta main — {myTotal}</p>
+        <p className="text-xs uppercase tracking-widest text-chalk-faint mb-2">Ta main — {myTotal}</p>
         <div className="flex justify-center gap-1.5 flex-wrap">
           {myHand?.cards.map((c, i) => (
             <PlayingCard key={i} rank={c.rank} suit={c.suit} size={54} dealDelay={0.09 * i} />
@@ -193,7 +193,7 @@ function PlayingView({
       <div className="mt-auto">
         {done ? (
           <Card className="text-center">
-            <p className="text-white/60 text-sm">
+            <p className="text-chalk-soft text-sm">
               {myHand?.bust ? 'Tu as sauté.' : myTotal === 21 ? 'Tu as 21 !' : 'Tu restes.'} En attente des autres…
             </p>
           </Card>
@@ -210,7 +210,7 @@ function PlayingView({
             const h = state.playerHands[id]
             const status = !h ? '' : h.bust ? '💥' : h.stood ? '✋' : '🤔'
             return (
-              <span key={id} className="text-xs text-white/40">
+              <span key={id} className="text-xs text-chalk-faint">
                 {memberName(id)} {status}
               </span>
             )
@@ -241,7 +241,7 @@ function ResultsView({
   return (
     <div className="flex-1 flex flex-col">
       <div className="text-center mb-4">
-        <p className="text-xs uppercase tracking-widest text-white/40 mb-2">
+        <p className="text-xs uppercase tracking-widest text-chalk-faint mb-2">
           Croupier — {dealer?.total}{dealer?.bust ? ' (sauté)' : ''}
         </p>
         <div className="flex justify-center gap-1.5 flex-wrap">
@@ -254,10 +254,10 @@ function ResultsView({
 
       {mine && (
         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center mb-4">
-          <p className={`text-3xl font-extrabold ${won ? 'text-emerald-300' : mine.outcome === 'push' ? 'text-white/70' : 'text-pink-400'}`}>
+          <p className={`text-3xl font-extrabold ${won ? 'text-emerald-300' : mine.outcome === 'push' ? 'text-chalk-muted' : 'text-pink-400'}`}>
             {OUTCOME_LABEL[mine.outcome]}
           </p>
-          <p className="text-white/60 text-sm mt-1">
+          <p className="text-chalk-soft text-sm mt-1">
             {state.adult
               ? mine.sips > 0
                 ? `Tu bois ${mine.sips} gorgée${mine.sips > 1 ? 's' : ''} 🍻`
@@ -277,10 +277,10 @@ function ResultsView({
             return (
               <div key={id} className="flex items-center gap-2 text-sm">
                 <span className="flex-1 truncate">{memberName(id)}</span>
-                <span className={w ? 'text-emerald-300' : r.outcome === 'push' ? 'text-white/50' : 'text-pink-300'}>
+                <span className={w ? 'text-emerald-300' : r.outcome === 'push' ? 'text-chalk-soft' : 'text-pink-300'}>
                   {OUTCOME_LABEL[r.outcome]}
                 </span>
-                <span className="text-white/40 tabular-nums w-16 text-right">
+                <span className="text-chalk-faint tabular-nums w-16 text-right">
                   {state.adult ? (r.sips > 0 ? `${r.sips} 🍻` : '—') : `${r.chips >= 0 ? '+' : ''}${r.chips}`}
                 </span>
               </div>
@@ -293,7 +293,7 @@ function ResultsView({
         {isHost ? (
           <Button fullWidth onClick={onNext} className="!py-3">Nouvelle donne →</Button>
         ) : (
-          <p className="text-center text-white/40 text-sm">En attente de l'hôte…</p>
+          <p className="text-center text-chalk-faint text-sm">En attente de l'hôte…</p>
         )}
       </div>
     </div>
@@ -310,15 +310,15 @@ function FinalPodium({ members, state, onExit }: { members: Member[]; state: Bla
     )
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Blackjack terminé</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Blackjack terminé</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🏆 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-white/60 tabular-nums">
+            <span className="text-sm text-chalk-soft tabular-nums">
               {state.adult ? `${state.totalSips[m.id] ?? 0} 🍻` : `${state.chips[m.id] ?? 0} 🎰`}
             </span>
           </Card>

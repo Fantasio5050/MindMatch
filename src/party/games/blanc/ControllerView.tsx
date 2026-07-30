@@ -37,7 +37,7 @@ export function BlancController() {
   if (!state) {
     return (
       <div className="min-h-svh flex items-center justify-center px-6">
-        <p className="text-white/50 text-sm">Préparation du Grand Blanc…</p>
+        <p className="text-chalk-soft text-sm">Préparation du Grand Blanc…</p>
       </div>
     )
   }
@@ -80,15 +80,15 @@ export function BlancController() {
 
   return (
     <div className="min-h-svh flex items-center justify-center px-6">
-      <p className="text-white/50 text-sm">…</p>
+      <p className="text-chalk-soft text-sm">…</p>
     </div>
   )
 }
 
 function PromptBar({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl bg-[#141019] border border-white/10 px-5 py-4 mb-5">
-      <p className="text-[15px] leading-snug font-semibold text-white/90">{text}</p>
+    <div className="rounded-2xl bg-[#141019] border border-line px-5 py-4 mb-5">
+      <p className="text-[15px] leading-snug font-semibold text-chalk-muted">{text}</p>
     </div>
   )
 }
@@ -108,7 +108,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
         <h1 className="text-2xl font-extrabold mt-2">Le Grand Blanc</h1>
       </div>
       <Card className="mb-6">
-        <ul className="flex flex-col gap-3 text-sm text-white/80">
+        <ul className="flex flex-col gap-3 text-sm text-chalk-muted">
           {rules.map(([emoji, text], i) => (
             <motion.li key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }} className="flex gap-2">
               <span className="shrink-0">{emoji}</span>
@@ -122,7 +122,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
           Distribuer les cartes 🃏
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente que l'hôte lance la partie…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte lance la partie…</p>
       )}
     </div>
   )
@@ -144,7 +144,7 @@ function AnsweringView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Manche {state.roundsPlayed + 1} / {state.totalRounds}
       </p>
       {state.currentPrompt && <PromptBar text={state.currentPrompt.text} />}
@@ -153,8 +153,8 @@ function AnsweringView({
         <Card className="text-center">
           <p className="text-3xl mb-2">✅</p>
           <p className="font-semibold mb-1">Carte posée !</p>
-          <p className="text-white/50 text-sm mb-3">« {state.yourSubmission} »</p>
-          <p className="text-white/40 text-sm">
+          <p className="text-chalk-soft text-sm mb-3">« {state.yourSubmission} »</p>
+          <p className="text-chalk-faint text-sm">
             {state.submittedCount}/{total} ont joué — on attend les autres…
           </p>
         </Card>
@@ -206,7 +206,7 @@ function VotingView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Vote pour la plus drôle</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Vote pour la plus drôle</p>
       {state.currentPrompt && <PromptBar text={state.currentPrompt.text} />}
 
       <div className="flex flex-col gap-2.5">
@@ -224,7 +224,7 @@ function VotingView({
               onClick={() => !isMine && onVote(i)}
               className={`rounded-2xl px-4 py-3 text-left text-[15px] font-semibold shadow transition-colors ${
                 isMine
-                  ? 'bg-white/10 text-white/40 border border-dashed border-white/20'
+                  ? 'bg-felt-raised text-chalk-faint border border-dashed border-line-strong'
                   : isMyVote
                     ? 'bg-fuchsia-500 text-white ring-2 ring-fuchsia-300'
                     : 'bg-white text-[#1a1030] active:bg-white/90'
@@ -237,7 +237,7 @@ function VotingView({
         })}
       </div>
 
-      <p className="text-center text-white/40 text-sm mt-4">
+      <p className="text-center text-chalk-faint text-sm mt-4">
         {voted ? '✅ Vote enregistré' : 'Touche la carte la plus drôle'} — {state.votedCount}/{total}
       </p>
 
@@ -275,7 +275,7 @@ function ResultsView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-3">Résultat de la manche</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-3">Résultat de la manche</p>
 
       {winner ? (
         <Card className="mb-4 border-emerald-400/30 text-center">
@@ -290,16 +290,16 @@ function ResultsView({
         </Card>
       ) : (
         <Card className="mb-4 text-center">
-          <p className="text-white/50 text-sm">Aucune carte n'a récolté de vote cette manche.</p>
+          <p className="text-chalk-soft text-sm">Aucune carte n'a récolté de vote cette manche.</p>
         </Card>
       )}
 
       <div className="flex flex-col gap-1.5 mb-4">
         {r.entries.map((e, i) => (
           <div key={i} className="flex items-center gap-2 text-sm">
-            <span className="w-6 text-center text-white/40 tabular-nums">{r.votesByEntry[i]}</span>
-            <span className="flex-1 truncate text-white/70">{e.text}</span>
-            <span className="text-white/40 text-xs">{memberName(e.authorId)}</span>
+            <span className="w-6 text-center text-chalk-faint tabular-nums">{r.votesByEntry[i]}</span>
+            <span className="flex-1 truncate text-chalk-muted">{e.text}</span>
+            <span className="text-chalk-faint text-xs">{memberName(e.authorId)}</span>
           </div>
         ))}
       </div>
@@ -311,7 +311,7 @@ function ResultsView({
           </Button>
         </div>
       ) : (
-        <p className="mt-auto pt-2 text-center text-white/40 text-sm">L'hôte enchaîne…</p>
+        <p className="mt-auto pt-2 text-center text-chalk-faint text-sm">L'hôte enchaîne…</p>
       )}
     </div>
   )
@@ -322,7 +322,7 @@ function EndCard({ onExit }: { onExit: () => void }) {
     <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center safe-top">
       <span className="text-6xl mb-3">🖊️</span>
       <h1 className="text-2xl font-extrabold mb-2">Partie terminée !</h1>
-      <p className="text-white/50 text-sm mb-8">Le classement est sur la TV 📺</p>
+      <p className="text-chalk-soft text-sm mb-8">Le classement est sur la TV 📺</p>
       <Button fullWidth onClick={onExit}>
         Retour au salon
       </Button>

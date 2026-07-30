@@ -103,7 +103,7 @@ export function PetitsChevauxScreen() {
   }, [status])
 
   if (!group || !state) {
-    return <div className="min-h-svh flex items-center justify-center"><p className="text-white/40 text-xl">Connexion à la salle…</p></div>
+    return <div className="min-h-svh flex items-center justify-center"><p className="text-chalk-faint text-xl">Connexion à la salle…</p></div>
   }
 
   const participants = group.members.filter((m) => state.order.includes(m.id))
@@ -112,16 +112,16 @@ export function PetitsChevauxScreen() {
     return (
       <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12 text-center">
         <Confetti trigger={confetti} />
-        <p className="text-white/40 text-xl uppercase tracking-widest mb-4">Petits Chevaux — course terminée</p>
+        <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Petits Chevaux — course terminée</p>
         <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏆 Classement final</h1>
         <div className="flex flex-col gap-4 items-center">
           {rankPlayers(participants, state).map((m, i, arr) => (
             <PodiumRow key={m.id} rank={i} total={arr.length} width={520} loserEmoji="🍺">
-              <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+              <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
               <span className="text-3xl" style={{ filter: `drop-shadow(0 2px 3px ${pcColorHex(state.horseColors[m.id])})` }}>🐎</span>
               <Avatar pseudo={m.pseudo} color={m.color} size={44} photoUrl={m.photoUrl} />
               <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
-              <span className="text-lg text-white/60 tabular-nums">{state.totalSips[m.id] ?? 0} 🍻</span>
+              <span className="text-lg text-chalk-soft tabular-nums">{state.totalSips[m.id] ?? 0} 🍻</span>
             </PodiumRow>
           ))}
         </div>
@@ -138,13 +138,13 @@ export function PetitsChevauxScreen() {
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="max-w-md">
             <span className="text-6xl mb-3 inline-block">🐴</span>
             <h1 className="text-5xl font-extrabold shimmer-text mb-6">Petits Chevaux</h1>
-            <div className="flex flex-col gap-3 text-xl text-white/80">
+            <div className="flex flex-col gap-3 text-xl text-chalk-muted">
               <p>🎨 Chacun choisit son cheval sur son téléphone.</p>
               <p>🎯 Tombe pile au centre pour gagner — sinon tu rebondis.</p>
               <p>💥 Écrase un adversaire → il repart au départ et il boit.</p>
               <p>🍺 Les cases font boire, avancer, reculer, ou tirer un gage.</p>
             </div>
-            <p className="text-white/30 text-lg mt-6">L'hôte lance la course 📱</p>
+            <p className="text-chalk-faint text-lg mt-6">L'hôte lance la course 📱</p>
           </motion.div>
         </div>
       </div>
@@ -161,7 +161,7 @@ export function PetitsChevauxScreen() {
 
       {/* Panneau latéral : dé, événement, classement */}
       <div className="w-[320px] flex flex-col gap-5">
-        <div className="glass-card rounded-3xl p-5 bg-black/40 flex flex-col items-center">
+        <div className="glass-card rounded-3xl p-5 bg-ink/40 flex flex-col items-center">
           <AnimatePresence mode="wait">
             <motion.div
               key={state.turnsPlayed}
@@ -174,8 +174,8 @@ export function PetitsChevauxScreen() {
             </motion.div>
           </AnimatePresence>
           {currentMember && (
-            <p className="text-white/60 text-lg mt-4 text-center">
-              🎲 Au tour de <span className="font-bold text-white/90">{currentMember.pseudo}</span>
+            <p className="text-chalk-soft text-lg mt-4 text-center">
+              🎲 Au tour de <span className="font-bold text-chalk-muted">{currentMember.pseudo}</span>
             </p>
           )}
           <AnimatePresence mode="wait">
@@ -185,14 +185,14 @@ export function PetitsChevauxScreen() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.35 }}
-              className="text-center text-white/80 mt-2 min-h-[2.5rem]"
+              className="text-center text-chalk-muted mt-2 min-h-[2.5rem]"
             >
               {state.lastRoll?.text || 'Que la course commence !'}
             </motion.p>
           </AnimatePresence>
         </div>
 
-        <div className="glass-card rounded-3xl p-4 bg-black/40 flex flex-col gap-2">
+        <div className="glass-card rounded-3xl p-4 bg-ink/40 flex flex-col gap-2">
           {[...participants]
             .sort((a, b) => (state.positions[b.id] ?? 0) - (state.positions[a.id] ?? 0))
             .map((m) => (
@@ -200,10 +200,10 @@ export function PetitsChevauxScreen() {
                 <span className="w-4 h-4 rounded-full shrink-0" style={{ background: pcColorHex(state.horseColors[m.id]) }} />
                 <Avatar pseudo={m.pseudo} color={m.color} size={26} photoUrl={m.photoUrl} />
                 <span className="flex-1 truncate font-medium">{m.pseudo}</span>
-                <span className="text-white/50 text-sm tabular-nums">
+                <span className="text-chalk-soft text-sm tabular-nums">
                   {state.finishOrder.includes(m.id) ? '🏆' : `${state.positions[m.id] ?? 0}/${PC_TRACK.length - 1}`}
                 </span>
-                <span className="text-white/40 text-sm">{state.totalSips[m.id] ?? 0}🍻</span>
+                <span className="text-chalk-faint text-sm">{state.totalSips[m.id] ?? 0}🍻</span>
               </div>
             ))}
         </div>
@@ -221,7 +221,7 @@ function Board({ state, participants }: { state: PetitsChevauxClientState; parti
   })
 
   return (
-    <div className="relative shrink-0 rounded-2xl bg-[#0e0a17] border border-white/10 shadow-2xl" style={{ width: 'min(72vh, 660px)', height: 'min(72vh, 660px)' }}>
+    <div className="relative shrink-0 rounded-2xl bg-[#0e0a17] border border-line shadow-2xl" style={{ width: 'min(72vh, 660px)', height: 'min(72vh, 660px)' }}>
       {/* Tracé de la croix + colonnes d'arrivée (sous les cases) */}
       <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
         <polygon

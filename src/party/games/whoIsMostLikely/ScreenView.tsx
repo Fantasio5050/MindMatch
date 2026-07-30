@@ -26,7 +26,7 @@ export function WhoIsMostLikelyScreen() {
   if (!group) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-xl">Connexion à la salle…</p>
+        <p className="text-chalk-faint text-xl">Connexion à la salle…</p>
       </div>
     )
   }
@@ -47,7 +47,7 @@ export function WhoIsMostLikelyScreen() {
       {status !== 'ended' && phase === 'reveal' && state && <RevealScreen state={state} members={members} />}
 
       {status !== 'ended' && !phase && (
-        <p className="text-white/40 text-2xl">Préparation de la manche…</p>
+        <p className="text-chalk-faint text-2xl">Préparation de la manche…</p>
       )}
     </div>
   )
@@ -61,25 +61,25 @@ function VotingScreen({ state, totalPlayers }: { state: WhoIsMostLikelyClientSta
       animate={{ opacity: 1, scale: 1 }}
       className="text-center max-w-4xl"
     >
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">
         Manche {state.history.length + 1} / {state.totalRounds}
       </p>
       <span className="text-8xl mb-6 inline-block">{state.currentQuestion?.emoji}</span>
       <h1 className="text-5xl font-extrabold leading-tight mb-10">Qui est {state.currentQuestion?.text}</h1>
 
       <div className="flex items-center justify-center gap-4">
-        <div className="h-3 w-96 rounded-full bg-white/10 overflow-hidden">
+        <div className="h-3 w-96 rounded-full bg-felt-raised overflow-hidden">
           <motion.div
             className="h-full rounded-full bg-gradient-to-r from-fuchsia-400 to-purple-400"
             animate={{ width: `${(state.votedCount / totalPlayers) * 100}%` }}
             transition={{ duration: 0.4 }}
           />
         </div>
-        <span className="text-white/60 text-lg tabular-nums">
+        <span className="text-chalk-soft text-lg tabular-nums">
           {state.votedCount}/{totalPlayers}
         </span>
       </div>
-      <p className="text-white/30 text-lg mt-6">Votez sur votre téléphone 📱</p>
+      <p className="text-chalk-faint text-lg mt-6">Votez sur votre téléphone 📱</p>
     </motion.div>
   )
 }
@@ -104,7 +104,7 @@ function RevealScreen({
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-3xl"
       >
-        <p className="text-white/40 text-xl text-center uppercase tracking-widest mb-4">
+        <p className="text-chalk-faint text-xl text-center uppercase tracking-widest mb-4">
           {last?.question.text}
         </p>
 
@@ -119,7 +119,7 @@ function RevealScreen({
             <p className="text-4xl font-extrabold shimmer-text mt-4">{winner.pseudo}</p>
           </motion.div>
         ) : (
-          <p className="text-center text-white/50 text-2xl mb-10">Égalité parfaite !</p>
+          <p className="text-center text-chalk-soft text-2xl mb-10">Égalité parfaite !</p>
         )}
 
         <div className="flex flex-col gap-3">
@@ -133,7 +133,7 @@ function RevealScreen({
             >
               <Avatar pseudo={member.pseudo} color={member.color} size={40} photoUrl={member.photoUrl} />
               <span className="w-28 text-lg font-medium truncate">{member.pseudo}</span>
-              <div className="flex-1 h-6 rounded-full bg-white/10 overflow-hidden">
+              <div className="flex-1 h-6 rounded-full bg-felt-raised overflow-hidden">
                 <motion.div
                   className="h-full rounded-full"
                   style={{ background: `linear-gradient(90deg, ${member.color}99, ${member.color})` }}
@@ -142,7 +142,7 @@ function RevealScreen({
                   transition={{ duration: 0.6, delay: 0.1 + 0.08 * i }}
                 />
               </div>
-              <span className="w-10 text-right text-lg tabular-nums text-white/60">{votes}</span>
+              <span className="w-10 text-right text-lg tabular-nums text-chalk-soft">{votes}</span>
             </motion.div>
           ))}
         </div>
@@ -155,15 +155,15 @@ function FinalPodium({ members }: { members: { id: string; pseudo: string; color
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
     <div className="text-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">Partie terminée</p>
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Partie terminée</p>
       <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏆 Classement final</h1>
       <div className="flex flex-col gap-4 items-center">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={420}>
-            <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
-            <span className="text-lg text-white/60 tabular-nums">{m.xp} XP</span>
+            <span className="text-lg text-chalk-soft tabular-nums">{m.xp} XP</span>
           </PodiumRow>
         ))}
       </div>

@@ -60,7 +60,7 @@ function FloatingEmote({ emoji, pseudo, big }: { emoji: string; pseudo: string; 
     >
       <span style={{ fontSize: big ? 64 : 40 }}>{emoji}</span>
       {pseudo && (
-        <span className={`${big ? 'text-sm' : 'text-[10px]'} text-white/60 font-semibold bg-black/30 rounded-full px-2 py-0.5 mt-0.5`}>
+        <span className={`${big ? 'text-sm' : 'text-[10px]'} text-chalk-soft font-semibold bg-ink/30 rounded-full px-2 py-0.5 mt-0.5`}>
           {pseudo}
         </span>
       )}
@@ -93,7 +93,7 @@ export function EmoteBar() {
                   play('pop')
                   sendEmote(emoji)
                 }}
-                className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl active:bg-white/10"
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl active:bg-felt-raised"
               >
                 {emoji}
               </button>

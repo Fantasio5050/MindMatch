@@ -62,7 +62,7 @@ export function PalmierController() {
 
   return (
     <div className="min-h-svh flex items-center justify-center px-6">
-      <p className="text-white/50 text-sm">Préparation du Palmier…</p>
+      <p className="text-chalk-soft text-sm">Préparation du Palmier…</p>
     </div>
   )
 }
@@ -72,7 +72,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top justify-center">
       <span className="text-6xl mb-4 block text-center">🌴</span>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">Palmier</h1>
-      <div className="flex flex-col gap-2.5 text-sm text-white/70 mb-8">
+      <div className="flex flex-col gap-2.5 text-sm text-chalk-muted mb-8">
         <p>🃏 52 cartes tirées une par une, à tour de rôle.</p>
         <p>❤️♦️ As, 2, 3 rouges = tu bois. ♠️♣️ noirs = tu distribues.</p>
         <p>✋ 4 = Four to the floor, 5 = Five to the fly — le/la dernier·ère boit.</p>
@@ -85,7 +85,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
           Commencer 🌴
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">L'hôte va lancer la première carte…</p>
+        <p className="text-center text-chalk-faint text-sm">L'hôte va lancer la première carte…</p>
       )}
     </div>
   )
@@ -120,7 +120,7 @@ function DrawingView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-4">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">
         Carte {state.currentIndex + 1} / {state.totalCards}
       </p>
 
@@ -135,7 +135,7 @@ function DrawingView({
           <PlayingCard key={state.currentCard.id} rank={state.currentCard.rank} suit={state.currentCard.suit} size={72} flipReveal />
           <div className="flex items-center gap-2 mt-1">
             <Avatar pseudo={drawer?.pseudo ?? '?'} color={drawer?.color ?? '#fff'} size={28} />
-            <span className="text-sm text-white/60">{drawer?.pseudo} tire la carte</span>
+            <span className="text-sm text-chalk-soft">{drawer?.pseudo} tire la carte</span>
           </div>
         </div>
       )}
@@ -195,7 +195,7 @@ function DrawingView({
             value={ruleDraft}
             onChange={(e) => setRuleDraft(e.target.value.slice(0, 80))}
             placeholder="Ta nouvelle règle…"
-            className="w-full rounded-2xl bg-white/6 border border-white/10 px-4 py-3 text-[15px] text-white/90 placeholder:text-white/30"
+            className="w-full rounded-2xl bg-felt-raised border border-line px-4 py-3 text-[15px] text-chalk-muted placeholder:text-chalk-faint"
           />
           <Button fullWidth disabled={!ruleDraft.trim()} onClick={() => onSetRule(ruleDraft.trim())}>
             Valider la règle
@@ -204,7 +204,7 @@ function DrawingView({
       )}
 
       {!state.resolved && !((needsTarget && isDrawer) || (needsJudge && isHost) || (needsRule && isDrawer)) && (
-        <p className="text-center text-white/40 text-sm mb-4">
+        <p className="text-center text-chalk-faint text-sm mb-4">
           {needsJudge ? "En attente du jugement de l'hôte…" : `En attente de ${drawer?.pseudo}…`}
         </p>
       )}
@@ -220,7 +220,7 @@ function DrawingView({
           Carte suivante →
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">L'hôte passera à la carte suivante.</p>
+        <p className="text-center text-chalk-faint text-sm">L'hôte passera à la carte suivante.</p>
       )}
     </div>
   )
@@ -238,19 +238,19 @@ function FinalPodium({
   const ranked = [...members].sort((a, b) => (totals[a.id] ?? 0) - (totals[b.id] ?? 0))
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Palmier terminé</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Palmier terminé</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🌴 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-white/60">{totals[m.id] ?? 0} gorgées</span>
+            <span className="text-sm text-chalk-soft">{totals[m.id] ?? 0} gorgées</span>
           </Card>
         ))}
       </div>
-      <p className="text-center text-white/30 text-xs mb-4">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
+      <p className="text-center text-chalk-faint text-xs mb-4">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
       <Button fullWidth onClick={onExit}>
         Retour au salon
       </Button>

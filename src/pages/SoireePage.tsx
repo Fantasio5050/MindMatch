@@ -40,7 +40,7 @@ export function SoireePage() {
   if (!identity || !group || !music) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-sm">Connexion au mode soirée…</p>
+        <p className="text-chalk-faint text-sm">Connexion au mode soirée…</p>
       </div>
     )
   }
@@ -69,10 +69,10 @@ export function SoireePage() {
     <PageTransition>
       <div className="px-5 pt-8 pb-16 safe-top max-w-lg mx-auto">
         <div className="text-center mb-5">
-          <p className="text-xs uppercase tracking-widest text-white/40">Mode Soirée</p>
+          <p className="text-xs uppercase tracking-widest text-chalk-faint">Mode Soirée</p>
           <h1 className="text-3xl font-extrabold shimmer-text mb-1">🎶 La platine partagée</h1>
-          <p className="text-sm text-white/50">
-            Salle <span className="font-bold tracking-widest text-white/80">{group.code}</span> · file équitable
+          <p className="text-sm text-chalk-soft">
+            Salle <span className="font-bold tracking-widest text-chalk-muted">{group.code}</span> · file équitable
           </p>
           <div className="flex items-center justify-center gap-2 mt-3">
             {isHost ? (
@@ -83,11 +83,11 @@ export function SoireePage() {
                 ⏹ Terminer la soirée
               </button>
             ) : (
-              <span className="text-xs text-white/40">L'hôte gère la platine</span>
+              <span className="text-xs text-chalk-faint">L'hôte gère la platine</span>
             )}
             <button
               onClick={handleLeaveRoom}
-              className="rounded-full bg-white/8 border border-white/12 px-4 py-2 text-xs font-semibold text-white/55 active:bg-white/15"
+              className="rounded-full bg-felt-raised border border-line px-4 py-2 text-xs font-semibold text-chalk-soft active:bg-felt-raised"
             >
               🚪 Quitter
             </button>
@@ -97,7 +97,7 @@ export function SoireePage() {
         {partyError && (
           <Card className="mb-4 border-pink-500/40">
             <p className="text-sm text-pink-300">{partyError}</p>
-            <button onClick={clearError} className="text-xs text-white/40 mt-1">Fermer</button>
+            <button onClick={clearError} className="text-xs text-chalk-faint mt-1">Fermer</button>
           </Card>
         )}
 
@@ -116,10 +116,10 @@ export function SoireePage() {
 
         {/* File d'attente */}
         <div className="flex items-baseline justify-between mt-6 mb-2 px-1">
-          <h3 className="text-sm font-bold text-white/70">
+          <h3 className="text-sm font-bold text-chalk-muted">
             À suivre ({queue.length}{totalDurationMs(queue) > 0 ? ` · ${formatDuration(totalDurationMs(queue))}` : ''})
           </h3>
-          <span className="text-[10px] text-white/30">▲ = fais monter dans la file</span>
+          <span className="text-[10px] text-chalk-faint">▲ = fais monter dans la file</span>
         </div>
         <div className="flex flex-col gap-2">
           <AnimatePresence initial={false}>
@@ -137,7 +137,7 @@ export function SoireePage() {
             ))}
           </AnimatePresence>
           {queue.length === 0 && (
-            <p className="text-center text-white/30 text-sm py-6">
+            <p className="text-center text-chalk-faint text-sm py-6">
               File vide — ajoute une musique, elle passera juste après. 🎵
             </p>
           )}
@@ -146,7 +146,7 @@ export function SoireePage() {
         {/* Rappel platine */}
         <Card className="mt-6 text-center" delay={0.1}>
           <p className="text-sm font-semibold mb-1">🔊 La platine (lecture du son)</p>
-          <p className="text-xs text-white/50 mb-3">
+          <p className="text-xs text-chalk-soft mb-3">
             Sur l'appareil branché à l'enceinte, ouvre la <b>platine</b> avec le code <b>{group.code}</b>.
             C'est elle qui joue la musique — les téléphones ne font qu'alimenter la file.
           </p>
@@ -190,7 +190,7 @@ function NowPlaying({
     return (
       <Card className="text-center py-8">
         <span className="text-4xl">🎵</span>
-        <p className="text-white/60 text-sm mt-2">Aucune musique en lecture — ajoute la première !</p>
+        <p className="text-chalk-soft text-sm mt-2">Aucune musique en lecture — ajoute la première !</p>
       </Card>
     )
   }
@@ -208,23 +208,23 @@ function NowPlaying({
         {current.thumbnail ? (
           <img src={current.thumbnail} alt="" className="w-20 h-20 rounded-xl object-cover shrink-0" />
         ) : (
-          <div className="w-20 h-20 rounded-xl bg-white/10 flex items-center justify-center text-2xl shrink-0">🎵</div>
+          <div className="w-20 h-20 rounded-xl bg-felt-raised flex items-center justify-center text-2xl shrink-0">🎵</div>
         )}
         <div className="min-w-0 flex-1">
           <p className="text-[10px] uppercase tracking-widest text-emerald-300/80 mb-0.5">● En lecture</p>
           <p className="font-bold leading-tight line-clamp-2">{current.title}</p>
-          {current.artist && <p className="text-white/50 text-xs truncate">{current.artist}</p>}
+          {current.artist && <p className="text-chalk-soft text-xs truncate">{current.artist}</p>}
           {addedBy && (
             <div className="flex items-center gap-1.5 mt-1.5">
               <Avatar pseudo={addedBy.pseudo} color={addedBy.color} size={18} photoUrl={addedBy.photoUrl} />
-              <span className="text-[11px] text-white/40">ajoutée par {addedBy.pseudo}</span>
+              <span className="text-[11px] text-chalk-faint">ajoutée par {addedBy.pseudo}</span>
             </div>
           )}
         </div>
       </div>
 
       {durationMs != null && (
-        <div className="mt-3 h-1.5 rounded-full bg-white/10 overflow-hidden">
+        <div className="mt-3 h-1.5 rounded-full bg-felt-raised overflow-hidden">
           <div className="h-full bg-fuchsia-400/80" style={{ width: `${progress * 100}%` }} />
         </div>
       )}
@@ -234,13 +234,13 @@ function NowPlaying({
           <>
             <button
               onClick={onTogglePlay}
-              className="rounded-full bg-white/10 border border-white/15 h-10 px-4 text-sm font-semibold active:bg-white/20"
+              className="rounded-full bg-felt-raised border border-line-strong h-10 px-4 text-sm font-semibold active:bg-felt-raised"
             >
               {music.isPlaying ? '⏸ Pause' : '▶ Lecture'}
             </button>
             <button
               onClick={onHostSkip}
-              className="rounded-full bg-white/10 border border-white/15 h-10 px-4 text-sm font-semibold active:bg-white/20"
+              className="rounded-full bg-felt-raised border border-line-strong h-10 px-4 text-sm font-semibold active:bg-felt-raised"
             >
               ⏭ Passer
             </button>
@@ -251,7 +251,7 @@ function NowPlaying({
           className={`flex-1 rounded-full h-10 px-4 text-sm font-semibold border transition-colors ${
             iVoted
               ? 'bg-pink-500/25 border-pink-400/50 text-pink-100'
-              : 'bg-white/8 border-white/12 text-white/70 active:bg-white/15'
+              : 'bg-felt-raised border-line text-chalk-muted active:bg-felt-raised'
           }`}
         >
           🚫 Passer ({music.skipVotes.length}/{threshold})
@@ -333,7 +333,7 @@ function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type
   return (
     <Card className="mt-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-white/70">➕ Ajouter une musique</h3>
+        <h3 className="text-sm font-bold text-chalk-muted">➕ Ajouter une musique</h3>
         <div className="flex gap-1 text-xs">
           <TabPill active={mode === 'search'} onClick={() => setMode('search')}>Rechercher</TabPill>
           <TabPill active={mode === 'link'} onClick={() => setMode('link')}>Lien</TabPill>
@@ -347,7 +347,7 @@ function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type
             onChange={(e) => setLink(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && submitLink()}
             placeholder="Colle un lien YouTube…"
-            className="flex-1 rounded-2xl bg-white/8 border border-white/10 px-3.5 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-fuchsia-400/60"
+            className="flex-1 rounded-2xl bg-felt-raised border border-line px-3.5 py-3 text-sm text-white placeholder:text-chalk-faint outline-none focus:border-fuchsia-400/60"
           />
           <button
             onClick={submitLink}
@@ -365,7 +365,7 @@ function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submitSearch()}
               placeholder="Titre, artiste…"
-              className="flex-1 rounded-2xl bg-white/8 border border-white/10 px-3.5 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-fuchsia-400/60"
+              className="flex-1 rounded-2xl bg-felt-raised border border-line px-3.5 py-3 text-sm text-white placeholder:text-chalk-faint outline-none focus:border-fuchsia-400/60"
             />
             <button
               onClick={submitSearch}
@@ -381,12 +381,12 @@ function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type
                 <button
                   key={r.videoId}
                   onClick={() => addYouTube(r.videoId, r.title, r.artist, r.thumbnail, r.durationMs)}
-                  className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-white/10"
+                  className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised"
                 >
                   <img src={r.thumbnail} alt="" className="w-12 h-9 rounded object-cover shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm truncate">{r.title}</p>
-                    <p className="text-[11px] text-white/40 truncate">
+                    <p className="text-[11px] text-chalk-faint truncate">
                       {r.artist}{r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}
                     </p>
                   </div>
@@ -396,7 +396,7 @@ function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type
             </div>
           )}
           {searched && !busy && results.length === 0 && !localError && (
-            <p className="text-[11px] text-white/30 mt-2">Aucun résultat.</p>
+            <p className="text-[11px] text-chalk-faint mt-2">Aucun résultat.</p>
           )}
         </>
       )}
@@ -431,19 +431,19 @@ function QueueRow({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="flex items-center gap-2.5 rounded-2xl bg-white/5 border border-white/8 p-2"
+      className="flex items-center gap-2.5 rounded-2xl bg-felt-raised border border-line p-2"
     >
-      <span className="text-xs text-white/30 w-4 text-center shrink-0">{rank}</span>
+      <span className="text-xs text-chalk-faint w-4 text-center shrink-0">{rank}</span>
       {track.thumbnail ? (
         <img src={track.thumbnail} alt="" className="w-11 h-11 rounded-lg object-cover shrink-0" />
       ) : (
-        <div className="w-11 h-11 rounded-lg bg-white/10 flex items-center justify-center shrink-0">🎵</div>
+        <div className="w-11 h-11 rounded-lg bg-felt-raised flex items-center justify-center shrink-0">🎵</div>
       )}
       <div className="min-w-0 flex-1">
         <p className="text-sm truncate">{track.title}</p>
         <div className="flex items-center gap-1.5">
           {addedBy && <Avatar pseudo={addedBy.pseudo} color={addedBy.color} size={14} photoUrl={addedBy.photoUrl} />}
-          <span className="text-[11px] text-white/40 truncate">
+          <span className="text-[11px] text-chalk-faint truncate">
             {addedBy?.pseudo ?? '?'}{track.durationMs ? ` · ${formatDuration(track.durationMs)}` : ''}
           </span>
         </div>
@@ -454,7 +454,7 @@ function QueueRow({
         className={`shrink-0 rounded-full h-8 px-2.5 text-xs font-bold border transition-colors ${
           iBumped
             ? 'bg-fuchsia-500/30 border-fuchsia-400/50 text-fuchsia-100'
-            : 'bg-white/8 border-white/12 text-white/60 active:bg-white/15'
+            : 'bg-felt-raised border-line text-chalk-soft active:bg-felt-raised'
         } ${isMine ? 'opacity-30' : ''}`}
         aria-label="Faire monter dans la file"
       >
@@ -463,7 +463,7 @@ function QueueRow({
       {(isMine || isHost) && (
         <button
           onClick={onRemove}
-          className="shrink-0 rounded-full h-8 w-8 text-white/40 bg-white/5 border border-white/10 active:bg-white/15"
+          className="shrink-0 rounded-full h-8 w-8 text-chalk-faint bg-felt-raised border border-line active:bg-felt-raised"
           aria-label="Retirer de la file"
         >
           ✕
@@ -502,14 +502,14 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
 
   return (
     <Card className="mt-4">
-      <h3 className="text-sm font-bold text-white/70 mb-3">➕ Ajouter une musique</h3>
+      <h3 className="text-sm font-bold text-chalk-muted mb-3">➕ Ajouter une musique</h3>
       <div className="flex gap-2">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
           placeholder="Titre, artiste…"
-          className="flex-1 rounded-2xl bg-white/8 border border-white/10 px-3.5 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-emerald-400/60"
+          className="flex-1 rounded-2xl bg-felt-raised border border-line px-3.5 py-3 text-sm text-white placeholder:text-chalk-faint outline-none focus:border-emerald-400/60"
         />
         <button
           onClick={submit}
@@ -522,22 +522,22 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
       {results.length > 0 && (
         <div className="flex flex-col gap-1.5 mt-3 max-h-72 overflow-y-auto">
           {results.map((r) => (
-            <button key={r.id} onClick={() => add(r)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-white/10">
+            <button key={r.id} onClick={() => add(r)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised">
               {r.thumbnail ? (
                 <img src={r.thumbnail} alt="" className="w-11 h-11 rounded object-cover shrink-0" />
               ) : (
-                <div className="w-11 h-11 rounded bg-white/10 flex items-center justify-center shrink-0">🎵</div>
+                <div className="w-11 h-11 rounded bg-felt-raised flex items-center justify-center shrink-0">🎵</div>
               )}
               <div className="min-w-0 flex-1">
                 <p className="text-sm truncate">{r.title}</p>
-                <p className="text-[11px] text-white/40 truncate">{r.artist}{r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}</p>
+                <p className="text-[11px] text-chalk-faint truncate">{r.artist}{r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}</p>
               </div>
               <span className="text-emerald-300 text-lg shrink-0">＋</span>
             </button>
           ))}
         </div>
       )}
-      {searched && !busy && results.length === 0 && !localError && <p className="text-[11px] text-white/30 mt-2">Aucun résultat.</p>}
+      {searched && !busy && results.length === 0 && !localError && <p className="text-[11px] text-chalk-faint mt-2">Aucun résultat.</p>}
       {localError && <p className="text-xs text-pink-300 mt-2">{localError}</p>}
     </Card>
   )
@@ -547,7 +547,7 @@ function TabPill({ active, onClick, children }: { active: boolean; onClick: () =
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-2.5 py-1 font-semibold ${active ? 'bg-fuchsia-500/30 text-white' : 'bg-white/6 text-white/50'}`}
+      className={`rounded-full px-2.5 py-1 font-semibold ${active ? 'bg-fuchsia-500/30 text-white' : 'bg-felt-raised text-chalk-soft'}`}
     >
       {children}
     </button>

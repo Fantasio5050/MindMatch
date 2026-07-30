@@ -36,7 +36,7 @@ export function RussianRouletteController() {
   if (!group || !me || !state) {
     return (
       <div className="min-h-svh flex items-center justify-center px-6">
-        <p className="text-white/50 text-sm">Préparation du barillet…</p>
+        <p className="text-chalk-soft text-sm">Préparation du barillet…</p>
       </div>
     )
   }
@@ -59,7 +59,7 @@ export function RussianRouletteController() {
               play('pop')
               endGame()
             }}
-            className="text-xs text-white/40 underline"
+            className="text-xs text-chalk-faint underline"
           >
             Terminer la partie
           </button>
@@ -113,7 +113,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
       <Card className="mb-6">
         <div className="flex flex-col gap-3">
           {rules.map(([e, t], i) => (
-            <p key={i} className="flex gap-3 text-sm text-white/85">
+            <p key={i} className="flex gap-3 text-sm text-chalk-muted">
               <span className="text-lg">{e}</span>
               <span>{t}</span>
             </p>
@@ -125,7 +125,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
           Charger le barillet 🔫
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente de l'hôte…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte…</p>
       )}
     </div>
   )
@@ -161,8 +161,8 @@ function TurnView({
         </motion.p>
       )}
 
-      <p className="text-white/50 text-sm mb-1">Chambre {chamber + 1} / {CHAMBER_COUNT}</p>
-      <p className="text-white/40 text-xs mb-6">Risque de BANG : 1 sur {oddsDenom}</p>
+      <p className="text-chalk-soft text-sm mb-1">Chambre {chamber + 1} / {CHAMBER_COUNT}</p>
+      <p className="text-chalk-faint text-xs mb-6">Risque de BANG : 1 sur {oddsDenom}</p>
 
       {isMyTurn ? (
         <>
@@ -174,15 +174,15 @@ function TurnView({
             className="w-52 h-52 rounded-full bg-gradient-to-b from-pink-500/30 to-red-600/30 border-4 border-red-500/60 flex flex-col items-center justify-center shadow-[0_0_40px_rgba(239,68,68,0.4)]"
           >
             <span className="text-7xl">🔫</span>
-            <span className="text-sm font-bold mt-2 text-white/90">APPUYER</span>
+            <span className="text-sm font-bold mt-2 text-chalk-muted">APPUYER</span>
           </motion.button>
-          <p className="text-white/40 text-xs mt-6">C'est ton tour… courage.</p>
+          <p className="text-chalk-faint text-xs mt-6">C'est ton tour… courage.</p>
         </>
       ) : (
         <>
           <span className="text-7xl mb-4">🔫</span>
           <p className="text-lg font-semibold">Au tour de {currentName}</p>
-          <p className="text-white/40 text-sm mt-1">Retiens ton souffle…</p>
+          <p className="text-chalk-faint text-sm mt-1">Retiens ton souffle…</p>
         </>
       )}
     </div>
@@ -223,8 +223,8 @@ function ResultView({
 
       {lp.gageText && (
         <Card className="mb-6 border-red-500/40">
-          <p className="text-xs uppercase tracking-widest text-white/40 mb-1">Gage hardcore</p>
-          <p className="text-base font-semibold text-white/90">« {lp.gageText} »</p>
+          <p className="text-xs uppercase tracking-widest text-chalk-faint mb-1">Gage hardcore</p>
+          <p className="text-base font-semibold text-chalk-muted">« {lp.gageText} »</p>
         </Card>
       )}
 
@@ -249,7 +249,7 @@ function ResultView({
               Recharger et continuer →
             </Button>
           ) : (
-            <p className="text-white/40 text-sm">{decided ? "En attente de l'hôte…" : `${memberName(lp.pullerId)} doit choisir…`}</p>
+            <p className="text-chalk-faint text-sm">{decided ? "En attente de l'hôte…" : `${memberName(lp.pullerId)} doit choisir…`}</p>
           )}
         </>
       )}
@@ -271,21 +271,21 @@ function FinalPodium({
     .sort((a, b) => (state.totalSips[a.id] ?? 0) - (state.totalSips[b.id] ?? 0))
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Roulette russe terminée</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Roulette russe terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🏆 Survivants</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-xs text-white/40">💥 {state.bangs[m.id] ?? 0}</span>
-            <span className="text-sm text-white/60 tabular-nums">{state.totalSips[m.id] ?? 0} 🍻</span>
+            <span className="text-xs text-chalk-faint">💥 {state.bangs[m.id] ?? 0}</span>
+            <span className="text-sm text-chalk-soft tabular-nums">{state.totalSips[m.id] ?? 0} 🍻</span>
           </Card>
         ))}
       </div>
       <Button fullWidth onClick={onExit}>Retour au salon</Button>
-      <p className="text-white/30 text-xs text-center mt-4">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
+      <p className="text-chalk-faint text-xs text-center mt-4">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
     </div>
   )
 }

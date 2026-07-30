@@ -114,7 +114,7 @@ export const DrawCanvas = forwardRef<DrawCanvasHandle, { disabled?: boolean }>(f
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className={`w-full rounded-2xl border-2 border-white/20 bg-white shadow-xl ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
+        className={`w-full rounded-2xl border-2 border-line-strong bg-white shadow-xl ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
         style={{ touchAction: 'none', aspectRatio: `${W} / ${H}` }}
       />
 
@@ -128,14 +128,14 @@ export const DrawCanvas = forwardRef<DrawCanvasHandle, { disabled?: boolean }>(f
                 setEraser(false)
               }}
               aria-label={`Couleur ${c}`}
-              className={`w-7 h-7 rounded-full border-2 ${!eraser && color === c ? 'border-white scale-110' : 'border-white/20'} transition-transform`}
+              className={`w-7 h-7 rounded-full border-2 ${!eraser && color === c ? 'border-white scale-110' : 'border-line-strong'} transition-transform`}
               style={{ background: c }}
             />
           ))}
           <button
             onClick={() => setEraser(true)}
             aria-label="Gomme"
-            className={`w-7 h-7 rounded-full border-2 bg-white text-xs ${eraser ? 'border-fuchsia-400 scale-110' : 'border-white/20'} transition-transform`}
+            className={`w-7 h-7 rounded-full border-2 bg-white text-xs ${eraser ? 'border-fuchsia-400 scale-110' : 'border-line-strong'} transition-transform`}
           >
             🧽
           </button>
@@ -146,15 +146,15 @@ export const DrawCanvas = forwardRef<DrawCanvasHandle, { disabled?: boolean }>(f
               key={s}
               onClick={() => setSize(s)}
               aria-label={`Trait ${s}px`}
-              className={`w-7 h-7 rounded-full flex items-center justify-center border ${size === s ? 'border-fuchsia-400 bg-white/15' : 'border-white/15 bg-white/5'}`}
+              className={`w-7 h-7 rounded-full flex items-center justify-center border ${size === s ? 'border-fuchsia-400 bg-felt-raised' : 'border-line-strong bg-felt-raised'}`}
             >
               <span className="rounded-full bg-white" style={{ width: s * 0.9, height: s * 0.9 }} />
             </button>
           ))}
-          <button onClick={undo} aria-label="Annuler" className="w-7 h-7 rounded-full border border-white/15 bg-white/5 text-xs">
+          <button onClick={undo} aria-label="Annuler" className="w-7 h-7 rounded-full border border-line-strong bg-felt-raised text-xs">
             ↩️
           </button>
-          <button onClick={clearAll} aria-label="Tout effacer" className="w-7 h-7 rounded-full border border-white/15 bg-white/5 text-xs">
+          <button onClick={clearAll} aria-label="Tout effacer" className="w-7 h-7 rounded-full border border-line-strong bg-felt-raised text-xs">
             🗑️
           </button>
         </div>

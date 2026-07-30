@@ -12,7 +12,7 @@ export function PartyCardsScreen() {
   if (!group) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-xl">Connexion à la salle…</p>
+        <p className="text-chalk-faint text-xl">Connexion à la salle…</p>
       </div>
     )
   }
@@ -28,7 +28,7 @@ export function PartyCardsScreen() {
         <CardScreen state={state} members={members} />
       )}
 
-      {party.status !== 'ended' && !party.phase && <p className="text-white/40 text-2xl">Préparation de la carte…</p>}
+      {party.status !== 'ended' && !party.phase && <p className="text-chalk-faint text-2xl">Préparation de la carte…</p>}
     </div>
   )
 }
@@ -43,7 +43,7 @@ function CardScreen({ state, members }: { state: PartyCardsClientState; members:
         animate={{ opacity: 1, scale: 1 }}
         className="text-center max-w-4xl"
       >
-        <p className="text-white/40 text-xl uppercase tracking-widest mb-6">
+        <p className="text-chalk-faint text-xl uppercase tracking-widest mb-6">
           Carte {state.history.length + 1} / {state.totalRounds}
         </p>
 
@@ -67,15 +67,15 @@ function FinalPodium({ members }: { members: Member[] }) {
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
     <div className="text-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">Soirée terminée</p>
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Soirée terminée</p>
       <h1 className="text-6xl font-extrabold shimmer-text mb-12">🃏 Merci d'avoir joué !</h1>
       <div className="flex flex-col gap-4 items-center">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={420}>
-            <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
-            <span className="text-lg text-white/60 tabular-nums">{m.xp} XP</span>
+            <span className="text-lg text-chalk-soft tabular-nums">{m.xp} XP</span>
           </PodiumRow>
         ))}
       </div>

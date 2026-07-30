@@ -92,7 +92,7 @@ export function PmuController() {
 
   return (
     <div className="min-h-svh flex items-center justify-center px-6">
-      <p className="text-white/50 text-sm">Préparation de l'hippodrome…</p>
+      <p className="text-chalk-soft text-sm">Préparation de l'hippodrome…</p>
     </div>
   )
 }
@@ -112,10 +112,10 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
       <div className="text-center mb-6">
         <span className="text-5xl">🏇</span>
         <h1 className="text-2xl font-extrabold mt-2">PMU</h1>
-        <p className="text-white/40 text-sm">La course se joue sur la TV, en 3D 📺</p>
+        <p className="text-chalk-faint text-sm">La course se joue sur la TV, en 3D 📺</p>
       </div>
       <Card className="mb-6">
-        <ul className="flex flex-col gap-3 text-sm text-white/80">
+        <ul className="flex flex-col gap-3 text-sm text-chalk-muted">
           {rules.map(([emoji, text], i) => (
             <motion.li key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }} className="flex gap-2">
               <span className="shrink-0">{emoji}</span>
@@ -129,9 +129,9 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
           Ouvrir les paris ! 💰
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente que l'hôte ouvre les paris…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte ouvre les paris…</p>
       )}
-      <p className="text-center text-white/20 text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
+      <p className="text-center text-chalk-faint text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
     </div>
   )
 }
@@ -151,7 +151,7 @@ function BettingView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-1">Course {state.racesPlayed + 1}</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">Course {state.racesPlayed + 1}</p>
       <h1 className="text-xl font-extrabold text-center mb-5">💰 Fais ton pari</h1>
 
       <div className="grid grid-cols-2 gap-3 mb-5">
@@ -174,7 +174,7 @@ function BettingView({
 
       <Card className="mb-5">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-sm text-white/60">Ta mise</span>
+          <span className="text-sm text-chalk-soft">Ta mise</span>
           <span className="text-sm font-bold text-fuchsia-300">
             {sips} gorgée{sips > 1 ? 's' : ''} → {sips * 2} à distribuer si gagné
           </span>
@@ -200,7 +200,7 @@ function BettingView({
           ✅ Pari posé : {HORSES[placed.suit].symbol} {HORSES[placed.suit].name} — {placed.sips} gorgée{placed.sips > 1 ? 's' : ''}
         </p>
       )}
-      <p className="text-center text-white/40 text-xs mt-3">
+      <p className="text-center text-chalk-faint text-xs mt-3">
         {state.votedCount}/{totalPlayers} paris posés — la course part quand tout le monde a parié !
       </p>
     </div>
@@ -225,7 +225,7 @@ function RacingView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Course {state.racesPlayed} 🏇</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Course {state.racesPlayed} 🏇</p>
 
       {playback.countdown ? (
         <div className="flex-1 flex flex-col items-center justify-center">
@@ -237,7 +237,7 @@ function RacingView({
           >
             {playback.countdownSeconds > 0 ? playback.countdownSeconds : 'Partez !'}
           </motion.span>
-          <p className="text-white/40 text-sm mt-6">📺 Regarde la course en 3D sur la TV !</p>
+          <p className="text-chalk-faint text-sm mt-6">📺 Regarde la course en 3D sur la TV !</p>
         </div>
       ) : (
         <>
@@ -252,7 +252,7 @@ function RacingView({
                 {event.type === 'finish' && `🏆 ${HORSES[event.suit].name} gagne !`}
               </p>
             )}
-            {playback.done && <p className="text-white/50 text-sm mt-2">Course terminée !</p>}
+            {playback.done && <p className="text-chalk-soft text-sm mt-2">Course terminée !</p>}
           </div>
 
           <div className="flex flex-col gap-3 mb-6">
@@ -261,7 +261,7 @@ function RacingView({
                 <span className="text-xl w-7" style={{ color: h.color }}>
                   {h.symbol}
                 </span>
-                <div className="flex-1 h-4 rounded-full bg-white/10 overflow-hidden relative">
+                <div className="flex-1 h-4 rounded-full bg-felt-raised overflow-hidden relative">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{ width: `${(playback.positions[h.suit] / PMU_TRACK_LEN) * 100}%`, background: h.color }}
@@ -272,7 +272,7 @@ function RacingView({
               </div>
             ))}
           </div>
-          <p className="text-center text-white/30 text-xs">📺 La vraie course est sur la TV !</p>
+          <p className="text-center text-chalk-faint text-xs">📺 La vraie course est sur la TV !</p>
         </>
       )}
 
@@ -282,7 +282,7 @@ function RacingView({
             Voir les résultats →
           </Button>
         ) : isHost ? (
-          <p className="text-center text-white/30 text-xs">Les résultats arrivent à la fin de la course…</p>
+          <p className="text-center text-chalk-faint text-xs">Les résultats arrivent à la fin de la course…</p>
         ) : null}
       </div>
     </div>
@@ -323,7 +323,7 @@ function ResultsView({
             <p className="text-center font-bold mb-1">🎉 Bien joué, tu avais le bon cheval !</p>
             {myResult.remaining > 0 ? (
               <>
-                <p className="text-center text-white/50 text-sm mb-3">
+                <p className="text-center text-chalk-soft text-sm mb-3">
                   Touche un joueur pour lui donner 1 gorgée — reste <b className="text-fuchsia-300">{myResult.remaining}</b> (tu peux répartir !)
                 </p>
                 <div className="grid grid-cols-3 gap-2">
@@ -347,7 +347,7 @@ function ResultsView({
                 </div>
               </>
             ) : (
-              <p className="text-center text-white/50 text-sm">
+              <p className="text-center text-chalk-soft text-sm">
                 ✅ {myResult.sipsToGive} gorgée{myResult.sipsToGive > 1 ? 's' : ''} distribuée{myResult.sipsToGive > 1 ? 's' : ''} !
               </p>
             )}
@@ -364,7 +364,7 @@ function ResultsView({
         )
       ) : (
         <Card className="mb-4 text-center">
-          <p className="text-white/40 text-sm">Tu n'avais pas parié sur cette course.</p>
+          <p className="text-chalk-faint text-sm">Tu n'avais pas parié sur cette course.</p>
         </Card>
       )}
 
@@ -396,7 +396,7 @@ function ResultsView({
             </Button>
           </>
         ) : (
-          <p className="text-center text-white/40 text-sm">L'hôte relance une course ou clôt le PMU…</p>
+          <p className="text-center text-chalk-faint text-sm">L'hôte relance une course ou clôt le PMU…</p>
         )}
       </div>
     </div>
@@ -407,26 +407,26 @@ function FinalResults({ members, state, onExit }: { members: Member[]; state: Pm
   const ranked = [...members].sort((a, b) => (state.totalSipsDrunk[a.id] ?? 0) - (state.totalSipsDrunk[b.id] ?? 0))
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         PMU terminé — {state.racesPlayed} course{state.racesPlayed > 1 ? 's' : ''}
       </p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🏇 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
             <div className="flex-1 min-w-0">
               <p className="font-semibold truncate">{m.pseudo}</p>
-              <p className="text-[11px] text-white/40">
+              <p className="text-[11px] text-chalk-faint">
                 🏅 {state.raceWins[m.id] ?? 0} course{(state.raceWins[m.id] ?? 0) > 1 ? 's' : ''} gagnée{(state.raceWins[m.id] ?? 0) > 1 ? 's' : ''} · ↗ {state.totalSipsGiven[m.id] ?? 0} données
               </p>
             </div>
-            <span className="text-sm text-white/60">{state.totalSipsDrunk[m.id] ?? 0} 🍻</span>
+            <span className="text-sm text-chalk-soft">{state.totalSipsDrunk[m.id] ?? 0} 🍻</span>
           </Card>
         ))}
       </div>
-      <p className="text-center text-white/30 text-xs mb-4">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
+      <p className="text-center text-chalk-faint text-xs mb-4">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
       <Button fullWidth onClick={onExit}>
         Retour au salon
       </Button>

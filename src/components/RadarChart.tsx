@@ -88,7 +88,7 @@ export function RadarChart({ series, size = 280 }: { series: Series[]; size?: nu
       {series.length > 1 && (
         <div className="flex flex-wrap gap-3 justify-center mt-3">
           {series.map((s) => (
-            <div key={s.label} className="flex items-center gap-1.5 text-xs text-white/70">
+            <div key={s.label} className="flex items-center gap-1.5 text-xs text-chalk-muted">
               <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
               {s.label}
             </div>

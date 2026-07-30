@@ -27,7 +27,7 @@ export function GuessMyAnswerScreen() {
   if (!group) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-xl">Connexion à la salle…</p>
+        <p className="text-chalk-faint text-xl">Connexion à la salle…</p>
       </div>
     )
   }
@@ -47,7 +47,7 @@ export function GuessMyAnswerScreen() {
 
       {status !== 'ended' && phase === 'reveal' && state && <RevealScreen state={state} members={members} />}
 
-      {status !== 'ended' && !phase && <p className="text-white/40 text-2xl">Préparation de la manche…</p>}
+      {status !== 'ended' && !phase && <p className="text-chalk-faint text-2xl">Préparation de la manche…</p>}
     </div>
   )
 }
@@ -63,7 +63,7 @@ function VotingScreen({ state, members }: { state: GuessMyAnswerClientState; mem
       animate={{ opacity: 1, scale: 1 }}
       className="text-center max-w-4xl"
     >
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">
         Manche {state.history.length + 1} / {state.totalRounds}
       </p>
       <div className="flex flex-col items-center gap-3 mb-6">
@@ -72,21 +72,21 @@ function VotingScreen({ state, members }: { state: GuessMyAnswerClientState; mem
           Que répondrait <span className="shimmer-text">{target?.pseudo}</span> ?
         </h1>
       </div>
-      <p className="text-2xl text-white/70 mb-10">{state.currentQuestion?.prompt}</p>
+      <p className="text-2xl text-chalk-muted mb-10">{state.currentQuestion?.prompt}</p>
 
       <div className="flex items-center justify-center gap-4">
-        <div className="h-3 w-96 rounded-full bg-white/10 overflow-hidden">
+        <div className="h-3 w-96 rounded-full bg-felt-raised overflow-hidden">
           <motion.div
             className="h-full rounded-full bg-gradient-to-r from-fuchsia-400 to-purple-400"
             animate={{ width: `${(state.votedCount / expectedVoters) * 100}%` }}
             transition={{ duration: 0.4 }}
           />
         </div>
-        <span className="text-white/60 text-lg tabular-nums">
+        <span className="text-chalk-soft text-lg tabular-nums">
           {state.votedCount}/{expectedVoters}
         </span>
       </div>
-      <p className="text-white/30 text-lg mt-6">Devinez sur votre téléphone 📱</p>
+      <p className="text-chalk-faint text-lg mt-6">Devinez sur votre téléphone 📱</p>
     </motion.div>
   )
 }
@@ -100,7 +100,7 @@ function RevealScreen({ state, members }: { state: GuessMyAnswerClientState; mem
   return (
     <AnimatePresence mode="wait">
       <motion.div key={last?.question.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-3xl">
-        <p className="text-white/40 text-xl text-center uppercase tracking-widest mb-4">
+        <p className="text-chalk-faint text-xl text-center uppercase tracking-widest mb-4">
           La vraie réponse de {target?.pseudo}
         </p>
 
@@ -114,7 +114,7 @@ function RevealScreen({ state, members }: { state: GuessMyAnswerClientState; mem
           <p className="text-4xl font-extrabold shimmer-text text-center">{correctOption?.label}</p>
         </motion.div>
 
-        <p className="text-white/40 text-xl text-center uppercase tracking-widest mb-4">Ont deviné juste</p>
+        <p className="text-chalk-faint text-xl text-center uppercase tracking-widest mb-4">Ont deviné juste</p>
         {correctGuessers.length > 0 ? (
           <div className="flex flex-wrap gap-4 justify-center">
             {correctGuessers.map((m) => (
@@ -125,7 +125,7 @@ function RevealScreen({ state, members }: { state: GuessMyAnswerClientState; mem
             ))}
           </div>
         ) : (
-          <p className="text-center text-white/50 text-2xl">Personne n'a trouvé cette fois !</p>
+          <p className="text-center text-chalk-soft text-2xl">Personne n'a trouvé cette fois !</p>
         )}
       </motion.div>
     </AnimatePresence>
@@ -136,15 +136,15 @@ function FinalPodium({ members }: { members: Member[] }) {
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
     <div className="text-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">Partie terminée</p>
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Partie terminée</p>
       <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏆 Classement final</h1>
       <div className="flex flex-col gap-4 items-center">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={420}>
-            <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
-            <span className="text-lg text-white/60 tabular-nums">{m.xp} XP</span>
+            <span className="text-lg text-chalk-soft tabular-nums">{m.xp} XP</span>
           </PodiumRow>
         ))}
       </div>

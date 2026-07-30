@@ -30,7 +30,7 @@ export function AutorouteScreen() {
   if (!group) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-xl">Connexion à la salle…</p>
+        <p className="text-chalk-faint text-xl">Connexion à la salle…</p>
       </div>
     )
   }
@@ -53,7 +53,7 @@ export function AutorouteScreen() {
 
       {status !== 'ended' && phase === 'reveal' && state && <RevealScreen state={state} participants={participants} />}
 
-      {status !== 'ended' && !phase && <p className="text-white/40 text-2xl">Préparation de la manche…</p>}
+      {status !== 'ended' && !phase && <p className="text-chalk-faint text-2xl">Préparation de la manche…</p>}
     </div>
   )
 }
@@ -70,7 +70,7 @@ function IntroScreen({ trackLength }: { trackLength: number }) {
     <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-3xl">
       <span className="text-7xl mb-4 inline-block">🛣️</span>
       <h1 className="text-5xl font-extrabold shimmer-text mb-3">Autoroute</h1>
-      <p className="text-white/50 text-2xl mb-10">{trackLength} cases jusqu'à l'arrivée</p>
+      <p className="text-chalk-soft text-2xl mb-10">{trackLength} cases jusqu'à l'arrivée</p>
       <div className="flex flex-col gap-4 items-start mx-auto w-fit">
         {rules.map(([emoji, text], i) => (
           <motion.p
@@ -78,14 +78,14 @@ function IntroScreen({ trackLength }: { trackLength: number }) {
             initial={{ opacity: 0, x: -16 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.15 * i }}
-            className="text-2xl text-white/80 flex gap-3"
+            className="text-2xl text-chalk-muted flex gap-3"
           >
             <span>{emoji}</span>
             <span>{text}</span>
           </motion.p>
         ))}
       </div>
-      <p className="text-white/30 text-xl mt-10">L'hôte donne le départ sur son téléphone 📱</p>
+      <p className="text-chalk-faint text-xl mt-10">L'hôte donne le départ sur son téléphone 📱</p>
     </motion.div>
   )
 }
@@ -95,7 +95,7 @@ function PredictingScreen({ state, participants }: { state: AutorouteClientState
 
   return (
     <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-5xl w-full">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-6">Manche {state.history.length + 1}</p>
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-6">Manche {state.history.length + 1}</p>
       <span className="text-6xl mb-8 inline-block">🛣️</span>
 
       <div className="mb-10 scale-150 origin-center">
@@ -111,7 +111,7 @@ function PredictingScreen({ state, participants }: { state: AutorouteClientState
               <div key={m.id} className="flex items-center gap-4">
                 <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
                 <span className="w-40 text-lg font-medium truncate text-left">{m.pseudo}</span>
-                <span className="text-white/50 text-lg">
+                <span className="text-chalk-soft text-lg">
                   {cell?.type === 'question' ? QUESTION_META[cell.kind].title : '💰 Péage'}
                 </span>
               </div>
@@ -120,18 +120,18 @@ function PredictingScreen({ state, participants }: { state: AutorouteClientState
       </div>
 
       <div className="flex items-center justify-center gap-4 mb-6">
-        <div className="h-3 w-96 rounded-full bg-white/10 overflow-hidden">
+        <div className="h-3 w-96 rounded-full bg-felt-raised overflow-hidden">
           <motion.div
             className="h-full rounded-full bg-gradient-to-r from-fuchsia-400 to-purple-400"
             animate={{ width: `${activeCount > 0 ? (state.votedCount / activeCount) * 100 : 0}%` }}
             transition={{ duration: 0.4 }}
           />
         </div>
-        <span className="text-white/60 text-lg tabular-nums">
+        <span className="text-chalk-soft text-lg tabular-nums">
           {state.votedCount}/{activeCount}
         </span>
       </div>
-      <p className="text-white/30 text-lg">Chacun répond à SA question sur son téléphone 📱</p>
+      <p className="text-chalk-faint text-lg">Chacun répond à SA question sur son téléphone 📱</p>
     </motion.div>
   )
 }
@@ -147,7 +147,7 @@ function RevealScreen({ state, participants }: { state: AutorouteClientState; pa
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-4xl text-center"
       >
-        <p className="text-white/40 text-xl uppercase tracking-widest mb-8">Résultats de la manche</p>
+        <p className="text-chalk-faint text-xl uppercase tracking-widest mb-8">Résultats de la manche</p>
 
         <div className="mb-10 scale-150 origin-center">
           <TrackStrip track={state.track} positions={state.positions} finished={state.finished} members={participants} cellSize={18} />
@@ -168,7 +168,7 @@ function RevealScreen({ state, participants }: { state: AutorouteClientState; pa
                 >
                   <Avatar pseudo={m.pseudo} color={m.color} size={40} photoUrl={m.photoUrl} />
                   <span className="w-40 text-lg font-medium truncate text-left">{m.pseudo}</span>
-                  <span className="text-white/40 text-lg">🏁 Déjà arrivé·e</span>
+                  <span className="text-chalk-faint text-lg">🏁 Déjà arrivé·e</span>
                 </motion.div>
               )
             }
@@ -185,7 +185,7 @@ function RevealScreen({ state, participants }: { state: AutorouteClientState; pa
                 <PlayingCard rank={result.drawnCard.rank} suit={result.drawnCard.suit} size={48} dealDelay={0.1 + 0.08 * i} flipReveal />
 
                 <span className="flex-1 text-left text-lg">
-                  <span className="text-white/40 mr-3">{choiceLabel(result.choice)}</span>
+                  <span className="text-chalk-faint mr-3">{choiceLabel(result.choice)}</span>
                   <span className={result.correct ? 'text-emerald-300' : 'text-pink-300'}>
                     {result.finished
                       ? "🏁 Franchit l'arrivée !"
@@ -218,21 +218,21 @@ function FinalPodium({ members, state }: { members: Member[]; state: AutorouteCl
 
   return (
     <div className="text-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">Autoroute terminée</p>
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Autoroute terminée</p>
       <h1 className="text-6xl font-extrabold shimmer-text mb-12">🛣️ Classement final</h1>
       <div className="flex flex-col gap-4 items-center">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={460} loserEmoji="🍺">
-            <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
-            <span className="text-lg text-white/60 tabular-nums">
+            <span className="text-lg text-chalk-soft tabular-nums">
               {totals[m.id] ?? 0} gorgée{(totals[m.id] ?? 0) !== 1 ? 's' : ''}
             </span>
           </PodiumRow>
         ))}
       </div>
-      <p className="text-white/30 text-lg mt-8">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
+      <p className="text-chalk-faint text-lg mt-8">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
     </div>
   )
 }

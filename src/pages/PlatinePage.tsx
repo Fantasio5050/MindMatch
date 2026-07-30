@@ -72,7 +72,7 @@ export function PlatinePage() {
         <div className="min-h-svh flex flex-col items-center justify-center px-6">
           <span className="text-5xl mb-4">🎛️</span>
           <h1 className="text-2xl font-extrabold mb-2">Platine — Mode Soirée</h1>
-          <p className="text-sm text-white/50 text-center mb-6 max-w-xs">
+          <p className="text-sm text-chalk-soft text-center mb-6 max-w-xs">
             À ouvrir sur l'appareil branché à l'enceinte. Entre le code de la salle.
           </p>
           <Card className="w-full max-w-sm">
@@ -81,7 +81,7 @@ export function PlatinePage() {
               onChange={(e) => setInput(e.target.value.toUpperCase())}
               placeholder="AB3XZ"
               maxLength={5}
-              className="w-full rounded-2xl bg-white/8 border border-white/10 px-4 py-3.5 text-base uppercase tracking-widest text-white placeholder-white/30 outline-none focus:border-fuchsia-400/60 mb-3"
+              className="w-full rounded-2xl bg-felt-raised border border-line px-4 py-3.5 text-base uppercase tracking-widest text-white placeholder:text-chalk-faint outline-none focus:border-fuchsia-400/60 mb-3"
             />
             <Button fullWidth disabled={!input.trim()} onClick={() => navigate(`/platine/${input.trim()}`)}>
               Connecter la platine
@@ -406,8 +406,8 @@ function PlatinePlayer({ code }: { code: string }) {
     return (
       <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center gap-4">
         <span className="text-5xl">🎛️</span>
-        <p className="text-white/60">En attente du lancement du Mode Soirée par l'hôte…</p>
-        <p className="text-xs text-white/30">Salle {code}</p>
+        <p className="text-chalk-soft">En attente du lancement du Mode Soirée par l'hôte…</p>
+        <p className="text-xs text-chalk-faint">Salle {code}</p>
         <Button variant="ghost" onClick={() => { disconnect(); navigate('/') }} className="!py-2 text-sm">
           ← Accueil
         </Button>
@@ -430,15 +430,15 @@ function PlatinePlayer({ code }: { code: string }) {
           <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-900/20 via-black/70 to-black/95" />
         </div>
       )}
-      <div className="relative z-40 flex items-center justify-between px-4 py-3 border-b border-white/10">
+      <div className="relative z-40 flex items-center justify-between px-4 py-3 border-b border-line">
         <div className="flex items-center gap-2">
           <span className="text-xl">🎛️</span>
           <span className="font-bold">Platine</span>
-          <span className="text-xs text-white/40">· Salle {code}</span>
+          <span className="text-xs text-chalk-faint">· Salle {code}</span>
           {isActive ? (
             <span className="text-[10px] rounded-full bg-emerald-500/20 text-emerald-300 px-2 py-0.5">● active</span>
           ) : (
-            <span className="text-[10px] rounded-full bg-white/10 text-white/40 px-2 py-0.5">en veille</span>
+            <span className="text-[10px] rounded-full bg-felt-raised text-chalk-faint px-2 py-0.5">en veille</span>
           )}
           {crossfadeUi && (
             <span className="text-[10px] rounded-full bg-fuchsia-500/20 text-fuchsia-200 px-2 py-0.5">⤫ fondu…</span>
@@ -447,19 +447,19 @@ function PlatinePlayer({ code }: { code: string }) {
         <div className="relative flex items-center gap-2">
           <button
             onClick={() => setSettingsOpen((o) => !o)}
-            className="rounded-full bg-white/8 h-8 w-8 flex items-center justify-center text-white/60 text-sm"
+            className="rounded-full bg-felt-raised h-8 w-8 flex items-center justify-center text-chalk-soft text-sm"
             aria-label="Réglages de la platine"
           >
             ⚙️
           </button>
           <button
             onClick={() => { disconnect(); navigate('/') }}
-            className="rounded-full bg-white/8 px-3 h-8 text-white/60 text-xs"
+            className="rounded-full bg-felt-raised px-3 h-8 text-chalk-soft text-xs"
           >
             Quitter
           </button>
           {settingsOpen && (
-            <div className="absolute right-0 top-10 z-50 w-64 rounded-2xl border border-white/10 bg-[#171122] p-4 shadow-xl">
+            <div className="absolute right-0 top-10 z-50 w-64 rounded-2xl border border-line bg-[#171122] p-4 shadow-xl">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm font-semibold">Fondu enchaîné</span>
                 <span className="text-sm text-fuchsia-300 tabular-nums">{crossfadeSec === 0 ? 'Coupé' : `${crossfadeSec}s`}</span>
@@ -474,7 +474,7 @@ function PlatinePlayer({ code }: { code: string }) {
                 className="w-full accent-fuchsia-400"
                 aria-label="Durée du fondu enchaîné"
               />
-              <p className="text-[11px] text-white/40 mt-1">
+              <p className="text-[11px] text-chalk-faint mt-1">
                 {crossfadeSec === 0
                   ? 'Coupure nette entre les morceaux.'
                   : "Le morceau suivant démarre en douceur avant la fin de l'actuel."}
@@ -490,7 +490,7 @@ function PlatinePlayer({ code }: { code: string }) {
               conteneur (pas l'iframe) pour que les changements de vidéo restent visibles. */}
           <div
             ref={playerZoneRef}
-            className={`overflow-hidden bg-[#0c0c12] border-white/10 relative ${
+            className={`overflow-hidden bg-[#0c0c12] border-line relative ${
               isFullscreen ? 'w-screen h-screen max-w-none rounded-none border-0' : 'w-full max-w-3xl aspect-video rounded-2xl border'
             }`}
           >
@@ -503,7 +503,7 @@ function PlatinePlayer({ code }: { code: string }) {
             {started && fullscreenSupported() && (
               <button
                 onClick={() => toggleElementFullscreen(playerZoneRef.current)}
-                className="absolute top-2 right-2 z-40 rounded-full bg-black/55 hover:bg-black/75 text-white w-9 h-9 flex items-center justify-center text-sm"
+                className="absolute top-2 right-2 z-40 rounded-full bg-ink/55 hover:bg-ink/75 text-white w-9 h-9 flex items-center justify-center text-sm"
                 aria-label={isFullscreen ? 'Quitter le plein écran' : 'Plein écran du lecteur'}
               >
                 {isFullscreen ? '🗕' : '⛶'}
@@ -515,9 +515,9 @@ function PlatinePlayer({ code }: { code: string }) {
               </div>
             )}
             {!started && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/70 backdrop-blur-sm">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-ink/70 backdrop-blur-sm">
                 <span className="text-5xl">🔊</span>
-                <p className="text-white/70 text-sm text-center px-6">
+                <p className="text-chalk-muted text-sm text-center px-6">
                   Assure-toi que cet appareil est branché à l'enceinte, puis démarre la platine.
                 </p>
                 <Button onClick={startPlatine}>▶ Démarrer la platine</Button>
@@ -526,12 +526,12 @@ function PlatinePlayer({ code }: { code: string }) {
             {started && !current && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-6">
                 <span className="text-4xl">🎶</span>
-                <p className="text-white/60 text-sm">File d'attente vide — ajoutez des musiques depuis vos téléphones.</p>
+                <p className="text-chalk-soft text-sm">File d'attente vide — ajoutez des musiques depuis vos téléphones.</p>
               </div>
             )}
             {started && !isActive && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 text-center px-6">
-                <p className="text-white/70 text-sm">Une autre platine a pris le relais.</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-ink/80 text-center px-6">
+                <p className="text-chalk-muted text-sm">Une autre platine a pris le relais.</p>
                 <Button variant="secondary" onClick={() => platineClaim(platineId)}>Reprendre ici</Button>
               </div>
             )}
@@ -541,7 +541,7 @@ function PlatinePlayer({ code }: { code: string }) {
             <div className="mt-4 text-center">
               <p className="text-lg font-bold">{current.title}</p>
               {(current.artist || current.durationMs) && (
-                <p className="text-white/50 text-sm">
+                <p className="text-chalk-soft text-sm">
                   {current.artist}{current.artist && current.durationMs ? ' · ' : ''}
                   {current.durationMs ? formatDuration(current.durationMs) : ''}
                 </p>
@@ -551,26 +551,26 @@ function PlatinePlayer({ code }: { code: string }) {
         </div>
 
         {/* File d'attente + stats */}
-        <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-white/10 p-4 overflow-y-auto max-h-[40svh] lg:max-h-none">
-          <p className="text-xs uppercase tracking-widest text-white/40 mb-1">À suivre</p>
-          <p className="text-sm text-white/70 mb-3">
+        <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-line p-4 overflow-y-auto max-h-[40svh] lg:max-h-none">
+          <p className="text-xs uppercase tracking-widest text-chalk-faint mb-1">À suivre</p>
+          <p className="text-sm text-chalk-muted mb-3">
             {queue.length} titre{queue.length > 1 ? 's' : ''}
             {totalDurationMs(queue) > 0 ? ` · ${formatDuration(totalDurationMs(queue))} en file` : ''}
           </p>
-          {queue.length === 0 && <p className="text-white/30 text-sm">Rien pour l'instant.</p>}
+          {queue.length === 0 && <p className="text-chalk-faint text-sm">Rien pour l'instant.</p>}
           <div className="flex flex-col gap-2">
             {queue.slice(0, 14).map((t, i) => (
               <div key={t.id} className="flex items-center gap-2.5">
-                <span className="text-xs text-white/30 w-4 text-right">{i + 1}</span>
+                <span className="text-xs text-chalk-faint w-4 text-right">{i + 1}</span>
                 {t.thumbnail ? (
                   <img src={t.thumbnail} alt="" className="w-10 h-10 rounded object-cover" />
                 ) : (
-                  <div className="w-10 h-10 rounded bg-white/10 flex items-center justify-center">🎵</div>
+                  <div className="w-10 h-10 rounded bg-felt-raised flex items-center justify-center">🎵</div>
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm truncate">{t.title}</p>
                   {(t.artist || t.durationMs) && (
-                    <p className="text-[11px] text-white/40 truncate">
+                    <p className="text-[11px] text-chalk-faint truncate">
                       {t.artist}{t.artist && t.durationMs ? ' · ' : ''}{t.durationMs ? formatDuration(t.durationMs) : ''}
                     </p>
                   )}

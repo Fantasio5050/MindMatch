@@ -41,7 +41,7 @@ export function IntrusController() {
   if (!state) {
     return (
       <div className="min-h-svh flex items-center justify-center px-6">
-        <p className="text-white/50 text-sm">Préparation de la partie…</p>
+        <p className="text-chalk-soft text-sm">Préparation de la partie…</p>
       </div>
     )
   }
@@ -142,7 +142,7 @@ export function IntrusController() {
 
   return (
     <div className="min-h-svh flex items-center justify-center px-6">
-      <p className="text-white/50 text-sm">Manche en préparation…</p>
+      <p className="text-chalk-soft text-sm">Manche en préparation…</p>
     </div>
   )
 }
@@ -180,9 +180,9 @@ function WordReveal({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-1">L'Intrus</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">L'Intrus</p>
       <h1 className="text-2xl font-extrabold text-center mb-1">Ton mot secret</h1>
-      <p className="text-xs text-white/45 text-center mb-6">
+      <p className="text-xs text-chalk-soft text-center mb-6">
         Ne le montre à personne. Tu ne sais pas si tu es civil ou intrus — à toi de le découvrir.
       </p>
 
@@ -190,11 +190,11 @@ function WordReveal({
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={() => setShown(true)}
-          className="flex-1 rounded-3xl border border-white/12 bg-white/5 flex flex-col items-center justify-center gap-3 min-h-52"
+          className="flex-1 rounded-3xl border border-line bg-felt-raised flex flex-col items-center justify-center gap-3 min-h-52"
         >
           <span className="text-5xl">🤫</span>
           <span className="text-base font-bold">Appuie pour révéler</span>
-          <span className="text-xs text-white/40">Cache ton écran des autres</span>
+          <span className="text-xs text-chalk-faint">Cache ton écran des autres</span>
         </motion.button>
       ) : (
         <motion.div
@@ -208,15 +208,15 @@ function WordReveal({
             <>
               <span className="text-5xl">🃏</span>
               <p className="text-2xl font-extrabold text-amber-200">Tu es Mr. White</p>
-              <p className="text-sm text-white/60">
+              <p className="text-sm text-chalk-soft">
                 Tu n'as aucun mot. Écoute les autres et improvise pour te fondre dans la masse.
               </p>
             </>
           ) : (
             <>
-              <p className="text-[11px] uppercase tracking-widest text-white/40">Ton mot</p>
+              <p className="text-[11px] uppercase tracking-widest text-chalk-faint">Ton mot</p>
               <p className="text-4xl font-extrabold leading-tight">{state.yourWord}</p>
-              <p className="text-xs text-white/45">
+              <p className="text-xs text-chalk-soft">
                 Décris-le sans jamais le prononcer. Si les autres semblent parler d'autre chose… c'est toi l'intrus.
               </p>
             </>
@@ -228,7 +228,7 @@ function WordReveal({
         {ready ? (
           <Card className="text-center">
             <p className="text-2xl mb-1">✅</p>
-            <p className="text-sm text-white/60">
+            <p className="text-sm text-chalk-soft">
               Prêt·e — en attente des autres ({state.ready.length}/{aliveCount})
             </p>
           </Card>
@@ -249,13 +249,13 @@ function WordPeek({ word }: { word: string | null | undefined }) {
   return (
     <button
       onClick={() => setOpen((o) => !o)}
-      className="w-full rounded-2xl bg-white/6 border border-white/10 px-4 py-3 text-left active:bg-white/12"
+      className="w-full rounded-2xl bg-felt-raised border border-line px-4 py-3 text-left active:bg-felt-raised"
     >
-      <span className="text-[10px] uppercase tracking-widest text-white/40 block">Ton mot</span>
+      <span className="text-[10px] uppercase tracking-widest text-chalk-faint block">Ton mot</span>
       {open ? (
         <span className="text-lg font-bold">{word === null ? '🃏 Aucun — tu es Mr. White' : word}</span>
       ) : (
-        <span className="text-sm text-white/50">•••••• (appuie pour afficher)</span>
+        <span className="text-sm text-chalk-soft">•••••• (appuie pour afficher)</span>
       )}
     </button>
   )
@@ -281,10 +281,10 @@ function CluesView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-1">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">
         {state.inDuel ? '⚔️ Duel — indice supplémentaire' : 'Tour de parole'}
       </p>
-      <p className="text-center text-white/45 text-xs mb-5">
+      <p className="text-center text-chalk-soft text-xs mb-5">
         {state.speakerIndex + 1} / {state.speakers.length} · à voix haute
       </p>
 
@@ -296,20 +296,20 @@ function CluesView({
         >
           <span className="text-4xl block mb-2">🗣️</span>
           <p className="text-2xl font-extrabold mb-1">C'est à toi !</p>
-          <p className="text-sm text-white/60">Donne un mot ou une courte phrase qui décrit ton mot — sans le dire.</p>
-          <p className={`text-4xl font-extrabold tabular-nums mt-3 ${left <= 5 ? 'text-pink-300' : 'text-white/80'}`}>
+          <p className="text-sm text-chalk-soft">Donne un mot ou une courte phrase qui décrit ton mot — sans le dire.</p>
+          <p className={`text-4xl font-extrabold tabular-nums mt-3 ${left <= 5 ? 'text-pink-300' : 'text-chalk-muted'}`}>
             {left}s
           </p>
-          <p className="text-[11px] text-white/35 mt-1">Le chrono est indicatif, prends le temps qu'il faut.</p>
+          <p className="text-[11px] text-chalk-faint mt-1">Le chrono est indicatif, prends le temps qu'il faut.</p>
         </motion.div>
       ) : (
         <Card className="text-center mb-4">
-          <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Au tour de</p>
+          <p className="text-xs uppercase tracking-widest text-chalk-faint mb-2">Au tour de</p>
           <div className="flex items-center justify-center gap-3">
             {speaker && <Avatar pseudo={speaker.pseudo} color={speaker.color} size={44} photoUrl={speaker.photoUrl} />}
             <span className="text-xl font-bold">{speaker?.pseudo ?? '…'}</span>
           </div>
-          <p className={`text-2xl font-extrabold tabular-nums mt-2 ${left <= 5 ? 'text-pink-300' : 'text-white/60'}`}>
+          <p className={`text-2xl font-extrabold tabular-nums mt-2 ${left <= 5 ? 'text-pink-300' : 'text-chalk-soft'}`}>
             {left}s
           </p>
         </Card>
@@ -332,8 +332,8 @@ function CluesView({
                 active
                   ? 'bg-fuchsia-500/25 border-fuchsia-400/50 text-white'
                   : done
-                    ? 'bg-white/5 border-white/10 text-white/35 line-through'
-                    : 'bg-white/5 border-white/10 text-white/55'
+                    ? 'bg-felt-raised border-line text-chalk-faint line-through'
+                    : 'bg-felt-raised border-line text-chalk-soft'
               }`}
             >
               {m?.pseudo ?? '?'}
@@ -352,7 +352,7 @@ function CluesView({
             Passer au suivant (hôte)
           </Button>
         ) : (
-          <p className="text-center text-white/40 text-sm">Écoute bien… et prépare ton indice.</p>
+          <p className="text-center text-chalk-faint text-sm">Écoute bien… et prépare ton indice.</p>
         )}
       </div>
     </div>
@@ -379,14 +379,14 @@ function VoteView({
       <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center gap-3">
         <span className="text-5xl">⚔️</span>
         <p className="text-xl font-extrabold">Tu es en duel</p>
-        <p className="text-sm text-white/55">Les autres votent pour décider qui saute. Défends-toi à l'oral !</p>
+        <p className="text-sm text-chalk-soft">Les autres votent pour décider qui saute. Défends-toi à l'oral !</p>
       </div>
     )
   }
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-1">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">
         {isDuel ? '⚔️ Revote du duel' : 'Vote'}
       </p>
       <h1 className="text-2xl font-extrabold text-center mb-6">Qui est l'intrus ?</h1>
@@ -395,7 +395,7 @@ function VoteView({
         <Card className="text-center">
           <p className="text-3xl mb-2">✅</p>
           <p className="font-semibold mb-1">Vote enregistré</p>
-          <p className="text-white/50 text-sm">En attente des autres… ({state.votedCount})</p>
+          <p className="text-chalk-soft text-sm">En attente des autres… ({state.votedCount})</p>
         </Card>
       ) : (
         <div className="grid grid-cols-2 gap-3">
@@ -444,7 +444,7 @@ function MrWhiteView({
       <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center gap-3">
         <span className="text-5xl">🃏</span>
         <p className="text-xl font-extrabold">Mr. White démasqué !</p>
-        <p className="text-sm text-white/55">
+        <p className="text-sm text-chalk-soft">
           {who?.pseudo ?? 'Il'} a une seule chance de deviner votre mot. S'il trouve, il vole la partie…
         </p>
       </div>
@@ -455,14 +455,14 @@ function MrWhiteView({
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-amber-200/70 text-center mb-1">Tu es démasqué</p>
       <h1 className="text-2xl font-extrabold text-center mb-2">🃏 Ta dernière chance</h1>
-      <p className="text-sm text-white/55 text-center mb-6">
+      <p className="text-sm text-chalk-soft text-center mb-6">
         Devine le mot des civils. Si tu tombes juste, tu voles la victoire à tout le monde.
       </p>
 
       {already ? (
         <Card className="text-center">
           <p className="text-3xl mb-2">⏳</p>
-          <p className="text-sm text-white/60">Réponse envoyée — verdict dans un instant…</p>
+          <p className="text-sm text-chalk-soft">Réponse envoyée — verdict dans un instant…</p>
         </Card>
       ) : (
         <>
@@ -472,7 +472,7 @@ function MrWhiteView({
             onKeyDown={(e) => e.key === 'Enter' && value.trim() && onGuess(value.trim())}
             placeholder="Le mot des civils…"
             maxLength={60}
-            className="rounded-2xl bg-white/8 border border-white/12 px-4 py-3.5 text-base text-white placeholder-white/30 outline-none focus:border-amber-400/60 mb-3"
+            className="rounded-2xl bg-felt-raised border border-line px-4 py-3.5 text-base text-white placeholder:text-chalk-faint outline-none focus:border-amber-400/60 mb-3"
           />
           <Button fullWidth disabled={!value.trim()} onClick={() => onGuess(value.trim())}>
             Tenter le tout pour le tout
@@ -500,7 +500,7 @@ function RevealView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-4">Élimination</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Élimination</p>
 
       <Card className="text-center mb-4">
         {m && last ? (
@@ -512,20 +512,20 @@ function RevealView({
             <p className={`text-2xl font-extrabold mt-1 ${ROLE_COLOR[last.role]}`}>
               {ROLE_EMOJI[last.role]} {ROLE_LABEL[last.role]}
             </p>
-            {last.role === 'civil' && <p className="text-white/50 text-sm mt-1">Aïe… un civil de perdu.</p>}
-            {last.role === 'undercover' && <p className="text-white/50 text-sm mt-1">Bien joué, un intrus de moins !</p>}
+            {last.role === 'civil' && <p className="text-chalk-soft text-sm mt-1">Aïe… un civil de perdu.</p>}
+            {last.role === 'undercover' && <p className="text-chalk-soft text-sm mt-1">Bien joué, un intrus de moins !</p>}
           </>
         ) : (
-          <p className="text-white/60 text-sm py-4">Personne n'a été éliminé cette fois.</p>
+          <p className="text-chalk-soft text-sm py-4">Personne n'a été éliminé cette fois.</p>
         )}
         {guess && (
-          <p className="text-sm mt-3 text-white/60">
-            Mr. White a proposé « <b className="text-white/85">{guess.guess}</b> » — {guess.correct ? 'juste 😱' : 'raté 😅'}
+          <p className="text-sm mt-3 text-chalk-soft">
+            Mr. White a proposé « <b className="text-chalk-muted">{guess.guess}</b> » — {guess.correct ? 'juste 😱' : 'raté 😅'}
           </p>
         )}
       </Card>
 
-      <p className="text-center text-white/45 text-sm mb-auto">
+      <p className="text-center text-chalk-soft text-sm mb-auto">
         {state.alive.length} joueur{state.alive.length > 1 ? 's' : ''} encore en jeu
       </p>
 
@@ -534,7 +534,7 @@ function RevealView({
           Manche suivante →
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente de l'hôte…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte…</p>
       )}
     </div>
   )
@@ -549,7 +549,7 @@ function TruthList({ truth, members }: { truth: IntrusTruth; members: Member[] }
         .map((m) => {
           const role = truth.roleByMember[m.id]
           return (
-            <div key={m.id} className="flex items-center gap-2.5 rounded-xl bg-white/5 border border-white/8 px-3 py-2">
+            <div key={m.id} className="flex items-center gap-2.5 rounded-xl bg-felt-raised border border-line px-3 py-2">
               <Avatar pseudo={m.pseudo} color={m.color} size={26} photoUrl={m.photoUrl} />
               <span className="text-sm flex-1 truncate">{m.pseudo}</span>
               <span className={`text-xs font-bold ${ROLE_COLOR[role]}`}>
@@ -601,15 +601,15 @@ function EliminatedView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-1">Tu es éliminé·e</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">Tu es éliminé·e</p>
       <h1 className="text-2xl font-extrabold text-center mb-2">🤫 Chut !</h1>
-      <p className="text-sm text-white/55 text-center mb-5">
+      <p className="text-sm text-chalk-soft text-center mb-5">
         Tu connais maintenant toute la vérité. Ne dis rien, savoure — et regarde les autres se déchirer.
       </p>
 
       {myRole && (
         <Card className="text-center mb-4">
-          <p className="text-xs uppercase tracking-widest text-white/40 mb-1">Tu étais</p>
+          <p className="text-xs uppercase tracking-widest text-chalk-faint mb-1">Tu étais</p>
           <p className={`text-2xl font-extrabold ${ROLE_COLOR[myRole]}`}>
             {ROLE_EMOJI[myRole]} {ROLE_LABEL[myRole]}
           </p>
@@ -622,10 +622,10 @@ function EliminatedView({
           <TruthList truth={truth} members={members} />
         </>
       ) : (
-        <p className="text-center text-white/40 text-sm">Vérité indisponible.</p>
+        <p className="text-center text-chalk-faint text-sm">Vérité indisponible.</p>
       )}
 
-      <p className="text-center text-white/30 text-xs mt-6">
+      <p className="text-center text-chalk-faint text-xs mt-6">
         {state.alive.length} joueur{state.alive.length > 1 ? 's' : ''} encore en jeu
       </p>
 
@@ -641,7 +641,7 @@ function EliminatedView({
               Passer au suivant (hôte)
             </Button>
           )}
-          <p className="text-center text-white/30 text-[11px] mt-2">Tu restes maître du jeu, même éliminé·e.</p>
+          <p className="text-center text-chalk-faint text-[11px] mt-2">Tu restes maître du jeu, même éliminé·e.</p>
         </div>
       )}
     </div>
@@ -671,13 +671,13 @@ function EndView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Partie terminée</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Partie terminée</p>
       <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center mb-4">
         <span className="text-5xl block mb-1">{info?.emoji ?? '🏁'}</span>
         <h1 className="text-2xl font-extrabold shimmer-text">{info?.title ?? 'Fin de partie'}</h1>
-        <p className="text-sm text-white/50 mt-1">{info?.sub}</p>
+        <p className="text-sm text-chalk-soft mt-1">{info?.sub}</p>
         {myRole && (
-          <p className={`text-sm mt-3 font-bold ${iWon ? 'text-emerald-300' : 'text-white/50'}`}>
+          <p className={`text-sm mt-3 font-bold ${iWon ? 'text-emerald-300' : 'text-chalk-soft'}`}>
             {iWon ? '🎉 Tu gagnes' : '😬 Tu perds'} — tu étais {ROLE_EMOJI[myRole]} {ROLE_LABEL[myRole]}
           </p>
         )}

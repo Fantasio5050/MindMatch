@@ -74,7 +74,7 @@ export function AutorouteController() {
 
   return (
     <div className="min-h-svh flex items-center justify-center px-6">
-      <p className="text-white/50 text-sm">Préparation de la manche…</p>
+      <p className="text-chalk-soft text-sm">Préparation de la manche…</p>
     </div>
   )
 }
@@ -96,7 +96,7 @@ function IntroView({ trackLength, isHost, onStart }: { trackLength: number; isHo
         <h1 className="text-2xl font-extrabold mt-2">Autoroute</h1>
       </div>
       <Card className="mb-6">
-        <ul className="flex flex-col gap-3 text-sm text-white/80">
+        <ul className="flex flex-col gap-3 text-sm text-chalk-muted">
           {rules.map(([emoji, text], i) => (
             <motion.li
               key={i}
@@ -116,9 +116,9 @@ function IntroView({ trackLength, isHost, onStart }: { trackLength: number; isHo
           Départ ! 🏎️
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente que l'hôte donne le départ…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte donne le départ…</p>
       )}
-      <p className="text-center text-white/20 text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
+      <p className="text-center text-chalk-faint text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
     </div>
   )
 }
@@ -156,7 +156,7 @@ export function TrackStrip({
             </div>
             <div
               className={`rounded flex items-center justify-center ${
-                cell.type === 'toll' ? 'bg-amber-400/25 border border-amber-300/40' : 'bg-white/10 border border-white/10'
+                cell.type === 'toll' ? 'bg-amber-400/25 border border-amber-300/40' : 'bg-felt-raised border border-line'
               }`}
               style={{ width: cellSize, height: cellSize * 1.3, fontSize: cellSize * 0.55 }}
             >
@@ -214,7 +214,7 @@ function PredictingView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-3">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-3">
         Case {Math.min(position + 1, state.track.length)} / {state.track.length}
       </p>
 
@@ -233,13 +233,13 @@ function PredictingView({
         <Card className="text-center">
           <p className="text-4xl mb-2">🏁</p>
           <p className="font-semibold mb-1">Tu as fini l'autoroute !</p>
-          <p className="text-white/50 text-sm">Regarde les autres transpirer… ({state.votedCount}/{activeCount} ont parié)</p>
+          <p className="text-chalk-soft text-sm">Regarde les autres transpirer… ({state.votedCount}/{activeCount} ont parié)</p>
         </Card>
       ) : hasVoted ? (
         <Card className="text-center">
           <p className="text-3xl mb-2">✅</p>
           <p className="font-semibold mb-1">Pari enregistré : {state.yourVote ? choiceLabel(state.yourVote) : ''}</p>
-          <p className="text-white/50 text-sm">
+          <p className="text-chalk-soft text-sm">
             En attente des autres… ({state.votedCount}/{activeCount})
           </p>
         </Card>
@@ -249,13 +249,13 @@ function PredictingView({
             {kind === 'higher-lower' && recent.length > 0 && (
               <>
                 <PlayingCard rank={recent[recent.length - 1].rank} suit={recent[recent.length - 1].suit} size={72} />
-                <p className="text-white/50 text-sm mt-3">Ta carte de référence</p>
+                <p className="text-chalk-soft text-sm mt-3">Ta carte de référence</p>
               </>
             )}
             {kind === 'red-black' && (
               <>
                 <PlayingCard faceDown size={72} />
-                <p className="text-white/50 text-sm mt-3">La prochaine carte sera…</p>
+                <p className="text-chalk-soft text-sm mt-3">La prochaine carte sera…</p>
               </>
             )}
             {kind === 'inter-exter' && recent.length >= 2 && (
@@ -264,7 +264,7 @@ function PredictingView({
                   <PlayingCard rank={recent[recent.length - 2].rank} suit={recent[recent.length - 2].suit} size={64} />
                   <PlayingCard rank={recent[recent.length - 1].rank} suit={recent[recent.length - 1].suit} size={64} dealDelay={0.12} />
                 </div>
-                <p className="text-white/50 text-sm mt-3">Entre ces deux cartes… ou pas ?</p>
+                <p className="text-chalk-soft text-sm mt-3">Entre ces deux cartes… ou pas ?</p>
               </>
             )}
           </div>
@@ -288,13 +288,13 @@ function PredictingView({
             ))}
           </div>
           {kind === 'inter-exter' && (
-            <p className="text-center text-white/30 text-xs mt-4">Égalité avec une des deux cartes = perdu !</p>
+            <p className="text-center text-chalk-faint text-xs mt-4">Égalité avec une des deux cartes = perdu !</p>
           )}
-          {kind === 'higher-lower' && <p className="text-center text-white/30 text-xs mt-4">Égalité = perdu !</p>}
+          {kind === 'higher-lower' && <p className="text-center text-chalk-faint text-xs mt-4">Égalité = perdu !</p>}
         </>
       ) : null}
 
-      <p className="text-center text-white/30 text-xs mt-6">❌ Raté : 1 gorgée et tu recules d'une case · 💰 Péage : 1 gorgée</p>
+      <p className="text-center text-chalk-faint text-xs mt-6">❌ Raté : 1 gorgée et tu recules d'une case · 💰 Péage : 1 gorgée</p>
     </div>
   )
 }
@@ -320,14 +320,14 @@ function RevealView({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-4">Résultat</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Résultat</p>
 
       {myResult ? (
         <Card className="text-center mb-4">
           <div className="flex justify-center mb-3">
             <PlayingCard rank={myResult.drawnCard.rank} suit={myResult.drawnCard.suit} size={64} flipReveal />
           </div>
-          <p className="text-xs text-white/40 mb-2">
+          <p className="text-xs text-chalk-faint mb-2">
             Ton pari : {choiceLabel(myResult.choice)}
           </p>
           {myResult.correct ? (
@@ -343,7 +343,7 @@ function RevealView({
         </Card>
       ) : (
         <Card className="text-center mb-4">
-          <p className="text-white/40 text-sm">🏁 Déjà arrivé·e — tu regardes tranquillement.</p>
+          <p className="text-chalk-faint text-sm">🏁 Déjà arrivé·e — tu regardes tranquillement.</p>
         </Card>
       )}
 
@@ -386,7 +386,7 @@ function RevealView({
           {everyoneFinished ? 'Voir les résultats finaux' : 'Manche suivante →'}
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente de l'hôte pour continuer…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte pour continuer…</p>
       )}
     </div>
   )
@@ -413,19 +413,19 @@ function FinalResults({
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Autoroute terminée</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Autoroute terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🛣️ Classement</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-white/60">{totals[m.id] ?? 0} gorgée{(totals[m.id] ?? 0) !== 1 ? 's' : ''}</span>
+            <span className="text-sm text-chalk-soft">{totals[m.id] ?? 0} gorgée{(totals[m.id] ?? 0) !== 1 ? 's' : ''}</span>
           </Card>
         ))}
       </div>
-      <p className="text-center text-white/30 text-xs mb-4">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
+      <p className="text-center text-chalk-faint text-xs mb-4">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
       <Button fullWidth onClick={onExit}>
         Retour au salon
       </Button>

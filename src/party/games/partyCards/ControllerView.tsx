@@ -40,7 +40,7 @@ export function PartyCardsController() {
 
     return (
       <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-        <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-6">
+        <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-6">
           Carte {state.history.length + 1} / {state.totalRounds}
         </p>
         <Card className="text-center mb-6">
@@ -61,7 +61,7 @@ export function PartyCardsController() {
             {isLastRound ? 'Voir les résultats finaux' : 'Carte suivante →'}
           </Button>
         ) : (
-          <p className="text-center text-white/40 text-sm">L'hôte passera à la carte suivante quand vous êtes prêt·e·s.</p>
+          <p className="text-center text-chalk-faint text-sm">L'hôte passera à la carte suivante quand vous êtes prêt·e·s.</p>
         )}
       </div>
     )
@@ -69,7 +69,7 @@ export function PartyCardsController() {
 
   return (
     <div className="min-h-svh flex items-center justify-center px-6">
-      <p className="text-white/50 text-sm">Préparation de la carte…</p>
+      <p className="text-chalk-soft text-sm">Préparation de la carte…</p>
     </div>
   )
 }
@@ -78,15 +78,15 @@ function FinalResults({ members, onExit }: { members: Member[]; onExit: () => vo
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">Soirée terminée</p>
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Soirée terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🃏 Merci d'avoir joué !</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-white/60">{m.xp} XP</span>
+            <span className="text-sm text-chalk-soft">{m.xp} XP</span>
           </Card>
         ))}
       </div>

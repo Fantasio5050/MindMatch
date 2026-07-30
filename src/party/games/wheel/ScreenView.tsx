@@ -37,7 +37,7 @@ export function WheelScreen() {
   if (!group) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-xl">Connexion à la salle…</p>
+        <p className="text-chalk-faint text-xl">Connexion à la salle…</p>
       </div>
     )
   }
@@ -55,14 +55,14 @@ export function WheelScreen() {
       <SceneErrorBoundary
         fallback={
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-white/30 text-xl px-10 text-center">🎡 Affichage 3D indisponible sur cet appareil — la roue continue ci-dessous.</p>
+            <p className="text-chalk-faint text-xl px-10 text-center">🎡 Affichage 3D indisponible sur cet appareil — la roue continue ci-dessous.</p>
           </div>
         }
       >
         <Suspense
           fallback={
             <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-white/40 text-2xl">Installation de la roue… 🎡</p>
+              <p className="text-chalk-faint text-2xl">Installation de la roue… 🎡</p>
             </div>
           }
         >
@@ -85,12 +85,12 @@ export function WheelScreen() {
               key={state.currentSpinnerIndex}
               initial={{ opacity: 0, y: -14 }}
               animate={{ opacity: 1, y: 0 }}
-              className="glass-card rounded-3xl px-10 py-5 bg-black/45 text-center"
+              className="glass-card rounded-3xl px-10 py-5 bg-ink/45 text-center"
             >
               <h1 className="text-4xl font-extrabold shimmer-text mb-1">
                 Au tour de {memberName(state.spinnerOrder[state.currentSpinnerIndex])} 🎡
               </h1>
-              <p className="text-white/60 text-xl">Swipe sur ton téléphone pour lancer la roue !</p>
+              <p className="text-chalk-soft text-xl">Swipe sur ton téléphone pour lancer la roue !</p>
             </motion.div>
           </div>
         )}
@@ -102,13 +102,13 @@ export function WheelScreen() {
         {/* Compteur de gorgées + immunités, toujours visible en bas. */}
         {phase !== 'intro' && state && (
           <div className="mt-auto flex justify-center pb-6">
-            <div className="glass-card rounded-2xl px-6 py-3 bg-black/45 flex flex-wrap gap-4 justify-center max-w-4xl">
+            <div className="glass-card rounded-2xl px-6 py-3 bg-ink/45 flex flex-wrap gap-4 justify-center max-w-4xl">
               {participants.map((m) => (
                 <div key={m.id} className="flex items-center gap-2">
                   <Avatar pseudo={m.pseudo} color={m.color} size={30} photoUrl={m.photoUrl} />
                   <span className="text-base font-medium">{m.pseudo}</span>
                   {state.immunities[m.id] && <span title="Immunisé·e">🛡️</span>}
-                  <span className="text-white/50 tabular-nums">{state.totalSips[m.id] ?? 0} 🍻</span>
+                  <span className="text-chalk-soft tabular-nums">{state.totalSips[m.id] ?? 0} 🍻</span>
                 </div>
               ))}
             </div>
@@ -129,9 +129,9 @@ function IntroOverlay() {
   ] as const
   return (
     <div className="flex-1 flex items-center justify-center p-10">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl px-12 py-10 max-w-2xl bg-black/45">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl px-12 py-10 max-w-2xl bg-ink/45">
         <h1 className="text-5xl font-extrabold shimmer-text text-center mb-6">🎡 Roue Infernale</h1>
-        <div className="flex flex-col gap-3 text-xl text-white/85">
+        <div className="flex flex-col gap-3 text-xl text-chalk-muted">
           {rules.map(([emoji, text], i) => (
             <motion.p key={i} initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.12 * i }} className="flex gap-3">
               <span>{emoji}</span>
@@ -139,7 +139,7 @@ function IntroOverlay() {
             </motion.p>
           ))}
         </div>
-        <p className="text-white/40 text-lg text-center mt-6">L'hôte lance la machine 📱</p>
+        <p className="text-chalk-faint text-lg text-center mt-6">L'hôte lance la machine 📱</p>
       </motion.div>
     </div>
   )
@@ -160,13 +160,13 @@ function OutcomeBanner({ state, memberName }: { state: WheelClientState; memberN
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className="flex justify-center pt-8"
       >
-        <div className="glass-card rounded-3xl px-12 py-6 bg-black/55 text-center max-w-3xl">
+        <div className="glass-card rounded-3xl px-12 py-6 bg-ink/55 text-center max-w-3xl">
           <p className="text-6xl mb-2">{seg.emoji}</p>
           <h1 className="text-5xl font-extrabold mb-3" style={{ color: seg.color === '#1b1426' ? '#f4f2f8' : seg.color }}>
             {seg.label}
           </h1>
           {seg.type === 'gage' && outcome.gageText && (
-            <p className="text-white/85 text-2xl italic mb-2">« {outcome.gageText} »</p>
+            <p className="text-chalk-muted text-2xl italic mb-2">« {outcome.gageText} »</p>
           )}
           {drinkers.length > 0 && (
             <p className="text-pink-300 text-2xl">
@@ -177,7 +177,7 @@ function OutcomeBanner({ state, memberName }: { state: WheelClientState; memberN
             <p className="text-amber-300 text-2xl">🛡️ {outcome.immunityUsedBy.map(memberName).join(', ')} : immunité utilisée !</p>
           )}
           {seg.type === 'immunity' && <p className="text-amber-300 text-2xl">{memberName(spin.spinnerId)} est désormais sous bouclier !</p>}
-          {seg.type === 'respin' && <p className="text-white/70 text-2xl">{memberName(spin.spinnerId)} rejoue !</p>}
+          {seg.type === 'respin' && <p className="text-chalk-muted text-2xl">{memberName(spin.spinnerId)} rejoue !</p>}
           {seg.type === 'give' && outcome.giveRemaining > 0 && (
             <p className="text-emerald-300 text-2xl">{memberName(spin.spinnerId)} distribue {outcome.giveRemaining} gorgée{outcome.giveRemaining > 1 ? 's' : ''}… 📱</p>
           )}
@@ -200,22 +200,22 @@ function FinalPodium({ members, state }: { members: Member[]; state: WheelClient
   const ranked = [...members].sort((a, b) => (state.totalSips[a.id] ?? 0) - (state.totalSips[b.id] ?? 0))
   return (
     <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12 text-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">
         Roue Infernale — {state.spinsDone} lancer{state.spinsDone > 1 ? 's' : ''}
       </p>
       <h1 className="text-6xl font-extrabold shimmer-text mb-12">🎡 Classement final</h1>
       <div className="flex flex-col gap-4 items-center">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={480} loserEmoji="🍺">
-            <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
             {state.immunities[m.id] && <span title="Immunité non utilisée">🛡️</span>}
-            <span className="text-lg text-white/60 tabular-nums">{state.totalSips[m.id] ?? 0} 🍻</span>
+            <span className="text-lg text-chalk-soft tabular-nums">{state.totalSips[m.id] ?? 0} 🍻</span>
           </PodiumRow>
         ))}
       </div>
-      <p className="text-white/30 text-lg mt-8">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
+      <p className="text-chalk-faint text-lg mt-8">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
     </div>
   )
 }

@@ -47,7 +47,7 @@ export function PyramidScreen() {
   if (!group) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-xl">Connexion à la salle…</p>
+        <p className="text-chalk-faint text-xl">Connexion à la salle…</p>
       </div>
     )
   }
@@ -81,7 +81,7 @@ function IntroScreen() {
     <div className="text-center max-w-3xl">
       <span className="text-7xl mb-4 block">🍻</span>
       <h1 className="text-5xl font-extrabold shimmer-text mb-8">Pyramide</h1>
-      <div className="flex flex-col gap-3 text-xl text-white/70 text-left">
+      <div className="flex flex-col gap-3 text-xl text-chalk-muted text-left">
         <p>🃏 Chacun reçoit 4 cartes secrètes, à mémoriser en 30 secondes.</p>
         <p>🔺 La pyramide se révèle du bas (1 gorgée) au sommet (cul sec).</p>
         <p>👉 Distribuez à qui vous voulez : "Tu bois !" — pas besoin d'avoir la carte.</p>
@@ -90,7 +90,7 @@ function IntroScreen() {
         <p>🎭 Bonne carte = double pour qui doutait. Mauvaise carte (ou bluff) = double pour le/la distributeur·rice.</p>
         <p>🧠 À la fin, récitez vos cartes dans l'ordre (valeur ET signe) : 1 gorgée à distribuer par bonne réponse !</p>
       </div>
-      <p className="text-white/30 text-lg mt-8">L'hôte va lancer la mémorisation…</p>
+      <p className="text-chalk-faint text-lg mt-8">L'hôte va lancer la mémorisation…</p>
     </div>
   )
 }
@@ -142,7 +142,7 @@ function MatchingScreen({
       <PyramidVisual state={state} />
 
       <div className="flex-1 flex flex-col items-center">
-        <p className="text-white/40 text-lg uppercase tracking-widest mb-3">
+        <p className="text-chalk-faint text-lg uppercase tracking-widest mb-3">
           Carte {state.currentIndex + 1} / {state.pyramid.length}
         </p>
         {card && (
@@ -159,13 +159,13 @@ function MatchingScreen({
                 key={a.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="text-center text-white/70"
+                className="text-center text-chalk-muted"
               >
                 {accusationLabel(a, memberName)}
               </motion.p>
             ))}
           </AnimatePresence>
-          {cardAccusations.length === 0 && <p className="text-center text-white/30">Qui ose accuser… ? 👀</p>}
+          {cardAccusations.length === 0 && <p className="text-center text-chalk-faint">Qui ose accuser… ? 👀</p>}
         </div>
 
         <SipTally members={members} totals={state.totalSipsReceived} />
@@ -211,10 +211,10 @@ function RecitationScreen({ state, members }: { state: PyramidClientState; membe
     <div className="text-center max-w-2xl">
       <span className="text-6xl mb-4 block">🧠</span>
       <h1 className="text-4xl font-extrabold shimmer-text mb-4">Récitation finale</h1>
-      <p className="text-white/50 text-xl mb-8">
+      <p className="text-chalk-soft text-xl mb-8">
         Chacun récite ses cartes de mémoire (valeur + signe, dans l'ordre) sur son téléphone…
       </p>
-      <p className="text-white/70 text-2xl mb-8 tabular-nums">
+      <p className="text-chalk-muted text-2xl mb-8 tabular-nums">
         {done} / {members.length} ont terminé
       </p>
       <div className="flex flex-wrap gap-3 justify-center">
@@ -243,7 +243,7 @@ function SipTally({ members, totals }: { members: Member[]; totals: Record<strin
         <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-3 py-1.5">
           <Avatar pseudo={m.pseudo} color={m.color} size={28} photoUrl={m.photoUrl} />
           <span className="text-sm font-medium">{m.pseudo}</span>
-          <span className="text-sm text-white/50 tabular-nums">{totals[m.id] ?? 0}</span>
+          <span className="text-sm text-chalk-soft tabular-nums">{totals[m.id] ?? 0}</span>
         </div>
       ))}
     </div>
@@ -254,19 +254,19 @@ function FinalPodium({ members, totals }: { members: Member[]; totals: Record<st
   const ranked = [...members].sort((a, b) => (totals[a.id] ?? 0) - (totals[b.id] ?? 0))
   return (
     <div className="text-center">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-4">Pyramide terminée</p>
+      <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Pyramide terminée</p>
       <h1 className="text-6xl font-extrabold shimmer-text mb-12">🍻 Classement final</h1>
       <div className="flex flex-col gap-4 items-center">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={420} loserEmoji="🍺">
-            <span className="text-2xl font-bold w-8 text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
-            <span className="text-lg text-white/60 tabular-nums">{totals[m.id] ?? 0} gorgées</span>
+            <span className="text-lg text-chalk-soft tabular-nums">{totals[m.id] ?? 0} gorgées</span>
           </PodiumRow>
         ))}
       </div>
-      <p className="text-white/30 text-lg mt-8">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
+      <p className="text-chalk-faint text-lg mt-8">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
     </div>
   )
 }

@@ -84,17 +84,17 @@ export function QuizPage() {
           <button
             onClick={goBack}
             disabled={index === 0}
-            className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/70 disabled:opacity-30 shrink-0"
+            className="w-9 h-9 rounded-full bg-felt-raised flex items-center justify-center text-chalk-muted disabled:opacity-30 shrink-0"
           >
             ←
           </button>
           <ProgressBar value={index} total={questions.length} />
-          <span className="text-[10px] text-white/40 shrink-0 px-2 py-1.5 rounded-full bg-white/8" title={levelMeta.blurb}>
+          <span className="text-[10px] text-chalk-faint shrink-0 px-2 py-1.5 rounded-full bg-felt-raised" title={levelMeta.blurb}>
             {levelMeta.emoji} {levelMeta.name}
           </span>
           <button
             onClick={() => navigate('/lobby')}
-            className="text-xs text-white/50 shrink-0 px-2 py-1.5 rounded-full bg-white/8"
+            className="text-xs text-chalk-soft shrink-0 px-2 py-1.5 rounded-full bg-felt-raised"
           >
             Salle
           </button>
@@ -132,11 +132,11 @@ export function QuizPage() {
                       className={`flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition-colors disabled:opacity-60 ${
                         isSelected
                           ? 'bg-gradient-to-r from-fuchsia-500/20 to-purple-500/20 border-fuchsia-400/60'
-                          : 'bg-white/6 border-white/10 active:bg-white/10'
+                          : 'bg-felt-raised border-line active:bg-felt-raised'
                       }`}
                     >
                       <span className="text-xl shrink-0">{option.emoji}</span>
-                      <span className="text-[15px] text-white/90 leading-snug">{option.label}</span>
+                      <span className="text-[15px] text-chalk-muted leading-snug">{option.label}</span>
                     </motion.button>
                   )
                 })}

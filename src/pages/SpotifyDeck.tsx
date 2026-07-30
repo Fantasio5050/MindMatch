@@ -138,18 +138,18 @@ export function SpotifyDeck({ code }: { code: string }) {
   const queue = music ? orderedQueue(music) : []
 
   const Header = (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 relative z-10">
+    <div className="flex items-center justify-between px-4 py-3 border-b border-line relative z-10">
       <div className="flex items-center gap-2">
         <span className="text-xl">🎧</span>
         <span className="font-bold">Platine Spotify</span>
-        <span className="text-xs text-white/40">· Salle {code}</span>
+        <span className="text-xs text-chalk-faint">· Salle {code}</span>
         {started && (isActive ? (
           <span className="text-[10px] rounded-full bg-emerald-500/20 text-emerald-300 px-2 py-0.5">● active</span>
         ) : (
-          <span className="text-[10px] rounded-full bg-white/10 text-white/40 px-2 py-0.5">en veille</span>
+          <span className="text-[10px] rounded-full bg-felt-raised text-chalk-faint px-2 py-0.5">en veille</span>
         ))}
       </div>
-      <button onClick={() => { disconnect(); navigate('/') }} className="rounded-full bg-white/8 px-3 h-8 text-white/60 text-xs">
+      <button onClick={() => { disconnect(); navigate('/') }} className="rounded-full bg-felt-raised px-3 h-8 text-chalk-soft text-xs">
         Quitter
       </button>
     </div>
@@ -162,8 +162,8 @@ export function SpotifyDeck({ code }: { code: string }) {
         {Header}
         <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 px-6 max-w-md mx-auto">
           <span className="text-5xl">🎧</span>
-          <p className="text-white/70">Spotify n'est pas disponible sur cette platine.</p>
-          <p className="text-white/40 text-sm">Relance le Mode Soirée en choisissant <b>YouTube</b> — ça marche tout de suite.</p>
+          <p className="text-chalk-muted">Spotify n'est pas disponible sur cette platine.</p>
+          <p className="text-chalk-faint text-sm">Relance le Mode Soirée en choisissant <b>YouTube</b> — ça marche tout de suite.</p>
         </div>
       </div>
     )
@@ -187,7 +187,7 @@ export function SpotifyDeck({ code }: { code: string }) {
             <>
               <span className="text-6xl">🎧</span>
               <h1 className="text-2xl font-extrabold">Connecte Spotify</h1>
-              <p className="text-white/50 text-sm max-w-sm">
+              <p className="text-chalk-soft text-sm max-w-sm">
                 Sur cet appareil branché à l'enceinte, connecte ton compte Spotify pour lire la file.
               </p>
               <Button onClick={() => beginSpotifyAuth(`#/platine/${code}`)}>Se connecter à Spotify</Button>
@@ -195,17 +195,17 @@ export function SpotifyDeck({ code }: { code: string }) {
           ) : !started ? (
             <>
               <span className="text-6xl">🔊</span>
-              <p className="text-white/60 text-sm max-w-sm">Assure-toi que cet appareil est branché à l'enceinte, puis démarre la platine.</p>
+              <p className="text-chalk-soft text-sm max-w-sm">Assure-toi que cet appareil est branché à l'enceinte, puis démarre la platine.</p>
               <Button onClick={startPlatine}>▶ Démarrer la platine</Button>
-              <button onClick={() => { disconnectSpotify(); setConnected(false) }} className="text-xs text-white/40 underline">
+              <button onClick={() => { disconnectSpotify(); setConnected(false) }} className="text-xs text-chalk-faint underline">
                 Changer de compte Spotify
               </button>
             </>
           ) : !ready ? (
-            <p className="text-white/50 text-sm">Connexion du lecteur Spotify…</p>
+            <p className="text-chalk-soft text-sm">Connexion du lecteur Spotify…</p>
           ) : !isActive ? (
             <>
-              <p className="text-white/70 text-sm">Une autre platine a pris le relais.</p>
+              <p className="text-chalk-muted text-sm">Une autre platine a pris le relais.</p>
               <Button variant="secondary" onClick={() => platineClaim(platineId)}>Reprendre ici</Button>
             </>
           ) : current ? (
@@ -213,7 +213,7 @@ export function SpotifyDeck({ code }: { code: string }) {
               {current.thumbnail && <img src={current.thumbnail} alt="" className="w-56 h-56 rounded-2xl object-cover shadow-2xl" />}
               <div>
                 <p className="text-2xl font-bold">{current.title}</p>
-                <p className="text-white/50">
+                <p className="text-chalk-soft">
                   {current.artist}{current.artist && current.durationMs ? ' · ' : ''}{current.durationMs ? formatDuration(current.durationMs) : ''}
                 </p>
               </div>
@@ -221,32 +221,32 @@ export function SpotifyDeck({ code }: { code: string }) {
           ) : (
             <>
               <span className="text-5xl">🎶</span>
-              <p className="text-white/60 text-sm">File vide — ajoutez des musiques depuis vos téléphones.</p>
+              <p className="text-chalk-soft text-sm">File vide — ajoutez des musiques depuis vos téléphones.</p>
             </>
           )}
         </div>
 
         {/* File d'attente + stats */}
-        <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-white/10 p-4 overflow-y-auto max-h-[40svh] lg:max-h-none">
-          <p className="text-xs uppercase tracking-widest text-white/40 mb-1">À suivre</p>
-          <p className="text-sm text-white/70 mb-3">
+        <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-line p-4 overflow-y-auto max-h-[40svh] lg:max-h-none">
+          <p className="text-xs uppercase tracking-widest text-chalk-faint mb-1">À suivre</p>
+          <p className="text-sm text-chalk-muted mb-3">
             {queue.length} titre{queue.length > 1 ? 's' : ''}
             {totalDurationMs(queue) > 0 ? ` · ${formatDuration(totalDurationMs(queue))} en file` : ''}
           </p>
-          {queue.length === 0 && <p className="text-white/30 text-sm">Rien pour l'instant.</p>}
+          {queue.length === 0 && <p className="text-chalk-faint text-sm">Rien pour l'instant.</p>}
           <div className="flex flex-col gap-2">
             {queue.slice(0, 14).map((t, i) => (
               <div key={t.id} className="flex items-center gap-2.5">
-                <span className="text-xs text-white/30 w-4 text-right">{i + 1}</span>
+                <span className="text-xs text-chalk-faint w-4 text-right">{i + 1}</span>
                 {t.thumbnail ? (
                   <img src={t.thumbnail} alt="" className="w-10 h-10 rounded object-cover" />
                 ) : (
-                  <div className="w-10 h-10 rounded bg-white/10 flex items-center justify-center">🎵</div>
+                  <div className="w-10 h-10 rounded bg-felt-raised flex items-center justify-center">🎵</div>
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm truncate">{t.title}</p>
                   {(t.artist || t.durationMs) && (
-                    <p className="text-[11px] text-white/40 truncate">
+                    <p className="text-[11px] text-chalk-faint truncate">
                       {t.artist}{t.artist && t.durationMs ? ' · ' : ''}{t.durationMs ? formatDuration(t.durationMs) : ''}
                     </p>
                   )}

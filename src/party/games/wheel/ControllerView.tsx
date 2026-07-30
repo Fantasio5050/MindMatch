@@ -42,7 +42,7 @@ export function WheelController() {
   if (phase === 'turn') {
     return (
       <div className="min-h-svh flex flex-col px-6 pt-10 pb-8 safe-top">
-        <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-1">Tour {group.party.round} 🎡</p>
+        <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">Tour {group.party.round} 🎡</p>
         {iAmSpinner ? (
           <SwipePad
             state={state}
@@ -54,18 +54,18 @@ export function WheelController() {
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center gap-6">
             <WheelSVG segments={state.segments} angle={state.wheelAngle} size={230} />
-            <p className="text-white/60 text-sm text-center">
+            <p className="text-chalk-soft text-sm text-center">
               🎡 <b>{memberName(spinnerId)}</b> fait tourner la roue…
             </p>
           </div>
         )}
         {isHost && !iAmSpinner && (
-          <button onClick={() => hostAdvance()} className="mt-4 text-xs text-white/30 underline mx-auto">
+          <button onClick={() => hostAdvance()} className="mt-4 text-xs text-chalk-faint underline mx-auto">
             Passer le tour de {memberName(spinnerId)} (absent·e ?)
           </button>
         )}
         {isHost && (
-          <button onClick={() => sendAction('finish', {})} className="mt-2 text-xs text-white/30 underline mx-auto">
+          <button onClick={() => sendAction('finish', {})} className="mt-2 text-xs text-chalk-faint underline mx-auto">
             Terminer la Roue (podium)
           </button>
         )}
@@ -77,7 +77,7 @@ export function WheelController() {
     const outcome = state.spin.outcome
     return (
       <div className="min-h-svh flex flex-col px-6 pt-10 pb-8 safe-top">
-        <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-3">
+        <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-3">
           {memberName(state.spin.spinnerId)} a lancé la roue 🎡
         </p>
         <div className="flex justify-center mb-4">
@@ -85,7 +85,7 @@ export function WheelController() {
         </div>
 
         {!playback.done ? (
-          <p className="text-center text-white/50 text-sm animate-pulse">📺 Suspense…</p>
+          <p className="text-center text-chalk-soft text-sm animate-pulse">📺 Suspense…</p>
         ) : (
           <OutcomePanel
             outcome={outcome}
@@ -122,7 +122,7 @@ export function WheelController() {
 
   return (
     <div className="min-h-svh flex items-center justify-center px-6">
-      <p className="text-white/50 text-sm">Installation de la roue…</p>
+      <p className="text-chalk-soft text-sm">Installation de la roue…</p>
     </div>
   )
 }
@@ -142,10 +142,10 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
       <div className="text-center mb-6">
         <span className="text-5xl">🎡</span>
         <h1 className="text-2xl font-extrabold mt-2">Roue Infernale</h1>
-        <p className="text-white/40 text-sm">La roue tourne en 3D sur la TV 📺</p>
+        <p className="text-chalk-faint text-sm">La roue tourne en 3D sur la TV 📺</p>
       </div>
       <Card className="mb-6">
-        <ul className="flex flex-col gap-3 text-sm text-white/80">
+        <ul className="flex flex-col gap-3 text-sm text-chalk-muted">
           {rules.map(([emoji, text], i) => (
             <motion.li key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }} className="flex gap-2">
               <span className="shrink-0">{emoji}</span>
@@ -159,9 +159,9 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
           Faire tourner ! 🎡
         </Button>
       ) : (
-        <p className="text-center text-white/40 text-sm">En attente que l'hôte lance la roue…</p>
+        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte lance la roue…</p>
       )}
-      <p className="text-center text-white/20 text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
+      <p className="text-center text-chalk-faint text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
     </div>
   )
 }
@@ -238,7 +238,7 @@ function SwipePad({ state, onSpin }: { state: WheelClientState; onSpin: (force: 
           ) : dragging ? (
             <>
               <span className="text-4xl font-extrabold shimmer-text tabular-nums">{percent}%</span>
-              <p className="text-white/70 text-sm font-semibold">{power >= 0.95 ? '🔥 PLEINE PUISSANCE !' : 'Relâche pour lancer !'}</p>
+              <p className="text-chalk-muted text-sm font-semibold">{power >= 0.95 ? '🔥 PLEINE PUISSANCE !' : 'Relâche pour lancer !'}</p>
             </>
           ) : (
             <>
@@ -246,13 +246,13 @@ function SwipePad({ state, onSpin }: { state: WheelClientState; onSpin: (force: 
                 👆
               </motion.span>
               <p className="font-bold">Maintiens et tire vers le haut</p>
-              <p className="text-white/40 text-xs">puis relâche pour lancer la roue</p>
+              <p className="text-chalk-faint text-xs">puis relâche pour lancer la roue</p>
             </>
           )}
         </div>
         {/* Graduations de la jauge */}
         {[25, 50, 75].map((g) => (
-          <div key={g} className="absolute inset-x-4 border-t border-dashed border-white/10 pointer-events-none" style={{ bottom: `${g}%` }} />
+          <div key={g} className="absolute inset-x-4 border-t border-dashed border-line pointer-events-none" style={{ bottom: `${g}%` }} />
         ))}
       </div>
     </div>
@@ -303,11 +303,11 @@ function OutcomePanel({
           {iAmSpinner ? 'Ta prochaine gorgée imposée par la roue est annulée !' : `${memberName(spinnerId)} gagne une immunité !`}
         </p>
       )}
-      {seg.type === 'respin' && <p className="text-center text-white/60 text-sm mb-2">🔄 {memberName(spinnerId)} rejoue !</p>}
+      {seg.type === 'respin' && <p className="text-center text-chalk-soft text-sm mb-2">🔄 {memberName(spinnerId)} rejoue !</p>}
 
       {seg.type === 'gage' && outcome.gageText && (
         <>
-          <p className="text-center text-white/80 text-sm italic mb-3">« {outcome.gageText} »</p>
+          <p className="text-center text-chalk-muted text-sm italic mb-3">« {outcome.gageText} »</p>
           {outcome.gageDone === null ? (
             iAmSpinner ? (
               <div className="flex gap-2">
@@ -319,7 +319,7 @@ function OutcomePanel({
                 </Button>
               </div>
             ) : (
-              <p className="text-center text-white/40 text-xs">{memberName(spinnerId)} décide…</p>
+              <p className="text-center text-chalk-faint text-xs">{memberName(spinnerId)} décide…</p>
             )
           ) : outcome.gageDone ? (
             <p className="text-center text-emerald-300 text-sm">✅ Gage relevé ! (+5 XP)</p>
@@ -332,7 +332,7 @@ function OutcomePanel({
       {seg.type === 'give' &&
         (iAmSpinner && outcome.giveRemaining > 0 ? (
           <>
-            <p className="text-center text-white/50 text-sm mb-3">
+            <p className="text-center text-chalk-soft text-sm mb-3">
               Touche un joueur pour lui donner 1 gorgée — reste <b className="text-fuchsia-300">{outcome.giveRemaining}</b>
             </p>
             <div className="grid grid-cols-3 gap-2">
@@ -352,7 +352,7 @@ function OutcomePanel({
             </div>
           </>
         ) : outcome.giveRemaining > 0 ? (
-          <p className="text-center text-white/40 text-xs">{memberName(spinnerId)} distribue ses gorgées…</p>
+          <p className="text-center text-chalk-faint text-xs">{memberName(spinnerId)} distribue ses gorgées…</p>
         ) : (
           <p className="text-center text-emerald-300 text-sm">
             ✅ Distribué : {Object.entries(outcome.given).map(([id, n]) => `${n} → ${memberName(id)}`).join(' · ')}
@@ -366,22 +366,22 @@ function FinalResults({ members, state, onExit }: { members: Member[]; state: Wh
   const ranked = [...members].sort((a, b) => (state.totalSips[a.id] ?? 0) - (state.totalSips[b.id] ?? 0))
   return (
     <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
-      <p className="text-xs uppercase tracking-widest text-white/40 text-center mb-2">
+      <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Roue Infernale — {state.spinsDone} lancer{state.spinsDone > 1 ? 's' : ''}
       </p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🎡 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">
         {ranked.map((m, i) => (
           <Card key={m.id} delay={0.05 * i} className="flex items-center gap-3 py-3">
-            <span className="text-lg font-bold w-6 text-center text-white/50">{i === 0 ? '🏆' : i + 1}</span>
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
             <span className="flex-1 font-semibold truncate">{m.pseudo}</span>
             {state.immunities[m.id] && <span title="Immunité non utilisée">🛡️</span>}
-            <span className="text-sm text-white/60">{state.totalSips[m.id] ?? 0} 🍻</span>
+            <span className="text-sm text-chalk-soft">{state.totalSips[m.id] ?? 0} 🍻</span>
           </Card>
         ))}
       </div>
-      <p className="text-center text-white/30 text-xs mb-4">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
+      <p className="text-center text-chalk-faint text-xs mb-4">💧 Buvez de l'eau, ne prenez pas le volant après avoir bu.</p>
       <Button fullWidth onClick={onExit}>
         Retour au salon
       </Button>
