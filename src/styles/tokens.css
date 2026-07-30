@@ -1,0 +1,159 @@
+/**
+ * MindMatch — Design tokens « Le Cercle électrique »
+ * =================================================
+ * Socle unique du design system. AUCUN composant ne doit redéfinir une couleur, un rayon, une
+ * durée ou une taille de texte en dur : tout passe par ici.
+ *
+ * Direction : table de jeu premium (noir chaud, feutre, liserés) + plateau télé (typo display
+ * condensée, révélations). Une seule couleur a le droit de crier — `spark`. Le laiton n'est
+ * qu'un accent de victoire, jamais la couleur dominante (sinon l'app vire casino).
+ *
+ * Deux surfaces, deux échelles typographiques : `--text-*` pour le téléphone (lecture à 30 cm),
+ * `--text-tv-*` pour l'écran partagé (lecture à 3-5 m). Elles ne se mélangent jamais.
+ */
+
+/* `static` est indispensable ici : par défaut Tailwind v4 n'émet que les variables des
+   utilitaires réellement utilisés. Nos tokens sont aussi consommés en `var(--color-…)` depuis des
+   styles inline et du CSS brut (fonds de scène, halos, dégradés de jaquette) — sans `static` ils
+   seraient élagués du bundle et ces `var()` tomberaient silencieusement à vide. */
+@theme static {
+  /* ---- Couleurs : base ------------------------------------------------ */
+  /* Noir CHAUD, jamais violet : le violet-noir d'origine tirait vers le néon générique. */
+  --color-ink: #0c0b10;
+  --color-felt: #17151e;
+  --color-felt-raised: #221f2b;
+  --color-felt-sunken: #100e15;
+
+  /* ---- Couleurs : accents -------------------------------------------- */
+  /* `spark` = LA signature. Le cliché « dégradé IA » venait de l'usage (4 blobs qui dérivent),
+     pas de la teinte : un magenta plat, unique et assumé est au contraire très affirmé. */
+  --color-spark: #ff3d7f;
+  --color-spark-dim: #c72b60;
+  --color-spark-glow: #ff3d7f33;
+
+  /* Laiton : victoire, hôte, XP. Réservé aux moments de valeur — jamais en surface. */
+  --color-brass: #d9a441;
+  --color-brass-dim: #a97c2c;
+
+  /* Danger, 18+, élimination. */
+  --color-blood: #c1272d;
+  --color-blood-dim: #8d1c21;
+
+  /* Confirmation / vivant (présence en ligne, bonne réponse). Volontairement discret. */
+  --color-jade: #3fb08a;
+
+  /* ---- Couleurs : texte ---------------------------------------------- */
+  /* 4 niveaux, et RIEN d'autre. L'audit a relevé 14 opacités de blanc différentes : c'est ce
+     qui rendait la hiérarchie floue partout. */
+  --color-chalk: #f2efe9;
+  --color-chalk-muted: rgba(242, 239, 233, 0.72);
+  --color-chalk-soft: rgba(242, 239, 233, 0.48);
+  --color-chalk-faint: rgba(242, 239, 233, 0.32);
+
+  /* ---- Lignes & séparations ------------------------------------------ */
+  /* Le liseré remplace le glassmorphism : c'est lui qui dessine les objets maintenant. */
+  --color-line: rgba(242, 239, 233, 0.1);
+  --color-line-strong: rgba(242, 239, 233, 0.18);
+
+  /* ---- Typographie ---------------------------------------------------- */
+  /* Display = Archivo variable (axe de chasse 62-125 : le condensé TV et le titre mobile
+     sortent du MÊME fichier). UI = Inter Tight, plus compact qu'Inter à taille égale. */
+  --font-display: 'Archivo Variable', 'Archivo', system-ui, sans-serif;
+  --font-sans: 'Inter Tight Variable', 'Inter Tight', system-ui, -apple-system, sans-serif;
+
+  /* Échelle téléphone — 8 pas, contre 17 tailles ad hoc auparavant. */
+  --text-2xs: 0.6875rem;   /* 11px — micro-légende, dernier recours */
+  --text-xs: 0.78125rem;   /* 12.5px — légende */
+  --text-sm: 0.875rem;     /* 14px — texte secondaire */
+  --text-base: 1rem;       /* 16px — corps */
+  --text-lg: 1.125rem;     /* 18px — accroche */
+  --text-xl: 1.375rem;     /* 22px — titre de carte */
+  --text-2xl: 1.75rem;     /* 28px — titre d'écran */
+  --text-3xl: 2.25rem;     /* 36px — chiffre héros (chrono, score) */
+
+  /* Échelle TV — lecture à 3-5 m. Ne JAMAIS utiliser l'échelle téléphone sur la scène. */
+  --text-tv-xs: 1.25rem;   /* 20px — mention de bas d'écran */
+  --text-tv-sm: 1.5rem;    /* 24px — étiquette joueur */
+  --text-tv-base: 1.875rem;/* 30px — texte de scène */
+  --text-tv-lg: 2.5rem;    /* 40px — sous-titre */
+  --text-tv-xl: 3.5rem;    /* 56px — titre */
+  --text-tv-2xl: 4.75rem;  /* 76px — révélation */
+  --text-tv-3xl: 6.5rem;   /* 104px — verdict plein écran */
+
+  /* ---- Rayons --------------------------------------------------------- */
+  /* 4 rayons intentionnels, contre 6 valeurs mélangées (Card en 3xl, Button en 2xl…). */
+  --radius-control: 0.875rem; /* 14px — boutons, champs */
+  --radius-card: 1.25rem;     /* 20px — cartes, tuiles */
+  --radius-sheet: 1.75rem;    /* 28px — feuilles, modales */
+  --radius-chip: 999px;       /* pastilles, avatars */
+
+  /* ---- Élévation ------------------------------------------------------ */
+  /* Sur fond sombre l'ombre seule ne se voit pas : c'est le couple liseré + ombre basse qui
+     détache un objet. Le flou d'arrière-plan (glass) devient un signal RARE, réservé au
+     flottant réel (modales, feuilles) — plus la surface par défaut de tout. */
+  --shadow-card: 0 1px 0 rgba(242, 239, 233, 0.04) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.8);
+  --shadow-raised: 0 1px 0 rgba(242, 239, 233, 0.06) inset, 0 18px 40px -18px rgba(0, 0, 0, 0.9);
+  --shadow-float: 0 32px 64px -24px rgba(0, 0, 0, 0.95);
+  --shadow-spark: 0 0 0 1px var(--color-spark-dim), 0 12px 32px -12px var(--color-spark-glow);
+
+  /* ---- Motion --------------------------------------------------------- */
+  /* 4 mouvements nommés (Deal / Reveal / Verdict / Pulse) et rien d'autre. Les durées vivent
+     ici pour que la TV et le téléphone respirent au même rythme. */
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-impact: cubic-bezier(0.16, 1.02, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --dur-quick: 140ms;    /* retour tactile */
+  --dur-base: 260ms;     /* transition standard */
+  --dur-deal: 420ms;     /* Deal — distribution */
+  --dur-suspense: 600ms; /* Reveal — suspension avant bascule */
+  --dur-verdict: 900ms;  /* Verdict — temps mort assumé */
+}
+
+/* ---------------------------------------------------------------------- */
+/* Couche de base                                                          */
+/* ---------------------------------------------------------------------- */
+
+:root {
+  color-scheme: dark;
+  /* Interlignage serré sur les titres display : c'est ce qui donne le côté « affiche » plutôt
+     que « paragraphe de site web ». */
+  --leading-display: 0.92;
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-chalk);
+  font-family: var(--font-sans);
+  /* Inter Tight bénéficie beaucoup de l'optique : chiffres tabulaires par défaut pour que les
+     compteurs, chronos et scores ne « sautent » pas d'un pixel à chaque tick. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Titres de scène et verdicts : Archivo resserré. */
+.font-display {
+  font-family: var(--font-display);
+  font-stretch: 88%;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: var(--leading-display);
+}
+
+/* Variante « plateau télé » : très condensée, très grasse, pour les révélations plein écran. */
+.font-stage {
+  font-family: var(--font-display);
+  font-stretch: 74%;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: var(--leading-display);
+  text-transform: uppercase;
+}
+
+/* Sur-titre : la petite ligne au-dessus d'un titre, qui situe le moment (« MANCHE 2 / 6 »). */
+.kicker {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-chalk-faint);
+}

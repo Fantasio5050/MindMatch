@@ -1,12 +1,7 @@
 @import "tailwindcss";
-
-@theme {
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-
-:root {
-  color-scheme: dark;
-}
+/* Socle du design system « Le Cercle électrique » — couleurs, typo, rayons, élévation, motion.
+   Toute nouvelle UI doit consommer ces tokens plutôt que des valeurs en dur. */
+@import "./styles/tokens.css";
 
 * {
   -webkit-tap-highlight-color: transparent;
@@ -18,10 +13,8 @@ html, body {
 
 body {
   margin: 0;
-  font-family: var(--font-sans);
-  background: #0b0714;
-  color: #f4f2f8;
   min-height: 100svh;
+  /* fond / couleur / police : voir styles/tokens.css (couche de base) */
 }
 
 #root {
