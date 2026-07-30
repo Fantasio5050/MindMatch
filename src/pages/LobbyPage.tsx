@@ -2,14 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PageTransition } from '../components/PageTransition'
-import { Card } from '../components/Card'
+import { Surface } from '../components/Card'
 import { Button } from '../components/Button'
-import { Avatar } from '../components/Avatar'
+import { Player } from '../components/Player'
 import { useAppStore } from '../store/useAppStore'
 import { usePartyStore } from '../store/usePartyStore'
 import { useSound } from '../hooks/useSound'
-import { levelProgress } from '../lib/xp'
-import { BADGE_MAP } from '../data/badges'
 import { apiGetGameHistory, apiUpdatePhoto, ApiError } from '../lib/api'
 import { compressImage } from '../lib/compressImage'
 import { GAME_META } from '../data/gameMeta'
@@ -109,7 +107,7 @@ export function LobbyPage() {
   if (!identity || !group) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-sm">Chargement de la salle…</p>
+        <p className="text-chalk-soft text-sm">Chargement de la salle…</p>
       </div>
     )
   }
@@ -196,177 +194,47 @@ export function LobbyPage() {
   return (
     <PageTransition>
       <div className="px-6 pt-10 pb-10 safe-top">
-        <div className="text-center mb-6">
-          <p className="text-xs uppercase tracking-widest text-white/40">Salle</p>
-          <h1 className="text-3xl font-extrabold shimmer-text mb-1">{group.name}</h1>
-          <button onClick={copyCode} className="text-sm text-white/50">
-            Code : <span className="font-bold tracking-[0.2em] text-white/80">{group.code}</span>{' '}
-            <span className="text-fuchsia-300">{copied ? '✓ Copié' : '(copier)'}</span>
-          </button>
-          {confirmingLeave ? (
-            <div className="flex items-center justify-center gap-2 mt-3">
-              <span className="text-xs text-white/50">Quitter ce salon ?</span>
-              <button
-                onClick={handleLeave}
-                className="rounded-full bg-pink-500/80 px-4 py-2 text-xs font-bold text-white shadow active:bg-pink-500"
-              >
-                Confirmer
-              </button>
-              <button
-                onClick={() => setConfirmingLeave(false)}
-                className="rounded-full bg-white/8 border border-white/15 px-4 py-2 text-xs font-semibold text-white/60 active:bg-white/15"
-              >
-                Annuler
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmingLeave(true)}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-pink-500/12 border border-pink-400/30 px-4 py-2 text-xs font-semibold text-pink-200/90 active:bg-pink-500/25 transition-colors"
-            >
-              🚪 Quitter le salon
-            </button>
-          )}
-        </div>
+        {/* ---- La table : les gens d'abord, l'interface ensuite ---- */}
+        <PartyTable
+          group={group}
+          myId={identity.memberId}
+          isHost={isHost}
+          onlineIds={onlinePlayerIds}
+          copied={copied}
+          uploadingPhoto={uploadingPhoto}
+          confirmingKickId={confirmingKickId}
+          onCopyCode={copyCode}
+          onPickPhoto={() => photoInputRef.current?.click()}
+          onRequestKick={setConfirmingKickId}
+          onKick={handleKick}
+        />
+        {photoError && <p className="text-xs text-blood text-center mt-2">{photoError}</p>}
+        <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoPick} />
 
         {partyError && (
-          <Card className="mb-4 border-pink-500/40">
-            <p className="text-sm text-pink-300">{partyError}</p>
-            <button onClick={clearError} className="text-xs text-white/40 mt-1">
+          <Surface className="mb-4 border-blood/50">
+            <p className="text-sm text-chalk">{partyError}</p>
+            <button onClick={clearError} className="text-xs text-chalk-soft mt-1">
               Fermer
             </button>
-          </Card>
+          </Surface>
         )}
 
-        <Card className="mb-4" delay={0.05}>
-          <h3 className="text-sm font-bold text-white/70 mb-3">
-            Joueurs ({group.members.length})
-          </h3>
-          <div className="flex flex-col gap-3">
-            {group.members.map((m) => {
-              const progress = levelProgress(m.xp)
-              const online = onlinePlayerIds.includes(m.id)
-              const isMe = m.id === identity.memberId
-              return (
-                <div key={m.id} className="flex items-center gap-3">
-                  <div className="relative">
-                    {isMe ? (
-                      <button
-                        onClick={() => photoInputRef.current?.click()}
-                        disabled={uploadingPhoto}
-                        className="relative block"
-                        aria-label="Changer ma photo de profil"
-                      >
-                        <Avatar pseudo={m.pseudo} color={m.color} size={40} photoUrl={m.photoUrl} />
-                        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 active:opacity-100 transition-opacity text-xs">
-                          {uploadingPhoto ? '…' : '📷'}
-                        </span>
-                      </button>
-                    ) : (
-                      <Avatar pseudo={m.pseudo} color={m.color} size={40} photoUrl={m.photoUrl} />
-                    )}
-                    <span
-                      className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#14101f] ${online ? 'bg-emerald-400' : 'bg-white/20'}`}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-semibold truncate">{m.pseudo}</p>
-                      {m.id === group.party.hostMemberId && <span className="text-[10px]">👑</span>}
-                      {m.badges.map((b) => (
-                        <span key={b} className="text-xs" title={BADGE_MAP[b]?.name}>
-                          {BADGE_MAP[b]?.emoji}
-                        </span>
-                      ))}
-                    </div>
-                    <p className="text-[11px] text-white/40">Niveau {progress.level} · {m.xp} XP</p>
-                  </div>
-                  {isHost && !isMe && (
-                    confirmingKickId === m.id ? (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          onClick={() => handleKick(m.id)}
-                          className="rounded-full bg-pink-500/80 px-3 py-1.5 text-[11px] font-bold text-white shadow active:bg-pink-500"
-                        >
-                          Exclure ?
-                        </button>
-                        <button
-                          onClick={() => setConfirmingKickId(null)}
-                          className="rounded-full bg-white/8 border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/60 active:bg-white/15"
-                        >
-                          Annuler
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmingKickId(m.id)}
-                        className="shrink-0 rounded-full bg-pink-500/12 border border-pink-400/30 px-3 py-1.5 text-[11px] font-semibold text-pink-200/80 active:bg-pink-500/25 transition-colors"
-                        aria-label={`Exclure ${m.pseudo}`}
-                      >
-                        🚫 Kick
-                      </button>
-                    )
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handlePhotoPick}
-          />
-          {photoError && <p className="text-xs text-pink-300 mt-2">{photoError}</p>}
-          <p className="text-[11px] text-white/30 mt-2">Touche ton avatar pour changer ta photo de profil.</p>
-        </Card>
-
-        {history.length > 0 && (
-          <Card className="mb-4" delay={0.08}>
-            <h3 className="text-sm font-bold text-white/70 mb-3">Parties récentes</h3>
-            <div className="flex flex-col gap-2.5">
-              {history.map((h) => (
-                <div key={h.id} className="flex items-center gap-3">
-                  <span className="text-xl shrink-0">{GAME_META[h.gameId]?.icon ?? '🎮'}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{h.gameName}</p>
-                    <p className="text-[11px] text-white/40">
-                      {h.roundsPlayed} manche{h.roundsPlayed !== 1 ? 's' : ''} · {relativeTime(h.endedAt)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        <AdultModeCard
-          adultMode={adultMode}
-          isHost={isHost}
-          confirming={confirmingAdultMode}
-          onRequestEnable={() => setConfirmingAdultMode(true)}
-          onCancel={() => setConfirmingAdultMode(false)}
-          onConfirm={() => {
-            setAdultMode(true)
-            setConfirmingAdultMode(false)
-          }}
-          onDisable={() => setAdultMode(false)}
-        />
-
-        {/* ---- Jaquette "à la une" : le test de personnalité + ses 3 niveaux ---- */}
-        <div className="relative overflow-hidden rounded-3xl border border-fuchsia-400/25 mb-5 p-5"
-          style={{ background: 'linear-gradient(150deg, rgba(217,70,239,0.28), rgba(124,58,237,0.18) 45%, rgba(20,16,31,0.9) 90%)' }}
-        >
-          <span className="absolute -right-4 -top-6 text-[7rem] opacity-15 rotate-12 select-none pointer-events-none">🧠</span>
-          <p className="text-[10px] uppercase tracking-widest text-fuchsia-200/70 mb-1">À la une</p>
-          <h3 className="text-lg font-extrabold mb-1">Test de personnalité MindMatch</h3>
-          <p className="text-xs text-white/50 mb-4">
-            {quizDone ? 'Terminé ! Tu peux revoir ton profil, ou refaire le test.' : 'Découvre ton archétype — choisis ta précision :'}
+        {/* ---- Le test de personnalité : mis en avant, mais plus "vitrine néon" ----
+             Avant : dégradé fuchsia + emoji cerveau géant en filigrane. C'est le réflexe
+             d'interface que l'audit pointait — le décor criait plus fort que le contenu.
+             Ici la mise en avant passe par un liseré spark et la typo display, rien d'autre. */}
+        <Surface level="raised" className="mb-5 border-spark-dim/50">
+          <p className="kicker text-2xs mb-1">Le test MindMatch</p>
+          <h3 className="font-display text-xl text-chalk mb-1">Découvre ton archétype</h3>
+          <p className="text-xs text-chalk-soft mb-4">
+            {quizDone
+              ? 'Déjà fait. Tu peux revoir ton profil, ou refaire le test plus en détail.'
+              : 'Le seul moment solo de la soirée — il nourrit ensuite les comparaisons de groupe.'}
           </p>
           {quizDone && (
-            <Button variant="secondary" fullWidth onClick={() => navigate('/profile')} className="!py-2.5 text-sm mb-3">
-              Voir mon profil 🧠
+            <Button variant="secondary" fullWidth onClick={() => navigate('/profile')} className="mb-3">
+              Voir mon profil
             </Button>
           )}
           <div className="grid grid-cols-3 gap-2">
@@ -375,23 +243,23 @@ export function LobbyPage() {
                 key={l.key}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => navigate(`/quiz?niveau=${l.key}`)}
-                className="rounded-2xl bg-black/30 border border-white/10 px-2 py-3 text-center active:bg-white/10 transition-colors"
+                className="rounded-control bg-felt border border-line px-2 py-3 text-center active:bg-felt-raised transition-colors"
               >
-                <span className="text-xl block mb-0.5">{l.emoji}</span>
-                <p className="text-xs font-bold">{l.name}</p>
-                <p className="text-[10px] text-white/40">{l.count} questions · {l.duration}</p>
+                <p className="text-sm font-semibold text-chalk">{l.name}</p>
+                <p className="text-2xs text-chalk-faint mt-0.5">{l.count} questions</p>
+                <p className="text-2xs text-chalk-faint">{l.duration}</p>
               </motion.button>
             ))}
           </div>
-        </div>
+        </Surface>
 
         {/* ---- Mode Soirée : la platine musicale partagée ---- */}
         <SoireeLaunchCard isHost={isHost} onLaunch={(source) => { play('start'); startMusic(source) }} />
 
-        {/* ---- Bibliothèque de jeux façon console ---- */}
+        {/* ---- Bibliothèque de jeux ---- */}
         <div className="flex items-baseline justify-between mb-3 px-1">
-          <h3 className="text-sm font-bold text-white/70">🎮 Jeux</h3>
-          <p className="text-[10px] text-white/30">📺 = optimisé pour affichage TV</p>
+          <h3 className="kicker text-2xs">Jeux</h3>
+          <p className="text-2xs text-chalk-faint">TV = mieux sur écran partagé</p>
         </div>
         <div className="grid grid-cols-2 gap-3 mb-5">
           {GAME_LIBRARY.map((e, i) => (
@@ -408,17 +276,29 @@ export function LobbyPage() {
           ))}
         </div>
 
-        <Card delay={0.15} className="text-center">
-          <p className="text-sm font-semibold mb-1">📺 Mode écran partagé</p>
-          <p className="text-xs text-white/40 mb-3">
-            Sur une TV ou un ordinateur, entre le code <b>{group.code}</b> dans "Afficher sur un écran".
-            L'écran TV est <b>fortement conseillé</b> (l'appli est pensée pour), mais jamais obligatoire :
-            tous les jeux restent jouables sur téléphone.
-          </p>
-          <Button variant="secondary" fullWidth onClick={() => navigate(`/screen/${group.code}`)} className="!py-2.5 text-sm">
-            Ouvrir l'écran ici
-          </Button>
-        </Card>
+        {/* ---- Réglages du salon : tout ce qui n'est PAS jouer ----
+             L'administration (18+, écran TV, historique, sortie) passait avant les jeux et
+             occupait la moitié de l'écran. Elle est maintenant repliée en bas : on ne l'ouvre
+             qu'une fois par soirée, alors que la table et les jeux servent en permanence. */}
+        <SalonSettings
+          group={group}
+          isHost={isHost}
+          adultMode={adultMode}
+          confirmingAdultMode={confirmingAdultMode}
+          onRequestEnableAdult={() => setConfirmingAdultMode(true)}
+          onCancelAdult={() => setConfirmingAdultMode(false)}
+          onConfirmAdult={() => {
+            setAdultMode(true)
+            setConfirmingAdultMode(false)
+          }}
+          onDisableAdult={() => setAdultMode(false)}
+          history={history}
+          confirmingLeave={confirmingLeave}
+          onRequestLeave={() => setConfirmingLeave(true)}
+          onCancelLeave={() => setConfirmingLeave(false)}
+          onLeave={handleLeave}
+          onOpenScreen={() => navigate(`/screen/${group.code}`)}
+        />
       </div>
 
       {/* ---- Fiche jeu (bottom sheet façon console) ---- */}
@@ -429,7 +309,7 @@ export function LobbyPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+              className="absolute inset-0 bg-ink/80 backdrop-blur-sm"
             />
             <motion.div
               initial={{ y: '100%' }}
@@ -437,9 +317,9 @@ export function LobbyPage() {
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 320, damping: 32 }}
               onClick={(ev) => ev.stopPropagation()}
-              className="relative w-full max-w-md rounded-t-3xl border-t border-x border-white/10 bg-[#171122] px-6 pt-5 pb-8"
+              className="relative w-full max-w-md rounded-t-sheet border-t border-x border-line bg-felt shadow-float px-6 pt-5 pb-8"
             >
-              <div className="mx-auto w-10 h-1 rounded-full bg-white/15 mb-4" />
+              <div className="mx-auto w-10 h-1 rounded-chip bg-line-strong mb-4" />
               <GameSheet
                 entry={selectedGame}
                 locked={!!selectedGame.adult && !adultMode}
@@ -475,63 +355,293 @@ export function LobbyPage() {
   )
 }
 
+/**
+ * PartyTable — la table de jeu, en haut du salon.
+ *
+ * C'est le changement le plus important de l'écran. Avant, les joueurs étaient une liste compacte
+ * coincée au-dessus d'un catalogue : l'interface dominait les gens. Or le salon est précisément
+ * le moment social de la soirée — celui où l'on attend les retardataires — pas un menu.
+ *
+ * Le code de la salle est posé au CENTRE de la table, comme la mise au milieu d'un tapis : c'est
+ * lui qui fait venir les autres, il est donc au cœur, pas relégué en légende.
+ */
+function PartyTable({
+  group,
+  myId,
+  isHost,
+  onlineIds,
+  copied,
+  uploadingPhoto,
+  confirmingKickId,
+  onCopyCode,
+  onPickPhoto,
+  onRequestKick,
+  onKick,
+}: {
+  group: Group
+  myId: string
+  isHost: boolean
+  onlineIds: string[]
+  copied: boolean
+  uploadingPhoto: boolean
+  confirmingKickId: string | null
+  onCopyCode: () => void
+  onPickPhoto: () => void
+  onRequestKick: (id: string | null) => void
+  onKick: (id: string) => void
+}) {
+  const kickTarget = group.members.find((m) => m.id === confirmingKickId) ?? null
+
+  return (
+    <div className="mb-6">
+      <p className="kicker text-2xs text-center mb-1">Salle</p>
+      <h1 className="font-display text-2xl text-center text-chalk mb-4">{group.name}</h1>
+
+      {/* Le tapis */}
+      <div className="rounded-sheet bg-felt border border-line shadow-card px-4 py-6">
+        {/* La mise au centre : le code, gravé façon jeton. */}
+        <button onClick={onCopyCode} className="mx-auto block text-center mb-6" aria-label="Copier le code de la salle">
+          <span className="kicker text-2xs block mb-1">{copied ? '✓ Copié' : 'Code de la salle'}</span>
+          <span className="font-stage text-3xl text-brass tracking-[0.2em]">{group.code}</span>
+        </button>
+
+        {/* Les convives */}
+        <div className="flex flex-wrap justify-center gap-x-5 gap-y-4">
+          {group.members.map((m) => {
+            const isMe = m.id === myId
+            const online = onlineIds.length === 0 || onlineIds.includes(m.id)
+            return (
+              <motion.button
+                key={m.id}
+                layout
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+                whileTap={{ scale: 0.94 }}
+                // Sa propre photo se change en touchant son avatar ; l'hôte touche un autre
+                // joueur pour l'exclure. Deux gestes, aucun bouton parasite sur la table.
+                onClick={() => (isMe ? onPickPhoto() : isHost ? onRequestKick(m.id) : undefined)}
+                disabled={isMe ? uploadingPhoto : !isHost}
+                className="disabled:pointer-events-none"
+              >
+                <Player
+                  member={m}
+                  size="md"
+                  host={m.id === group.party.hostMemberId}
+                  offline={!online}
+                  caption={isMe ? (uploadingPhoto ? '…' : 'toi · 📷') : undefined}
+                />
+              </motion.button>
+            )
+          })}
+        </div>
+
+        <p className="text-center text-xs text-chalk-faint mt-5">
+          {group.members.length} à table · partage le code pour agrandir le cercle
+        </p>
+      </div>
+
+      {/* Exclusion : confirmation sous la table, jamais un bouton posé sur chaque joueur. */}
+      <AnimatePresence>
+        {kickTarget && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="flex items-center justify-center gap-2 pt-3">
+              <span className="text-xs text-chalk-soft">Exclure {kickTarget.pseudo} ?</span>
+              <Button variant="danger" onClick={() => onKick(kickTarget.id)} className="!min-h-0 !py-1.5 !px-3 text-xs">
+                Exclure
+              </Button>
+              <Button variant="ghost" onClick={() => onRequestKick(null)} className="!min-h-0 !py-1.5 !px-3 text-xs">
+                Annuler
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+/** Réglages du salon — repliés par défaut : on les ouvre une fois par soirée, pas à chaque partie. */
+function SalonSettings({
+  group,
+  isHost,
+  adultMode,
+  confirmingAdultMode,
+  onRequestEnableAdult,
+  onCancelAdult,
+  onConfirmAdult,
+  onDisableAdult,
+  history,
+  confirmingLeave,
+  onRequestLeave,
+  onCancelLeave,
+  onLeave,
+  onOpenScreen,
+}: {
+  group: Group
+  isHost: boolean
+  adultMode: boolean
+  confirmingAdultMode: boolean
+  onRequestEnableAdult: () => void
+  onCancelAdult: () => void
+  onConfirmAdult: () => void
+  onDisableAdult: () => void
+  history: GameHistoryEntry[]
+  confirmingLeave: boolean
+  onRequestLeave: () => void
+  onCancelLeave: () => void
+  onLeave: () => void
+  onOpenScreen: () => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-center gap-2 py-3 text-sm text-chalk-soft"
+      >
+        Réglages du salon
+        <span className={`transition-transform ${open ? 'rotate-180' : ''}`}>⌄</span>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="flex flex-col gap-3 pt-1">
+              <AdultModeCard
+                adultMode={adultMode}
+                isHost={isHost}
+                confirming={confirmingAdultMode}
+                onRequestEnable={onRequestEnableAdult}
+                onCancel={onCancelAdult}
+                onConfirm={onConfirmAdult}
+                onDisable={onDisableAdult}
+              />
+
+              <Surface>
+                <p className="text-sm font-semibold mb-1 text-chalk">Écran partagé</p>
+                <p className="text-xs text-chalk-soft mb-3">
+                  Sur une TV ou un ordinateur, entre le code <b className="text-chalk">{group.code}</b>. Fortement
+                  conseillé, jamais obligatoire — tous les jeux restent jouables sur téléphone.
+                </p>
+                <Button variant="secondary" fullWidth onClick={onOpenScreen}>
+                  Ouvrir l'écran ici
+                </Button>
+              </Surface>
+
+              {history.length > 0 && (
+                <Surface>
+                  <p className="text-sm font-semibold mb-3 text-chalk">Parties récentes</p>
+                  <div className="flex flex-col gap-2.5">
+                    {history.map((h) => (
+                      <div key={h.id} className="flex items-center gap-3">
+                        <span className="text-xl shrink-0">{GAME_META[h.gameId]?.icon ?? '🎮'}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm truncate text-chalk">{h.gameName}</p>
+                          <p className="text-2xs text-chalk-faint">
+                            {h.roundsPlayed} manche{h.roundsPlayed !== 1 ? 's' : ''} · {relativeTime(h.endedAt)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Surface>
+              )}
+
+              {confirmingLeave ? (
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-xs text-chalk-soft">Quitter ce salon ?</span>
+                  <Button variant="danger" onClick={onLeave} className="!min-h-0 !py-2 !px-4 text-xs">
+                    Confirmer
+                  </Button>
+                  <Button variant="ghost" onClick={onCancelLeave} className="!min-h-0 !py-2 !px-4 text-xs">
+                    Annuler
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="ghost" fullWidth onClick={onRequestLeave} className="text-blood">
+                  Quitter le salon
+                </Button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 /** Entrée "Mode Soirée" : une file musicale partagée (pas un jeu). L'hôte choisit la source
  * (YouTube prêt à l'emploi ; Spotify nécessite une configuration serveur) puis lance. */
 function SoireeLaunchCard({ isHost, onLaunch }: { isHost: boolean; onLaunch: (source: 'youtube' | 'spotify') => void }) {
   const [picking, setPicking] = useState(false)
 
   return (
-    <div
-      className="relative overflow-hidden rounded-3xl border border-emerald-400/25 mb-5 p-5"
-      style={{ background: 'linear-gradient(150deg, rgba(16,185,129,0.28), rgba(59,130,246,0.16) 45%, rgba(20,16,31,0.9) 90%)' }}
-    >
-      <span className="absolute -right-3 -top-5 text-[7rem] opacity-15 rotate-12 select-none pointer-events-none">🎶</span>
-      <p className="text-[10px] uppercase tracking-widest text-emerald-200/70 mb-1">Nouveau · Mode Soirée</p>
-      <h3 className="text-lg font-extrabold mb-1">La platine partagée 🔊</h3>
-      <p className="text-xs text-white/55 mb-4">
-        Fini le seul téléphone branché à l'enceinte : tout le monde ajoute des musiques dans une file
-        <b> équitable</b> (chacun son tour), avec vote pour passer un morceau. Un appareil branché à l'enceinte
-        ouvre la <b>platine</b>.
+    <Surface level="raised" className="mb-5">
+      <p className="kicker text-2xs mb-1">Mode Soirée</p>
+      <h3 className="font-display text-xl text-chalk mb-1">La platine partagée</h3>
+      <p className="text-xs text-chalk-soft mb-4">
+        Fini le seul téléphone branché à l'enceinte : tout le monde ajoute des musiques dans une file{' '}
+        <b className="text-chalk-muted">équitable</b> (chacun son tour), avec vote pour passer un morceau.
+        L'appareil branché à l'enceinte ouvre la platine.
       </p>
 
       {!isHost ? (
-        <p className="text-xs text-white/40">Seul·e l'hôte peut lancer le Mode Soirée.</p>
+        <p className="text-xs text-chalk-faint">Seul·e l'hôte peut lancer le Mode Soirée.</p>
       ) : !picking ? (
-        <Button fullWidth onClick={() => setPicking(true)} className="!py-2.5 text-sm">
-          🎶 Lancer le Mode Soirée
+        <Button fullWidth onClick={() => setPicking(true)}>
+          Lancer le Mode Soirée
         </Button>
       ) : (
         <div>
-          <p className="text-xs text-white/50 mb-2">Choisis la source musicale :</p>
+          <p className="text-xs text-chalk-soft mb-2">Choisis la source musicale :</p>
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => onLaunch('youtube')}
-              className="rounded-2xl bg-black/30 border border-white/12 px-3 py-3 text-center active:bg-white/10 transition-colors"
+              className="rounded-control bg-felt border border-line px-3 py-3 text-center active:bg-felt-raised transition-colors"
             >
-              <span className="text-2xl block mb-0.5">▶️</span>
-              <p className="text-sm font-bold">YouTube</p>
-              <p className="text-[10px] text-emerald-300/80">Prêt · sans compte</p>
+              <p className="text-sm font-semibold text-chalk">YouTube</p>
+              <p className="text-2xs text-jade mt-0.5">Prêt · sans compte</p>
             </button>
             <button
               onClick={() => spotifyEnabled && onLaunch('spotify')}
               disabled={!spotifyEnabled}
-              className={`rounded-2xl border px-3 py-3 text-center transition-colors ${
-                spotifyEnabled ? 'bg-black/20 border-white/10 active:bg-white/10' : 'bg-black/10 border-white/8 opacity-60'
+              className={`rounded-control border px-3 py-3 text-center transition-colors ${
+                spotifyEnabled ? 'bg-felt border-line active:bg-felt-raised' : 'bg-felt-sunken border-line opacity-50'
               }`}
             >
-              <span className="text-2xl block mb-0.5">🎧</span>
-              <p className="text-sm font-bold">Spotify</p>
-              <p className="text-[10px] text-white/40">{spotifyEnabled ? 'Compte Premium' : 'Bientôt'}</p>
+              <p className="text-sm font-semibold text-chalk">Spotify</p>
+              <p className="text-2xs text-chalk-faint mt-0.5">{spotifyEnabled ? 'Compte Premium' : 'Bientôt'}</p>
             </button>
           </div>
-          <button onClick={() => setPicking(false)} className="text-[11px] text-white/40 mt-2">Annuler</button>
+          <button onClick={() => setPicking(false)} className="text-2xs text-chalk-faint mt-2">Annuler</button>
         </div>
       )}
-    </div>
+    </Surface>
   )
 }
 
-/** Jaquette de jeu façon console : dégradé teinté, grosse icône, chips 18+/TV/joueurs. */
+/**
+ * Jaquette de jeu.
+ *
+ * Avant : un dégradé teinté plein cadre + le même emoji répété en filigrane géant. Douze tuiles
+ * comme ça, et la grille devenait un mur de couleur où plus rien ne ressortait.
+ *
+ * Maintenant : toutes les tuiles partagent le même feutre. La teinte du jeu ne subsiste qu'en
+ * liseré haut et en halo bas — assez pour reconnaître un jeu d'un coup d'œil, jamais assez pour
+ * concurrencer son titre.
+ */
 function GameTile({
   entry,
   index,
@@ -550,31 +660,36 @@ function GameTile({
       transition={{ delay: 0.04 * index, duration: 0.3 }}
       whileTap={{ scale: 0.96 }}
       onClick={onOpen}
-      className="relative overflow-hidden rounded-2xl border border-white/10 aspect-[4/5] text-left shadow-lg"
-      style={{ background: `linear-gradient(165deg, ${entry.hue}66 0%, ${entry.hue}1f 40%, #14101f 85%)` }}
+      className="relative overflow-hidden rounded-card border border-line bg-felt aspect-[4/5] text-left shadow-card"
     >
+      {/* La couleur du jeu, réduite à deux traces : un liseré haut et un halo au sol. */}
+      <span className="absolute inset-x-0 top-0 h-px" style={{ background: entry.hue, opacity: locked ? 0.2 : 0.7 }} />
       <span
-        className={`absolute -right-3 -top-4 text-[4.6rem] rotate-12 select-none pointer-events-none ${locked ? 'opacity-10 grayscale' : 'opacity-20'}`}
-      >
-        {entry.icon}
-      </span>
+        className="absolute inset-x-0 bottom-0 h-2/3 pointer-events-none"
+        style={{
+          background: `radial-gradient(120% 90% at 50% 130%, ${entry.hue}40 0%, transparent 70%)`,
+          opacity: locked ? 0.25 : 1,
+        }}
+      />
 
       <div className="absolute inset-0 p-3 flex flex-col">
         <div className="flex flex-wrap gap-1">
-          {entry.adult && <TileChip className="bg-red-500/30 text-red-200">18+</TileChip>}
-          {entry.tvOptimized && <TileChip className="bg-sky-500/25 text-sky-200">📺 TV</TileChip>}
-          {entry.badge && <TileChip className="bg-fuchsia-500/30 text-fuchsia-200">{entry.badge}</TileChip>}
+          {entry.adult && <TileChip className="bg-blood/25 text-blood">18+</TileChip>}
+          {entry.tvOptimized && <TileChip className="bg-chalk/8 text-chalk-muted">TV</TileChip>}
+          {entry.badge && <TileChip className="bg-spark/20 text-spark">{entry.badge}</TileChip>}
         </div>
 
-        <span className={`text-4xl mt-auto mb-1.5 drop-shadow-lg ${locked ? 'grayscale opacity-60' : ''}`}>{entry.icon}</span>
-        <p className="text-[13px] font-extrabold leading-tight mb-0.5">{entry.name}</p>
-        <p className="text-[10px] text-white/50 leading-snug line-clamp-2">{entry.tagline}</p>
-        <p className="text-[9px] text-white/35 mt-1">👥 {entry.minPlayers}+ joueurs</p>
+        <span className={`text-3xl mt-auto mb-1.5 ${locked ? 'grayscale opacity-50' : ''}`}>{entry.icon}</span>
+        <p className="font-display text-sm text-chalk leading-tight mb-0.5">{entry.name}</p>
+        <p className="text-2xs text-chalk-soft leading-snug line-clamp-2">{entry.tagline}</p>
+        <p className="text-2xs text-chalk-faint mt-1">{entry.minPlayers}+ joueurs</p>
       </div>
 
       {locked && (
-        <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
-          <span className="rounded-full bg-black/60 border border-white/15 px-3 py-1.5 text-[11px] font-bold">🔒 Mode 18+</span>
+        <div className="absolute inset-0 bg-ink/60 flex items-center justify-center">
+          <span className="rounded-chip bg-felt-raised border border-line-strong px-3 py-1.5 text-2xs font-semibold text-chalk-muted">
+            Mode 18+
+          </span>
         </div>
       )}
     </motion.button>
@@ -583,7 +698,7 @@ function GameTile({
 
 function TileChip({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide ${className}`}>{children}</span>
+    <span className={`rounded-chip px-1.5 py-0.5 text-2xs font-semibold tracking-wide ${className}`}>{children}</span>
   )
 }
 
@@ -648,32 +763,32 @@ function GameSheet({
     <div>
       <div className="flex items-center gap-4 mb-3">
         <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl shrink-0 border border-white/10"
-          style={{ background: `linear-gradient(150deg, ${entry.hue}55, ${entry.hue}18)` }}
+          className="w-16 h-16 rounded-card flex items-center justify-center text-4xl shrink-0 border border-line bg-felt-raised"
+          style={{ boxShadow: `inset 0 1px 0 ${entry.hue}55` }}
         >
           {entry.icon}
         </div>
         <div className="min-w-0">
-          <h2 className="text-lg font-extrabold leading-tight">{entry.name}</h2>
-          <div className="flex flex-wrap gap-1 mt-1">
-            {entry.adult && <TileChip className="bg-red-500/30 text-red-200">18+</TileChip>}
-            {entry.badge && <TileChip className="bg-fuchsia-500/30 text-fuchsia-200">{entry.badge}</TileChip>}
-            <TileChip className="bg-white/10 text-white/60">👥 {entry.minPlayers}+ joueurs</TileChip>
+          <h2 className="font-display text-xl text-chalk leading-tight">{entry.name}</h2>
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {entry.adult && <TileChip className="bg-blood/25 text-blood">18+</TileChip>}
+            {entry.badge && <TileChip className="bg-spark/20 text-spark">{entry.badge}</TileChip>}
+            <TileChip className="bg-chalk/8 text-chalk-muted">{entry.minPlayers}+ joueurs</TileChip>
           </div>
         </div>
       </div>
 
-      <p className="text-sm text-white/70 mb-3">{entry.tagline}</p>
+      <p className="text-sm text-chalk-muted mb-3">{entry.tagline}</p>
 
       {entry.tvOptimized && (
-        <p className="text-[11px] text-sky-200/80 bg-sky-500/10 border border-sky-400/20 rounded-xl px-3 py-2 mb-3">
-          📺 <b>Optimisé pour affichage TV</b> — jouable sans écran partagé, mais fortement conseillé pour l'ambiance.
+        <p className="text-xs text-chalk-soft bg-felt border border-line rounded-control px-3 py-2 mb-3">
+          <b className="text-chalk-muted">Mieux sur écran partagé</b> — jouable sans TV, mais l'ambiance y gagne beaucoup.
         </p>
       )}
 
       {locked ? (
-        <p className="text-xs text-white/50 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 mb-4">
-          🔒 Ce jeu fait partie du contenu 18+. {isHost ? 'Active le mode 18+ dans le salon pour le débloquer.' : "Demande à l'hôte d'activer le mode 18+."}
+        <p className="text-xs text-chalk-soft bg-felt border border-line rounded-control px-3 py-2.5 mb-4">
+          Ce jeu fait partie du contenu 18+. {isHost ? 'Active le mode 18+ dans les réglages du salon pour le débloquer.' : "Demande à l'hôte d'activer le mode 18+."}
         </p>
       ) : (
         <>
@@ -698,8 +813,8 @@ function GameSheet({
           {entry.config === 'autoroute' && (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-white/50">Longueur de l'autoroute</span>
-                <span className="text-xs font-bold text-fuchsia-300">
+                <span className="text-xs text-chalk-soft">Longueur de l'autoroute</span>
+                <span className="text-xs font-semibold text-spark">
                   {autorouteCycles} cycles · {autorouteCycles * 4 - 1} cases
                 </span>
               </div>
@@ -710,7 +825,7 @@ function GameSheet({
                 step={1}
                 value={autorouteCycles}
                 onChange={(e) => setAutorouteCycles(Number(e.target.value))}
-                className="w-full accent-fuchsia-400"
+                className="w-full accent-spark"
                 aria-label="Nombre de cycles de l'autoroute"
               />
             </div>
@@ -719,8 +834,8 @@ function GameSheet({
           {entry.config === 'crayon' && (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-white/50">Nombre de manches</span>
-                <span className="text-xs font-bold text-fuchsia-300">{crayonRounds} manche{crayonRounds > 1 ? 's' : ''}</span>
+                <span className="text-xs text-chalk-soft">Nombre de manches</span>
+                <span className="text-xs font-semibold text-spark">{crayonRounds} manche{crayonRounds > 1 ? 's' : ''}</span>
               </div>
               <input
                 type="range"
@@ -729,17 +844,17 @@ function GameSheet({
                 step={1}
                 value={crayonRounds}
                 onChange={(e) => setCrayonRounds(Number(e.target.value))}
-                className="w-full accent-fuchsia-400 mb-3"
+                className="w-full accent-spark mb-3"
                 aria-label="Nombre de manches"
               />
               <label className="flex flex-col gap-1">
-                <span className="text-xs text-white/50">Tes mots custom (optionnel, séparés par des virgules)</span>
+                <span className="text-xs text-chalk-soft">Tes mots custom (optionnel, séparés par des virgules)</span>
                 <textarea
                   value={crayonWords}
                   onChange={(e) => setCrayonWords(e.target.value)}
                   placeholder="ex : le chien de Kevin, la voiture de tonton…"
                   rows={2}
-                  className="rounded-2xl bg-white/6 border border-white/10 px-3 py-2.5 text-sm text-white/90 placeholder:text-white/25 resize-none"
+                  className="rounded-control bg-felt border border-line px-3 py-2.5 text-sm text-chalk placeholder:text-chalk-faint resize-none"
                 />
               </label>
             </div>
@@ -764,10 +879,10 @@ function GameSheet({
 
       {isHost ? (
         <Button fullWidth disabled={locked || requirement !== null} onClick={onLaunch}>
-          {locked ? 'Verrouillé (18+)' : requirement ?? '▶ Lancer la partie'}
+          {locked ? 'Verrouillé (18+)' : requirement ?? 'Lancer la partie'}
         </Button>
       ) : (
-        <p className="text-xs text-white/40 text-center py-2">Seul·e l'hôte peut lancer ce jeu</p>
+        <p className="text-xs text-chalk-faint text-center py-2">Seul·e l'hôte peut lancer ce jeu</p>
       )}
     </div>
   )
@@ -814,16 +929,16 @@ function IntrusOptions({
       </div>
 
       <div>
-        <span className="text-xs text-white/50 block mb-1">Temps de parole (indicatif)</span>
+        <span className="text-xs text-chalk-soft block mb-1">Temps de parole (indicatif)</span>
         <div className="flex gap-1.5">
           {[15, 30, 45].map((s) => (
             <button
               key={s}
               onClick={() => setTurnSeconds(s)}
-              className={`flex-1 rounded-full py-2 text-xs font-semibold border transition-colors ${
+              className={`flex-1 rounded-chip py-2 text-xs font-semibold border transition-colors ${
                 turnSeconds === s
-                  ? 'bg-fuchsia-500/30 text-white border-fuchsia-400/50'
-                  : 'bg-white/6 text-white/50 border-white/10'
+                  ? 'bg-spark/20 text-chalk border-spark-dim'
+                  : 'bg-felt text-chalk-soft border-line'
               }`}
             >
               {s} s
@@ -834,18 +949,18 @@ function IntrusOptions({
 
       <div>
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-white/50">Nombre d'intrus</span>
-          <span className="text-xs font-bold text-fuchsia-300">
+          <span className="text-xs text-chalk-soft">Nombre d'intrus</span>
+          <span className="text-xs font-semibold text-spark">
             {undercovers === null ? `Auto (${auto})` : effective}
           </span>
         </div>
         <div className="flex gap-1.5">
           <button
             onClick={() => setUndercovers(null)}
-            className={`flex-1 rounded-full py-2 text-xs font-semibold border transition-colors ${
+            className={`flex-1 rounded-chip py-2 text-xs font-semibold border transition-colors ${
               undercovers === null
-                ? 'bg-fuchsia-500/30 text-white border-fuchsia-400/50'
-                : 'bg-white/6 text-white/50 border-white/10'
+                ? 'bg-spark/20 text-chalk border-spark-dim'
+                : 'bg-felt text-chalk-soft border-line'
             }`}
           >
             Auto
@@ -854,10 +969,10 @@ function IntrusOptions({
             <button
               key={n}
               onClick={() => setUndercovers(n)}
-              className={`flex-1 rounded-full py-2 text-xs font-semibold border transition-colors ${
+              className={`flex-1 rounded-chip py-2 text-xs font-semibold border transition-colors ${
                 undercovers === n
-                  ? 'bg-fuchsia-500/30 text-white border-fuchsia-400/50'
-                  : 'bg-white/6 text-white/50 border-white/10'
+                  ? 'bg-spark/20 text-chalk border-spark-dim'
+                  : 'bg-felt text-chalk-soft border-line'
               }`}
             >
               {n}
@@ -870,21 +985,21 @@ function IntrusOptions({
         onClick={() => mrWhiteFits && setMrWhite(!mrWhite)}
         disabled={!mrWhiteFits}
         className={`flex items-center gap-2 w-full rounded-2xl border px-3 py-2.5 text-left transition-colors ${
-          mrWhiteFits ? 'bg-white/6 border-white/10 active:bg-white/12' : 'bg-white/4 border-white/8 opacity-50'
+          mrWhiteFits ? 'bg-felt border-line active:bg-felt-raised' : 'bg-felt-sunken border-line opacity-50'
         }`}
       >
         <span className="text-lg">🃏</span>
         <span className="flex-1">
           <span className="text-sm font-semibold block">Mr. White</span>
-          <span className="text-[11px] text-white/45">
+          <span className="text-2xs text-chalk-soft">
             {mrWhiteFits ? "Aucun mot — il improvise, et peut voler la partie" : `Impossible à ${playerCount} joueurs (trop d'intrus)`}
           </span>
         </span>
         <span
-          className={`w-9 h-5 rounded-full relative shrink-0 transition-colors ${mrWhite && mrWhiteFits ? 'bg-fuchsia-500' : 'bg-white/15'}`}
+          className={`w-9 h-5 rounded-chip relative shrink-0 transition-colors ${mrWhite && mrWhiteFits ? 'bg-spark' : 'bg-line-strong'}`}
         >
           <span
-            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${mrWhite && mrWhiteFits ? 'translate-x-4' : 'translate-x-0'}`}
+            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-chip bg-chalk transition-transform ${mrWhite && mrWhiteFits ? 'translate-x-4' : 'translate-x-0'}`}
           />
         </span>
       </button>
@@ -907,8 +1022,8 @@ function PackPill({
     <button
       onClick={onClick}
       disabled={locked}
-      className={`flex-1 rounded-full py-2 text-xs font-semibold transition-colors ${
-        active ? 'bg-fuchsia-500/30 text-white border border-fuchsia-400/50' : 'bg-white/6 text-white/50 border border-white/10'
+      className={`flex-1 rounded-chip py-2 text-xs font-semibold transition-colors ${
+        active ? 'bg-spark/20 text-chalk border border-spark-dim' : 'bg-felt text-chalk-soft border border-line'
       } ${locked ? 'opacity-40' : ''}`}
     >
       {locked ? `🔒 ${label}` : label}
@@ -935,49 +1050,48 @@ function AdultModeCard({
 }) {
   if (confirming) {
     return (
-      <Card className="mb-4 border-pink-500/30">
-        <p className="text-sm font-bold mb-2">🔞 Activer le contenu 18+ ?</p>
-        <p className="text-xs text-white/60 leading-relaxed mb-4">
+      <Surface className="border-blood/40">
+        <p className="font-display text-lg text-chalk mb-2">Activer le contenu 18+ ?</p>
+        <p className="text-xs text-chalk-soft leading-relaxed mb-4">
           Cette salle va inclure de l'humour cru et des jeux à boire (Pyramide, Palmier, Autoroute). Buvez avec
           modération, restez maîtres de votre soirée, ne prenez jamais le volant après avoir bu, et remplacez
           l'alcool par de l'eau ou une boisson sans alcool si vous préférez. L'objectif reste de s'amuser ensemble.
         </p>
         <div className="flex gap-2">
-          <Button variant="ghost" fullWidth onClick={onCancel} className="!py-2.5 text-sm">
+          <Button variant="ghost" fullWidth onClick={onCancel}>
             Annuler
           </Button>
-          <Button fullWidth onClick={onConfirm} className="!py-2.5 text-sm">
+          <Button fullWidth onClick={onConfirm}>
             J'ai compris, activer
           </Button>
         </div>
-      </Card>
+      </Surface>
     )
   }
 
   return (
-    <Card className="mb-4 flex items-center gap-3">
-      <span className="text-2xl">🔞</span>
+    <Surface className="flex items-center gap-3">
       <div className="flex-1">
-        <p className="text-sm font-semibold">Mode 18+</p>
-        <p className="text-xs text-white/40">
+        <p className="text-sm font-semibold text-chalk">Mode 18+</p>
+        <p className="text-xs text-chalk-soft">
           {adultMode ? 'Activé — contenu trash et jeu à boire débloqués' : 'Débloque les packs trash et le jeu à boire'}
         </p>
       </div>
       {isHost ? (
         adultMode ? (
-          <button onClick={onDisable} className="text-xs text-white/40 underline shrink-0">
+          <Button variant="ghost" onClick={onDisable} className="!min-h-0 !py-2 !px-3 text-xs shrink-0">
             Désactiver
-          </button>
+          </Button>
         ) : (
-          <Button onClick={onRequestEnable} className="!px-4 !py-2 text-sm shrink-0">
+          <Button onClick={onRequestEnable} className="!min-h-0 !py-2.5 !px-4 text-sm shrink-0">
             Activer
           </Button>
         )
       ) : (
-        <span className={`text-xs shrink-0 ${adultMode ? 'text-emerald-400' : 'text-white/30'}`}>
-          {adultMode ? '✓ actif' : '—'}
+        <span className={`text-xs shrink-0 ${adultMode ? 'text-jade' : 'text-chalk-faint'}`}>
+          {adultMode ? 'actif' : '—'}
         </span>
       )}
-    </Card>
+    </Surface>
   )
 }
