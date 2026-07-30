@@ -4,6 +4,7 @@ import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'
 import { Avatar } from '../../../components/Avatar'
 import { Confetti } from '../../../components/Confetti'
+import { Stage, Moment, Verdict, PlayerRail } from '../../primitives'
 import {
   OUTCOME_TEXT,
   ROLE_COLOR,
@@ -70,31 +71,6 @@ export function IntrusScreen() {
       ) : (
         <p className="text-white/40 text-xl">Manche en préparation…</p>
       )}
-    </div>
-  )
-}
-
-function AliveStrip({ state, byId }: { state: IntrusClientState; byId: (id: string) => Member | undefined }) {
-  return (
-    <div className="flex flex-wrap gap-3 justify-center mt-10">
-      {state.order.map((id) => {
-        const m = byId(id)
-        if (!m) return null
-        const dead = !state.alive.includes(id)
-        const elim = state.eliminated.find((e) => e.memberId === id)
-        return (
-          <div
-            key={id}
-            className={`flex items-center gap-2 rounded-full pl-1.5 pr-4 py-1.5 border ${
-              dead ? 'bg-black/40 border-white/8 opacity-45' : 'bg-black/30 border-white/12'
-            }`}
-          >
-            <Avatar pseudo={m.pseudo} color={m.color} size={30} photoUrl={m.photoUrl} />
-            <span className={`text-lg ${dead ? 'line-through text-white/50' : ''}`}>{m.pseudo}</span>
-            {dead && elim && <span className="text-sm">{ROLE_EMOJI[elim.role]}</span>}
-          </div>
-        )
-      })}
     </div>
   )
 }
@@ -273,40 +249,72 @@ function MrWhiteScreen({ state, byId }: { state: IntrusClientState; byId: (id: s
   )
 }
 
+/**
+ * L'élimination — le moment le plus fort du jeu, et la démonstration des primitives.
+ *
+ * Avant : le rôle apparaissait d'un coup, avec deux `delay` en dur ; le verdict avait le même
+ * poids qu'un écran d'attente. Maintenant la scène tient en trois temps — on voit d'abord QUI
+ * tombe (la pièce hurle un nom), un silence, PUIS ce qu'il était. C'est cet écart qui fait le
+ * moment, et il est désormais identique dans les 17 jeux.
+ */
 function RevealScreen({ state, byId }: { state: IntrusClientState; byId: (id: string) => Member | undefined }) {
   const last = state.lastElimination
   const m = last ? byId(last.memberId) : null
   const guess = state.mrWhiteGuess
 
+  if (!m || !last) {
+    return (
+      <Stage kicker="Élimination">
+        <p className="text-tv-lg text-chalk-muted">Personne n'a été éliminé.</p>
+      </Stage>
+    )
+  }
+
   return (
-    <div className="text-center w-full max-w-5xl">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-6">Élimination</p>
-      {m && last ? (
-        <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 220, damping: 22 }} className="flex flex-col items-center gap-3">
-          <Avatar pseudo={m.pseudo} color={m.color} size={140} photoUrl={m.photoUrl} />
-          <p className="text-5xl font-extrabold">{m.pseudo}</p>
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45 }}
-            className={`text-6xl font-extrabold ${ROLE_COLOR[last.role]}`}
-          >
-            {ROLE_EMOJI[last.role]} {ROLE_LABEL[last.role]}
-          </motion.p>
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="text-2xl text-white/55">
-            {last.role === 'civil' ? 'Un civil de perdu…' : 'Un intrus de moins !'}
-          </motion.p>
-        </motion.div>
-      ) : (
-        <p className="text-3xl text-white/60">Personne n'a été éliminé.</p>
-      )}
-      {guess && (
-        <p className="text-2xl text-white/60 mt-6">
-          Mr. White avait proposé « <b className="text-white/85">{guess.guess}</b> » — {guess.correct ? 'juste 😱' : 'raté 😅'}
-        </p>
-      )}
-      <AliveStrip state={state} byId={byId} />
-    </div>
+    <Stage
+      kicker="Élimination"
+      tone={last.role === 'civil' ? 'blood' : 'brass'}
+      rail={
+        <PlayerRail
+          members={state.order.map((id) => byId(id)).filter((x): x is Member => !!x)}
+          eliminatedIds={state.eliminated.map((e) => e.memberId)}
+          captionFor={(mem) => {
+            const e = state.eliminated.find((x) => x.memberId === mem.id)
+            return e ? `${ROLE_EMOJI[e.role]} ${ROLE_LABEL[e.role]}` : undefined
+          }}
+        />
+      }
+    >
+      <Moment
+        revealKey={last.memberId}
+        // Temps 1 : on voit QUI tombe, mais pas encore ce qu'il était. Tout le suspense est là.
+        suspense={
+          <div className="flex flex-col items-center gap-4">
+            <Avatar pseudo={m.pseudo} color={m.color} size={140} photoUrl={m.photoUrl} />
+            <p className="font-stage text-tv-2xl text-chalk">{m.pseudo}</p>
+            <p className="text-tv-base text-chalk-faint">était…</p>
+          </div>
+        }
+      >
+        {/* Temps 2 et 3 : la bascule, puis le verdict qui RESTE. */}
+        <Verdict
+          tone={last.role === 'civil' ? 'lose' : 'win'}
+          icon={<Avatar pseudo={m.pseudo} color={m.color} size={140} photoUrl={m.photoUrl} />}
+          title={`${m.pseudo} — ${ROLE_LABEL[last.role]}`}
+          subtitle={
+            <>
+              {last.role === 'civil' ? 'Un civil de perdu…' : 'Un intrus de moins !'}
+              {guess && (
+                <>
+                  {' · '}Mr. White avait proposé « <b className="text-chalk">{guess.guess}</b> » —{' '}
+                  {guess.correct ? 'juste 😱' : 'raté 😅'}
+                </>
+              )}
+            </>
+          }
+        />
+      </Moment>
+    </Stage>
   )
 }
 
