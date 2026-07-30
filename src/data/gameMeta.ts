@@ -21,4 +21,5 @@ export const GAME_META: Record<string, GameMeta> = {
   blanc: { id: 'blanc', name: 'Le Grand Blanc', icon: '🖊️' },
   'petits-chevaux': { id: 'petits-chevaux', name: 'Petits Chevaux', icon: '🐴' },
   'coup-de-crayon': { id: 'coup-de-crayon', name: 'Coup de Crayon', icon: '🖍️' },
+  intrus: { id: 'intrus', name: "L'Intrus", icon: '🕵️' },
 }

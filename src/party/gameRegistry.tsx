@@ -31,6 +31,8 @@ import { PetitsChevauxController } from './games/petitsChevaux/ControllerView'
 import { PetitsChevauxScreen } from './games/petitsChevaux/ScreenView'
 import { CoupDeCrayonController } from './games/coupDeCrayon/ControllerView'
 import { CoupDeCrayonScreen } from './games/coupDeCrayon/ScreenView'
+import { IntrusController } from './games/intrus/ControllerView'
+import { IntrusScreen } from './games/intrus/ScreenView'
 
 interface ClientGameEntry {
   Controller: ComponentType
@@ -54,4 +56,5 @@ export const CLIENT_GAME_REGISTRY: Record<string, ClientGameEntry> = {
   blanc: { Controller: BlancController, Screen: BlancScreen },
   'petits-chevaux': { Controller: PetitsChevauxController, Screen: PetitsChevauxScreen },
   'coup-de-crayon': { Controller: CoupDeCrayonController, Screen: CoupDeCrayonScreen },
+  intrus: { Controller: IntrusController, Screen: IntrusScreen },
 }

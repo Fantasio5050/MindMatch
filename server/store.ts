@@ -96,25 +96,33 @@ function sanitizeParty(party: PartySession, requestingMemberId: string | null): 
 
   if (roundData && typeof roundData === 'object' && 'secrets' in roundData) {
     const { secrets, ...rest } = roundData as { secrets: unknown } & Record<string, unknown>
-    // Cas "Qui a écrit ça ?" : on révèle à chaque joueur UNIQUEMENT l'index de sa propre phrase
-    // (dérivé de secrets.authorByIndex), pour que le client puisse la masquer de ses choix — sans
-    // jamais divulguer les auteurs des autres phrases. Tout le reste de `secrets` est supprimé.
-    let yourEntryIndex: number | null = null
-    if (
-      requestingMemberId &&
-      secrets &&
-      typeof secrets === 'object' &&
-      'authorByIndex' in secrets
-    ) {
-      const authorByIndex = (secrets as { authorByIndex: Record<number, string> }).authorByIndex
-      for (const [idx, authorId] of Object.entries(authorByIndex)) {
-        if (authorId === requestingMemberId) {
-          yourEntryIndex = Number(idx)
-          break
+    // `secrets` est toujours supprimé pour tout le monde (y compris la TV). Chaque joueur ne reçoit
+    // que la part qui le concerne, dérivée ici selon des conventions nommées :
+    //  - `authorByIndex` -> `yourEntryIndex` (Qui a écrit ça ? : masquer sa propre phrase).
+    //  - `wordByMember`  -> `yourWord` (L'Intrus : son mot secret ; `null` = Mr. White, qui n'en a
+    //    pas — d'où la distinction volontaire entre valeur nulle et clé absente).
+    //  - `truthByMember` -> `yourTruth` (L'Intrus : la vérité complète, servie aux seuls éliminés).
+    const derived: Record<string, unknown> = {}
+    if (requestingMemberId && secrets && typeof secrets === 'object') {
+      if ('authorByIndex' in secrets) {
+        const authorByIndex = (secrets as { authorByIndex: Record<number, string> }).authorByIndex
+        for (const [idx, authorId] of Object.entries(authorByIndex)) {
+          if (authorId === requestingMemberId) {
+            derived.yourEntryIndex = Number(idx)
+            break
+          }
         }
       }
+      if ('wordByMember' in secrets) {
+        const wordByMember = (secrets as { wordByMember: Record<string, string | null> }).wordByMember
+        if (requestingMemberId in wordByMember) derived.yourWord = wordByMember[requestingMemberId]
+      }
+      if ('truthByMember' in secrets) {
+        const truthByMember = (secrets as { truthByMember: Record<string, unknown> }).truthByMember
+        if (requestingMemberId in truthByMember) derived.yourTruth = truthByMember[requestingMemberId]
+      }
     }
-    roundData = yourEntryIndex !== null ? { ...rest, yourEntryIndex } : rest
+    roundData = { ...rest, ...derived }
   }
 
   return { ...party, roundData }

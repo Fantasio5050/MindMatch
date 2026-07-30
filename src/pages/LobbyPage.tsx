@@ -60,6 +60,10 @@ export function LobbyPage() {
   const [autorouteCycles, setAutorouteCycles] = useState(3)
   const [crayonRounds, setCrayonRounds] = useState(3)
   const [crayonWords, setCrayonWords] = useState('')
+  const [intrusPack, setIntrusPack] = useState<PackChoice>('classic')
+  const [intrusTurnSeconds, setIntrusTurnSeconds] = useState(30)
+  const [intrusMrWhite, setIntrusMrWhite] = useState(true)
+  const [intrusUndercovers, setIntrusUndercovers] = useState<number | null>(null)
   const [history, setHistory] = useState<GameHistoryEntry[]>([])
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -134,6 +138,13 @@ export function LobbyPage() {
     } else if (e.config === 'crayon') {
       const customWords = crayonWords.split(/[\n,;]+/).map((w) => w.trim()).filter(Boolean)
       startGame(e.id, { rounds: crayonRounds, customWords })
+    } else if (e.config === 'intrus') {
+      startGame(e.id, {
+        pack: intrusPack,
+        turnSeconds: intrusTurnSeconds,
+        mrWhite: intrusMrWhite,
+        ...(intrusUndercovers !== null ? { undercoverCount: intrusUndercovers } : {}),
+      })
     } else {
       startGame(e.id)
     }
@@ -445,6 +456,15 @@ export function LobbyPage() {
                 setCrayonRounds={setCrayonRounds}
                 crayonWords={crayonWords}
                 setCrayonWords={setCrayonWords}
+                playerCount={group.members.length}
+                intrusPack={intrusPack}
+                setIntrusPack={setIntrusPack}
+                intrusTurnSeconds={intrusTurnSeconds}
+                setIntrusTurnSeconds={setIntrusTurnSeconds}
+                intrusMrWhite={intrusMrWhite}
+                setIntrusMrWhite={setIntrusMrWhite}
+                intrusUndercovers={intrusUndercovers}
+                setIntrusUndercovers={setIntrusUndercovers}
                 onLaunch={() => launchGame(selectedGame)}
               />
             </motion.div>
@@ -584,6 +604,15 @@ function GameSheet({
   setCrayonRounds,
   crayonWords,
   setCrayonWords,
+  playerCount,
+  intrusPack,
+  setIntrusPack,
+  intrusTurnSeconds,
+  setIntrusTurnSeconds,
+  intrusMrWhite,
+  setIntrusMrWhite,
+  intrusUndercovers,
+  setIntrusUndercovers,
   onLaunch,
 }: {
   entry: GameLibraryEntry
@@ -601,6 +630,15 @@ function GameSheet({
   setCrayonRounds: (n: number) => void
   crayonWords: string
   setCrayonWords: (s: string) => void
+  playerCount: number
+  intrusPack: PackChoice
+  setIntrusPack: (p: PackChoice) => void
+  intrusTurnSeconds: number
+  setIntrusTurnSeconds: (n: number) => void
+  intrusMrWhite: boolean
+  setIntrusMrWhite: (b: boolean) => void
+  intrusUndercovers: number | null
+  setIntrusUndercovers: (n: number | null) => void
   onLaunch: () => void
 }) {
   const pack = entry.id === 'dilemmas' ? dilemmaPack : partyCardsPack
@@ -706,6 +744,21 @@ function GameSheet({
               </label>
             </div>
           )}
+
+          {entry.config === 'intrus' && (
+            <IntrusOptions
+              playerCount={playerCount}
+              adultMode={adultMode}
+              pack={intrusPack}
+              setPack={setIntrusPack}
+              turnSeconds={intrusTurnSeconds}
+              setTurnSeconds={setIntrusTurnSeconds}
+              mrWhite={intrusMrWhite}
+              setMrWhite={setIntrusMrWhite}
+              undercovers={intrusUndercovers}
+              setUndercovers={setIntrusUndercovers}
+            />
+          )}
         </>
       )}
 
@@ -716,6 +769,125 @@ function GameSheet({
       ) : (
         <p className="text-xs text-white/40 text-center py-2">Seul·e l'hôte peut lancer ce jeu</p>
       )}
+    </div>
+  )
+}
+
+/** Réglages de L'Intrus. Le nombre d'undercovers est « Auto » par défaut ; en manuel, il reste
+ * plafonné par le même garde-fou que le serveur (les infiltrés doivent rester minoritaires). */
+function IntrusOptions({
+  playerCount,
+  adultMode,
+  pack,
+  setPack,
+  turnSeconds,
+  setTurnSeconds,
+  mrWhite,
+  setMrWhite,
+  undercovers,
+  setUndercovers,
+}: {
+  playerCount: number
+  adultMode: boolean
+  pack: PackChoice
+  setPack: (p: PackChoice) => void
+  turnSeconds: number
+  setTurnSeconds: (n: number) => void
+  mrWhite: boolean
+  setMrWhite: (b: boolean) => void
+  undercovers: number | null
+  setUndercovers: (n: number | null) => void
+}) {
+  const cap = Math.max(1, Math.floor((playerCount - 1) / 2))
+  const auto = playerCount <= 6 ? 1 : playerCount <= 9 ? 2 : 3
+  const effective = Math.min(undercovers ?? auto, cap)
+  // Mr. White ne rentre que s'il reste de la place sous le plafond (impossible à 4 joueurs).
+  const mrWhiteFits = effective < cap
+  const options = Array.from({ length: cap }, (_, i) => i + 1)
+
+  return (
+    <div className="mb-4 flex flex-col gap-3">
+      <div className="flex gap-1.5">
+        <PackPill label="Classique" active={pack === 'classic'} onClick={() => setPack('classic')} />
+        <PackPill label="Trash 18+" active={pack === 'trash'} locked={!adultMode} onClick={() => adultMode && setPack('trash')} />
+        <PackPill label="Mixte" active={pack === 'mixed'} locked={!adultMode} onClick={() => adultMode && setPack('mixed')} />
+      </div>
+
+      <div>
+        <span className="text-xs text-white/50 block mb-1">Temps de parole (indicatif)</span>
+        <div className="flex gap-1.5">
+          {[15, 30, 45].map((s) => (
+            <button
+              key={s}
+              onClick={() => setTurnSeconds(s)}
+              className={`flex-1 rounded-full py-2 text-xs font-semibold border transition-colors ${
+                turnSeconds === s
+                  ? 'bg-fuchsia-500/30 text-white border-fuchsia-400/50'
+                  : 'bg-white/6 text-white/50 border-white/10'
+              }`}
+            >
+              {s} s
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-white/50">Nombre d'intrus</span>
+          <span className="text-xs font-bold text-fuchsia-300">
+            {undercovers === null ? `Auto (${auto})` : effective}
+          </span>
+        </div>
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => setUndercovers(null)}
+            className={`flex-1 rounded-full py-2 text-xs font-semibold border transition-colors ${
+              undercovers === null
+                ? 'bg-fuchsia-500/30 text-white border-fuchsia-400/50'
+                : 'bg-white/6 text-white/50 border-white/10'
+            }`}
+          >
+            Auto
+          </button>
+          {options.map((n) => (
+            <button
+              key={n}
+              onClick={() => setUndercovers(n)}
+              className={`flex-1 rounded-full py-2 text-xs font-semibold border transition-colors ${
+                undercovers === n
+                  ? 'bg-fuchsia-500/30 text-white border-fuchsia-400/50'
+                  : 'bg-white/6 text-white/50 border-white/10'
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button
+        onClick={() => mrWhiteFits && setMrWhite(!mrWhite)}
+        disabled={!mrWhiteFits}
+        className={`flex items-center gap-2 w-full rounded-2xl border px-3 py-2.5 text-left transition-colors ${
+          mrWhiteFits ? 'bg-white/6 border-white/10 active:bg-white/12' : 'bg-white/4 border-white/8 opacity-50'
+        }`}
+      >
+        <span className="text-lg">🃏</span>
+        <span className="flex-1">
+          <span className="text-sm font-semibold block">Mr. White</span>
+          <span className="text-[11px] text-white/45">
+            {mrWhiteFits ? "Aucun mot — il improvise, et peut voler la partie" : `Impossible à ${playerCount} joueurs (trop d'intrus)`}
+          </span>
+        </span>
+        <span
+          className={`w-9 h-5 rounded-full relative shrink-0 transition-colors ${mrWhite && mrWhiteFits ? 'bg-fuchsia-500' : 'bg-white/15'}`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${mrWhite && mrWhiteFits ? 'translate-x-4' : 'translate-x-0'}`}
+          />
+        </span>
+      </button>
     </div>
   )
 }
