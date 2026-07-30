@@ -59,6 +59,9 @@ export function sanitizeMember(member: StoredMember, isSelf: boolean): Member {
  *    private to their owner, e.g. for Pyramide).
  *  - `roundData.submissions: Record<memberId, text>` -> replaced with `submittedCount` +
  *    `yourSubmission` (same idea as votes, for free-text answers, e.g. Qui a écrit ça ?).
+ *  - `roundData.guesses: Record<memberId, ...>` -> replaced with `guessedCount` +
+ *    `guessedMemberIds` + `yourGuesses` (comme `votes`, mais pour un tour où chacun dépose
+ *    plusieurs choix, e.g. l'attribution phrase par phrase dans Qui a écrit ça ?).
  *  - `roundData.secrets: {...}` -> stripped entirely for every client, including its own owner
  *    (for state nobody should see yet, e.g. the mystery member's identity in Profil secret). The
  *    game module is responsible for moving values out of `secrets` into a public field once they
@@ -102,6 +105,21 @@ function sanitizeParty(party: PartySession, requestingMemberId: string | null): 
       // ça ? », savoir que Léo a rendu son texte ne dit pas lequel des textes mélangés est le sien.
       submittedMemberIds: Object.keys(submissions),
       yourSubmission: requestingMemberId ? (submissions[requestingMemberId] ?? null) : null,
+    }
+  }
+
+  if (roundData && typeof roundData === 'object' && 'guesses' in roundData) {
+    const { guesses, ...rest } = roundData as {
+      guesses: Record<string, unknown>
+    } & Record<string, unknown>
+    // Même règle que `votes`, pour les jeux où un joueur dépose PLUSIEURS choix dans un tour
+    // (« Qui a écrit ça ? » : une attribution par phrase). La table brute partait en clair : tout
+    // le monde pouvait lire, dans la charge socket, qui avait accusé qui — avant la révélation.
+    roundData = {
+      ...rest,
+      guessedCount: Object.keys(guesses).length,
+      guessedMemberIds: Object.keys(guesses),
+      yourGuesses: requestingMemberId ? (guesses[requestingMemberId] ?? {}) : {},
     }
   }
 

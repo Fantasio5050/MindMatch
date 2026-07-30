@@ -137,7 +137,7 @@ function GuessingView({
   const index = guessableIndexes[clampedPos]
   const entry = index !== undefined ? state.entries[index] : undefined
 
-  const yourGuesses = state.guesses[currentMemberId] ?? {}
+  const yourGuesses = state.yourGuesses ?? {}
   const guessedAuthorId = index !== undefined ? yourGuesses[index] : undefined
   const guessedAuthor = guessedAuthorId ? members.find((m) => m.id === guessedAuthorId) : null
   const isLast = clampedPos >= guessableIndexes.length - 1
@@ -183,7 +183,7 @@ function GuessingView({
             allGuessed ? (
               <WaitState
                 title="Toutes tes réponses sont données"
-                actedIds={Object.keys(state.guesses)}
+                actedIds={state.guessedMemberIds}
                 noun="ont fini de deviner"
                 verb="a fini"
               />

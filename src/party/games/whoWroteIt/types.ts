@@ -9,7 +9,11 @@ export interface WhoWroteItHistoryEntry {
 export interface WhoWroteItClientState {
   currentPrompt: WhoWroteItPrompt | null
   entries: { text: string }[]
-  guesses: Record<string, Record<number, string>>
+  /** Diffusé par la sanitization : QUI a déposé ses attributions, jamais lesquelles. */
+  guessedMemberIds: string[]
+  guessedCount: number
+  /** Tes propres attributions, et elles seules. */
+  yourGuesses: Record<number, string>
   revealedAuthors: Record<number, string> | null
   totalRounds: number
   history: WhoWroteItHistoryEntry[]
