@@ -10,6 +10,7 @@ import { PlayingCard } from '../shared/PlayingCard'
 import { QUESTION_META, CHOICE_META, choiceLabel } from './types'
 import type { AutorouteClientState, AutorouteChoice, AutorouteTrackCell } from './types'
 import type { Member } from '../../../types'
+import { HostCue, WaitState } from '../../primitives'
 
 export function AutorouteController() {
   const navigate = useNavigate()
@@ -116,7 +117,7 @@ function IntroView({ trackLength, isHost, onStart }: { trackLength: number; isHo
           Départ ! 🏎️
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte donne le départ…</p>
+        <HostCue action="donne le départ" />
       )}
       <p className="text-center text-chalk-faint text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
     </div>
@@ -213,7 +214,7 @@ function PredictingView({
   const kind = cell?.type === 'question' ? cell.kind : null
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-3">
         Case {Math.min(position + 1, state.track.length)} / {state.track.length}
       </p>
@@ -236,13 +237,12 @@ function PredictingView({
           <p className="text-chalk-soft text-sm">Regarde les autres transpirer… ({state.votedCount}/{activeCount} ont parié)</p>
         </Card>
       ) : hasVoted ? (
-        <Card className="text-center">
-          <p className="text-3xl mb-2">✅</p>
-          <p className="font-semibold mb-1">Pari enregistré : {state.yourVote ? choiceLabel(state.yourVote) : ''}</p>
-          <p className="text-chalk-soft text-sm">
-            En attente des autres… ({state.votedCount}/{activeCount})
-          </p>
-        </Card>
+        <WaitState
+          title={`Pari enregistré : ${state.yourVote ? choiceLabel(state.yourVote) : ''}`}
+          actedIds={state.votedMemberIds}
+          noun="ont parié"
+          verb="a parié"
+        />
       ) : kind ? (
         <>
           <div className="flex flex-col items-center mb-6">
@@ -319,7 +319,7 @@ function RevealView({
   const everyoneFinished = participants.every((m) => state.finished[m.id])
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Résultat</p>
 
       {myResult ? (
@@ -386,7 +386,7 @@ function RevealView({
           {everyoneFinished ? 'Voir les résultats finaux' : 'Manche suivante →'}
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte pour continuer…</p>
+        <HostCue action="enchaîne la manche" />
       )}
     </div>
   )
@@ -412,7 +412,7 @@ function FinalResults({
   })
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Autoroute terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🛣️ Classement</h1>
       <div className="flex flex-col gap-2 mb-6">

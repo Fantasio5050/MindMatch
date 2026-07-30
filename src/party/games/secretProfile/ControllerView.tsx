@@ -10,6 +10,7 @@ import { TRAIT_MAP } from '../../../data/traits'
 import { CLUE_PHRASES } from './types'
 import type { SecretProfileClientState } from './types'
 import type { Member } from '../../../types'
+import { HostCue, WaitState } from '../../primitives'
 
 export function SecretProfileController() {
   const navigate = useNavigate()
@@ -70,7 +71,7 @@ function VotingView({
 }) {
   const hasVoted = !!state.yourVote
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Manche {state.history.length + 1} / {state.totalRounds}
       </p>
@@ -87,13 +88,12 @@ function VotingView({
       </div>
 
       {hasVoted ? (
-        <Card className="text-center">
-          <p className="text-3xl mb-2">✅</p>
-          <p className="font-semibold mb-1">Vote enregistré</p>
-          <p className="text-chalk-soft text-sm">
-            En attente des autres… ({state.votedCount}/{members.length})
-          </p>
-        </Card>
+        <WaitState
+          title="Vote enregistré"
+          actedIds={state.votedMemberIds}
+          noun="ont voté"
+          verb="a voté"
+        />
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {members.map((m, i) => (
@@ -133,7 +133,7 @@ function RevealView({
   const foundIt = (last?.correctGuesserIds.length ?? 0) > 0
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Le profil secret était…</p>
 
       <Card className="text-center mb-4">
@@ -168,7 +168,7 @@ function RevealView({
           {isLastRound ? 'Voir les résultats finaux' : 'Manche suivante →'}
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte pour continuer…</p>
+        <HostCue action="enchaîne la manche" />
       )}
     </div>
   )
@@ -177,7 +177,7 @@ function RevealView({
 function FinalResults({ members, onExit }: { members: Member[]; onExit: () => void }) {
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Partie terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🏆 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">

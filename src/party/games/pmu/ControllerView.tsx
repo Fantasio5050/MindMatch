@@ -11,6 +11,7 @@ import { HORSES, PMU_TRACK_LEN } from './types'
 import type { PmuClientState } from './types'
 import { usePmuPlayback } from './usePmuPlayback'
 import type { Member } from '../../../types'
+import { HostCue } from '../../primitives'
 
 export function PmuController() {
   const navigate = useNavigate()
@@ -129,7 +130,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
           Ouvrir les paris ! 💰
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte ouvre les paris…</p>
+        <HostCue action="ouvre les paris" />
       )}
       <p className="text-center text-chalk-faint text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
     </div>
@@ -150,7 +151,7 @@ function BettingView({
   const placed = state.yourVote
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">Course {state.racesPlayed + 1}</p>
       <h1 className="text-xl font-extrabold text-center mb-5">💰 Fais ton pari</h1>
 
@@ -224,7 +225,7 @@ function RacingView({
   const event = playback.current
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Course {state.racesPlayed} 🏇</p>
 
       {playback.countdown ? (
@@ -310,7 +311,7 @@ function ResultsView({
   const myResult = state.raceResults[selfId]
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       {winner && (
         <h1 className="text-xl font-extrabold text-center mb-4">
           🏆 <span style={{ color: winner.color }}>{winner.symbol} {winner.name}</span> l'emporte !
@@ -406,7 +407,7 @@ function ResultsView({
 function FinalResults({ members, state, onExit }: { members: Member[]; state: PmuClientState; onExit: () => void }) {
   const ranked = [...members].sort((a, b) => (state.totalSipsDrunk[a.id] ?? 0) - (state.totalSipsDrunk[b.id] ?? 0))
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         PMU terminé — {state.racesPlayed} course{state.racesPlayed > 1 ? 's' : ''}
       </p>

@@ -12,6 +12,7 @@ export interface SecretProfileClientState {
   totalRounds: number
   history: SecretProfileHistoryEntry[]
   votedCount: number
+  votedMemberIds: string[]
   yourVote: string | null
 }
 

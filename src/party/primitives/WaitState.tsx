@@ -27,7 +27,9 @@ export function WaitState({
   className?: string
 } & GroupPulseProps) {
   return (
-    <Surface className={clsx('text-center', className)}>
+    // `my-auto` : les vues de manette sont des colonnes flex pleine hauteur. Sans ça l'écran
+    // d'attente restait collé en haut avec un grand vide dessous — l'inverse de l'effet voulu.
+    <Surface className={clsx('text-center my-auto', className)}>
       <p className="font-semibold text-chalk mb-3">{title}</p>
       {children && <div className="mb-3">{children}</div>}
       <GroupPulse {...pulse} />

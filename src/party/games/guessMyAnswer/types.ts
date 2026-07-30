@@ -14,5 +14,6 @@ export interface GuessMyAnswerClientState {
   totalRounds: number
   history: GuessMyAnswerHistoryEntry[]
   votedCount: number
+  votedMemberIds: string[]
   yourVote: string | null
 }

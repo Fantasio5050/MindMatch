@@ -14,6 +14,7 @@ export interface WhoWroteItClientState {
   totalRounds: number
   history: WhoWroteItHistoryEntry[]
   submittedCount: number
+  submittedMemberIds: string[]
   yourSubmission: string | null
   /** Index de la phrase écrite par le joueur qui reçoit cet état (pendant la phase de devinette),
    * pour que le client la masque de ses propres choix. null s'il n'a pas écrit / hors devinette. */

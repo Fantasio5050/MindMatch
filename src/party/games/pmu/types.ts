@@ -35,6 +35,7 @@ export interface PmuClientState {
   raceWins: Record<string, number>
   racesPlayed: number
   votedCount: number
+  votedMemberIds: string[]
   yourVote: PmuBet | null
 }
 

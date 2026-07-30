@@ -10,6 +10,7 @@ import { WheelSVG } from './WheelSVG'
 import { useWheelSpin } from './useWheelSpin'
 import type { WheelClientState, WheelSpinOutcome } from './types'
 import type { Member } from '../../../types'
+import { HostCue } from '../../primitives'
 
 export function WheelController() {
   const navigate = useNavigate()
@@ -41,7 +42,7 @@ export function WheelController() {
 
   if (phase === 'turn') {
     return (
-      <div className="min-h-svh flex flex-col px-6 pt-10 pb-8 safe-top">
+      <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-8 safe-top">
         <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">Tour {group.party.round} 🎡</p>
         {iAmSpinner ? (
           <SwipePad
@@ -76,7 +77,7 @@ export function WheelController() {
   if (phase === 'spinning' && state.spin) {
     const outcome = state.spin.outcome
     return (
-      <div className="min-h-svh flex flex-col px-6 pt-10 pb-8 safe-top">
+      <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-8 safe-top">
         <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-3">
           {memberName(state.spin.spinnerId)} a lancé la roue 🎡
         </p>
@@ -159,7 +160,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
           Faire tourner ! 🎡
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte lance la roue…</p>
+        <HostCue action="lance la roue" />
       )}
       <p className="text-center text-chalk-faint text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
     </div>
@@ -365,7 +366,7 @@ function OutcomePanel({
 function FinalResults({ members, state, onExit }: { members: Member[]; state: WheelClientState; onExit: () => void }) {
   const ranked = [...members].sort((a, b) => (state.totalSips[a.id] ?? 0) - (state.totalSips[b.id] ?? 0))
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Roue Infernale — {state.spinsDone} lancer{state.spinsDone > 1 ? 's' : ''}
       </p>

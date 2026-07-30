@@ -11,6 +11,8 @@ import { PlayingCard } from '../shared/PlayingCard'
 import { sipLabel, rankLabel, SUITS, distributionSlots } from './types'
 import type { PyramidClientState, Accusation, RecitationGuess } from './types'
 import type { Member } from '../../../types'
+import { HostCue } from '../../primitives'
+import { GroupPulse } from '../../../components/GroupPulse'
 
 function memberNameFactory(members: Member[]) {
   return (id: string) => members.find((m) => m.id === id)?.pseudo ?? '?'
@@ -182,7 +184,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
           C'est parti !
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte lance la partie…</p>
+        <HostCue action="lance la partie" />
       )}
       <p className="text-center text-chalk-faint text-xs mt-6">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
     </div>
@@ -608,7 +610,7 @@ function RecitationView({
                     .join(' · ')}
                 </p>
               )}
-              <p className="text-chalk-soft text-sm">En attente des autres…</p>
+              <GroupPulse actedIds={Object.keys(state.recitation)} noun="ont récité" verb="a récité" mode="creative" />
             </Card>
           )}
         </>
@@ -638,7 +640,7 @@ function FinalResults({
 }) {
   const ranked = [...members].sort((a, b) => (totals[a.id] ?? 0) - (totals[b.id] ?? 0))
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Pyramide terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🍻 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">

@@ -7,6 +7,7 @@ import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { fillBlank, type BlancClientState } from './types'
 import type { Member } from '../../../types'
+import { HostCue } from '../../primitives'
 
 export function BlancController() {
   const navigate = useNavigate()
@@ -122,7 +123,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
           Distribuer les cartes 🃏
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte lance la partie…</p>
+        <HostCue action="lance la partie" />
       )}
     </div>
   )

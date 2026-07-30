@@ -8,6 +8,7 @@ import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
 import { GroupPulse } from '../../../components/GroupPulse'
 import type { WhoIsMostLikelyClientState } from './types'
+import { HostCue } from '../../primitives'
 
 export function WhoIsMostLikelyController() {
   const navigate = useNavigate()
@@ -76,7 +77,7 @@ function VotingView({
 }) {
   const hasVoted = !!state.yourVote
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Manche {state.history.length + 1} / {state.totalRounds}
       </p>
@@ -132,7 +133,7 @@ function RevealView({
   const isLastRound = round >= state.totalRounds
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Résultat</p>
 
       <Card className="text-center mb-4">
@@ -167,7 +168,7 @@ function RevealView({
           {isLastRound ? 'Voir les résultats finaux' : 'Manche suivante →'}
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte pour continuer…</p>
+        <HostCue action="enchaîne la manche" />
       )}
     </div>
   )
@@ -182,7 +183,7 @@ function FinalResults({
 }) {
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Partie terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🏆 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">

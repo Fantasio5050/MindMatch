@@ -9,6 +9,7 @@ import { Avatar } from '../../../components/Avatar'
 import { PlayingCard } from '../shared/PlayingCard'
 import { handTotal, OUTCOME_LABEL, type BlackjackClientState } from './types'
 import type { Member } from '../../../types'
+import { HostCue, WaitState } from '../../primitives'
 
 export function BlackjackController() {
   const navigate = useNavigate()
@@ -38,7 +39,7 @@ export function BlackjackController() {
   const memberName = (id: string) => group.members.find((m) => m.id === id)?.pseudo ?? '?'
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       {isHost && (
         <div className="flex justify-end mb-2">
           <button onClick={() => { play('pop'); endGame() }} className="text-xs text-chalk-faint underline">
@@ -101,7 +102,7 @@ function IntroView({ adult, isHost, onStart }: { adult: boolean; isHost: boolean
       {isHost ? (
         <Button fullWidth onClick={onStart} className="!py-3">Distribuer 🃏</Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte…</p>
+        <HostCue action="a la main" />
       )}
     </div>
   )
@@ -120,11 +121,13 @@ function BettingView({ state, meId, onBet }: { state: BlackjackClientState; meId
       <p className="text-chalk-faint text-sm mb-8">{betCount}/{state.order.length} ont misé</p>
 
       {myBet !== undefined ? (
-        <Card className="text-center">
-          <p className="text-3xl mb-1">✅</p>
-          <p className="font-semibold">Mise : {myBet} {unit}{myBet > 1 ? 's' : ''}</p>
-          <p className="text-chalk-faint text-sm mt-1">En attente des autres…</p>
-        </Card>
+        <WaitState
+          title={`Mise : ${myBet} ${unit}${myBet > 1 ? 's' : ''}`}
+          actedIds={Object.keys(state.bets ?? {})}
+          expectedIds={state.order}
+          noun="ont misé"
+          verb="a misé"
+        />
       ) : (
         <>
           <div className="flex justify-center gap-2 mb-6">
@@ -192,11 +195,16 @@ function PlayingView({
 
       <div className="mt-auto">
         {done ? (
-          <Card className="text-center">
-            <p className="text-chalk-soft text-sm">
-              {myHand?.bust ? 'Tu as sauté.' : myTotal === 21 ? 'Tu as 21 !' : 'Tu restes.'} En attente des autres…
-            </p>
-          </Card>
+          <WaitState
+            title={myHand?.bust ? 'Tu as sauté.' : myTotal === 21 ? 'Tu as 21 !' : 'Tu restes.'}
+            actedIds={state.order.filter((id) => {
+              const h = state.playerHands[id]
+              return !!h && (h.stood || h.bust || h.blackjack)
+            })}
+            expectedIds={state.order}
+            noun="ont terminé"
+            verb="a terminé"
+          />
         ) : (
           <div className="flex gap-3">
             <Button fullWidth onClick={onHit} className="!py-3">Tirer</Button>
@@ -293,7 +301,7 @@ function ResultsView({
         {isHost ? (
           <Button fullWidth onClick={onNext} className="!py-3">Nouvelle donne →</Button>
         ) : (
-          <p className="text-center text-chalk-faint text-sm">En attente de l'hôte…</p>
+          <HostCue action="a la main" />
         )}
       </div>
     </div>
@@ -309,7 +317,7 @@ function FinalPodium({ members, state, onExit }: { members: Member[]; state: Bla
         : (state.chips[b.id] ?? 0) - (state.chips[a.id] ?? 0),
     )
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Blackjack terminé</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🏆 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">

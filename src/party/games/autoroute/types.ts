@@ -33,6 +33,7 @@ export interface AutorouteClientState {
   totalSipsReceived: Record<string, number>
   history: AutorouteHistoryEntry[]
   votedCount: number
+  votedMemberIds: string[]
   yourVote: AutorouteChoice | null
 }
 

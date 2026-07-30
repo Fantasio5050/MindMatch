@@ -9,6 +9,7 @@ import { Avatar } from '../../../components/Avatar'
 import { PlayingCard } from '../shared/PlayingCard'
 import type { PalmierClientState } from './types'
 import type { Member } from '../../../types'
+import { HostCue } from '../../primitives'
 
 const NEEDS_TARGET = new Set(['give-sips', 'center-give', 'buddy'])
 const NEEDS_JUDGE = new Set(['race', 'challenge'])
@@ -69,7 +70,7 @@ export function PalmierController() {
 
 function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }) {
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top justify-center">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top justify-center">
       <span className="text-6xl mb-4 block text-center">🌴</span>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">Palmier</h1>
       <div className="flex flex-col gap-2.5 text-sm text-chalk-muted mb-8">
@@ -119,7 +120,7 @@ function DrawingView({
   const needsRule = state.effect === 'rule'
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">
         Carte {state.currentIndex + 1} / {state.totalCards}
       </p>
@@ -204,9 +205,11 @@ function DrawingView({
       )}
 
       {!state.resolved && !((needsTarget && isDrawer) || (needsJudge && isHost) || (needsRule && isDrawer)) && (
-        <p className="text-center text-chalk-faint text-sm mb-4">
-          {needsJudge ? "En attente du jugement de l'hôte…" : `En attente de ${drawer?.pseudo}…`}
-        </p>
+        <HostCue
+          className="mb-4"
+          memberId={needsJudge ? null : state.drawerMemberId}
+          action={needsJudge ? 'tranche' : 'joue sa carte'}
+        />
       )}
 
       {state.resolved && lastLog && (
@@ -237,7 +240,7 @@ function FinalPodium({
 }) {
   const ranked = [...members].sort((a, b) => (totals[a.id] ?? 0) - (totals[b.id] ?? 0))
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Palmier terminé</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🌴 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">

@@ -7,6 +7,7 @@ import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
 import type { DilemmasClientState } from './types'
+import { HostCue, WaitState } from '../../primitives'
 
 export function DilemmasController() {
   const navigate = useNavigate()
@@ -54,19 +55,18 @@ function VotingView({ state, onVote }: { state: DilemmasClientState; onVote: (si
   const d = state.currentDilemma
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-6">
         Dilemme {state.history.length + 1} / {state.totalRounds}
       </p>
 
       {hasVoted ? (
-        <Card className="text-center">
-          <p className="text-3xl mb-2">✅</p>
-          <p className="font-semibold mb-1">Vote enregistré</p>
-          <p className="text-chalk-soft text-sm">
-            En attente des autres… ({state.votedCount})
-          </p>
-        </Card>
+        <WaitState
+          title="Vote enregistré"
+          actedIds={state.votedMemberIds}
+          noun="ont tranché"
+          verb="a tranché"
+        />
       ) : (
         <div className="flex flex-col gap-4">
           <motion.button
@@ -114,7 +114,7 @@ function RevealView({
   const isLastRound = state.history.length >= state.totalRounds
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Résultat du groupe</p>
 
       <Card className="mb-4">
@@ -146,7 +146,7 @@ function RevealView({
           {isLastRound ? 'Voir les résultats finaux' : 'Dilemme suivant →'}
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte pour continuer…</p>
+        <HostCue action="enchaîne la manche" />
       )}
     </div>
   )
@@ -161,7 +161,7 @@ function FinalResults({
 }) {
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Débat terminé</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">⚖️ Merci d'avoir débattu !</h1>
       <div className="flex flex-col gap-2 mb-6">

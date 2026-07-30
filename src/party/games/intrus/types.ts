@@ -37,6 +37,7 @@ export interface IntrusClientState {
   outcome: IntrusOutcome | null
   revealedTruth: IntrusTruth | null
   votedCount: number
+  votedMemberIds: string[]
   yourVote: string | null
   yourWord?: string | null
   yourTruth?: IntrusTruth

@@ -27,9 +27,11 @@ export interface BlancClientState {
   order: string[]
   yourHand: BlancAnswerCard[]
   submittedCount: number
+  submittedMemberIds: string[]
   yourSubmission: string | null
   plays: BlancPlay[]
   votedCount: number
+  votedMemberIds: string[]
   yourVote: number | null
   yourEntryIndex?: number | null
   results: BlancRoundResult | null

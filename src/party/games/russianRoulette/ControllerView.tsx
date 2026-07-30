@@ -9,6 +9,7 @@ import { Avatar } from '../../../components/Avatar'
 import { CHAMBER_COUNT } from '../../../data/russianRoulette'
 import type { RussianRouletteClientState } from './types'
 import type { Member } from '../../../types'
+import { HostCue } from '../../primitives'
 
 export function RussianRouletteController() {
   const navigate = useNavigate()
@@ -51,7 +52,7 @@ export function RussianRouletteController() {
   const oddsDenom = Math.max(1, CHAMBER_COUNT - state.chamber)
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       {isHost && (
         <div className="flex justify-end mb-2">
           <button
@@ -125,7 +126,7 @@ function IntroView({ isHost, onStart }: { isHost: boolean; onStart: () => void }
           Charger le barillet 🔫
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte…</p>
+        <HostCue action="a la main" />
       )}
     </div>
   )
@@ -249,7 +250,10 @@ function ResultView({
               Recharger et continuer →
             </Button>
           ) : (
-            <p className="text-chalk-faint text-sm">{decided ? "En attente de l'hôte…" : `${memberName(lp.pullerId)} doit choisir…`}</p>
+            <HostCue
+              memberId={decided ? null : lp.pullerId}
+              action={decided ? 'relance le barillet' : 'doit choisir'}
+            />
           )}
         </>
       )}
@@ -270,7 +274,7 @@ function FinalPodium({
     .filter((m) => state.order.includes(m.id))
     .sort((a, b) => (state.totalSips[a.id] ?? 0) - (state.totalSips[b.id] ?? 0))
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Roulette russe terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🏆 Survivants</h1>
       <div className="flex flex-col gap-2 mb-6">

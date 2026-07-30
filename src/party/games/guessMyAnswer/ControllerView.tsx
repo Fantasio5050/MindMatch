@@ -8,6 +8,7 @@ import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
 import type { GuessMyAnswerClientState } from './types'
 import type { Member } from '../../../types'
+import { HostCue, WaitState } from '../../primitives'
 
 export function GuessMyAnswerController() {
   const navigate = useNavigate()
@@ -72,10 +73,9 @@ function VotingView({
   const target = members.find((m) => m.id === state.targetMemberId)
   const isTarget = state.targetMemberId === currentMemberId
   const hasVoted = !!state.yourVote
-  const expectedVoters = Math.max(members.length - 1, 1)
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Manche {state.history.length + 1} / {state.totalRounds}
       </p>
@@ -94,13 +94,13 @@ function VotingView({
           <p className="text-chalk-soft text-sm">Attends la révélation…</p>
         </Card>
       ) : hasVoted ? (
-        <Card className="text-center">
-          <p className="text-3xl mb-2">✅</p>
-          <p className="font-semibold mb-1">Vote enregistré</p>
-          <p className="text-chalk-soft text-sm">
-            En attente des autres… ({state.votedCount}/{expectedVoters})
-          </p>
-        </Card>
+        <WaitState
+          title="Vote enregistré"
+          actedIds={state.votedMemberIds}
+          expectedIds={members.filter((m) => m.id !== state.targetMemberId).map((m) => m.id)}
+          noun="ont deviné"
+          verb="a deviné"
+        />
       ) : (
         <div className="flex flex-col gap-3">
           {state.currentQuestion?.options.map((option, i) => (
@@ -141,7 +141,7 @@ function RevealView({
   const correctGuessers = members.filter((m) => last?.correctGuesserIds.includes(m.id))
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">La vraie réponse</p>
 
       <Card className="text-center mb-4">
@@ -174,7 +174,7 @@ function RevealView({
           {isLastRound ? 'Voir les résultats finaux' : 'Manche suivante →'}
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte pour continuer…</p>
+        <HostCue action="enchaîne la manche" />
       )}
     </div>
   )
@@ -183,7 +183,7 @@ function RevealView({
 function FinalResults({ members, onExit }: { members: Member[]; onExit: () => void }) {
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Partie terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🏆 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">

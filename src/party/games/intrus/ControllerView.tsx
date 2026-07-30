@@ -16,6 +16,7 @@ import {
   type IntrusTruth,
 } from './types'
 import type { Member } from '../../../types'
+import { HostCue, WaitState } from '../../primitives'
 
 export function IntrusController() {
   const navigate = useNavigate()
@@ -179,7 +180,7 @@ function WordReveal({
   const isMrWhite = state.yourWord === null
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">L'Intrus</p>
       <h1 className="text-2xl font-extrabold text-center mb-1">Ton mot secret</h1>
       <p className="text-xs text-chalk-soft text-center mb-6">
@@ -280,7 +281,7 @@ function CluesView({
   const left = useTurnCountdown(state.turnStartedAt, state.turnSeconds)
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">
         {state.inDuel ? '⚔️ Duel — indice supplémentaire' : 'Tour de parole'}
       </p>
@@ -385,18 +386,14 @@ function VoteView({
   }
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">
         {isDuel ? '⚔️ Revote du duel' : 'Vote'}
       </p>
       <h1 className="text-2xl font-extrabold text-center mb-6">Qui est l'intrus ?</h1>
 
       {voted ? (
-        <Card className="text-center">
-          <p className="text-3xl mb-2">✅</p>
-          <p className="font-semibold mb-1">Vote enregistré</p>
-          <p className="text-chalk-soft text-sm">En attente des autres… ({state.votedCount})</p>
-        </Card>
+        <WaitState title="Vote enregistré" actedIds={state.votedMemberIds} noun="ont voté" verb="a voté" />
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {targets.map((m, i) => (
@@ -452,7 +449,7 @@ function MrWhiteView({
   }
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-amber-200/70 text-center mb-1">Tu es démasqué</p>
       <h1 className="text-2xl font-extrabold text-center mb-2">🃏 Ta dernière chance</h1>
       <p className="text-sm text-chalk-soft text-center mb-6">
@@ -499,7 +496,7 @@ function RevealView({
   const guess = state.mrWhiteGuess
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Élimination</p>
 
       <Card className="text-center mb-4">
@@ -534,7 +531,7 @@ function RevealView({
           Manche suivante →
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte…</p>
+        <HostCue action="a la main" />
       )}
     </div>
   )
@@ -600,7 +597,7 @@ function EliminatedView({
   const myRole = truth?.roleByMember[myId]
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">Tu es éliminé·e</p>
       <h1 className="text-2xl font-extrabold text-center mb-2">🤫 Chut !</h1>
       <p className="text-sm text-chalk-soft text-center mb-5">
@@ -670,7 +667,7 @@ function EndView({
       (outcome === 'mrwhite' && myRole === 'mrwhite'))
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Partie terminée</p>
       <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center mb-4">
         <span className="text-5xl block mb-1">{info?.emoji ?? '🏁'}</span>

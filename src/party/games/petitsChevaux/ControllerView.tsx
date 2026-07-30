@@ -9,6 +9,7 @@ import { Avatar } from '../../../components/Avatar'
 import { PC_TRACK, PC_FINISH_INDEX, PC_HORSE_COLORS, pcColorHex, type PCCell } from '../../../data/petitsChevaux'
 import type { PetitsChevauxClientState } from './types'
 import type { Member } from '../../../types'
+import { HostCue } from '../../primitives'
 
 export function PetitsChevauxController() {
   const navigate = useNavigate()
@@ -65,7 +66,7 @@ export function PetitsChevauxController() {
   const myColor = pcColorHex(state.horseColors[currentMember.id])
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-8 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-8 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Tour {state.turnsPlayed + 1}</p>
 
       <AnimatePresence mode="wait">
@@ -127,9 +128,8 @@ export function PetitsChevauxController() {
         ) : (
           <motion.div key="wait" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
             <Card className="text-center">
-              <p className="text-chalk-soft text-sm mb-2">En attente…</p>
-              <p className="font-semibold">C'est au tour de {currentPseudo} 🎲</p>
-              <p className="text-chalk-faint text-sm mt-2">Ton cheval : case {myPos} / {PC_FINISH_INDEX}</p>
+              <HostCue memberId={currentId} action="lance le dé" className="mb-3" />
+              <p className="text-chalk-faint text-sm">Ton cheval : case {myPos} / {PC_FINISH_INDEX}</p>
             </Card>
           </motion.div>
         )}
@@ -251,7 +251,7 @@ function IntroView({
           Lancer la course ! 🐴
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente que l'hôte lance la course…</p>
+        <HostCue action="lance la course" />
       )}
       <p className="text-center text-chalk-faint text-xs mt-4">💧 Tu peux toujours remplacer l'alcool par de l'eau.</p>
     </div>
@@ -261,7 +261,7 @@ function IntroView({
 function FinalResults({ members, state, onExit }: { members: Member[]; state: PetitsChevauxClientState; onExit: () => void }) {
   const ranked = rankPlayers(members, state)
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Course terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🐴 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">

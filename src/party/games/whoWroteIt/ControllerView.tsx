@@ -8,6 +8,7 @@ import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
 import type { WhoWroteItClientState } from './types'
 import type { Member } from '../../../types'
+import { HostCue, WaitState } from '../../primitives'
 
 const MAX_TEXT_LENGTH = 140
 
@@ -39,7 +40,6 @@ export function WhoWroteItController() {
     return (
       <WritingView
         state={state}
-        totalPlayers={group.members.length}
         onSubmit={(text) => sendAction('submit', { text })}
       />
     )
@@ -72,18 +72,16 @@ export function WhoWroteItController() {
 
 function WritingView({
   state,
-  totalPlayers,
   onSubmit,
 }: {
   state: WhoWroteItClientState
-  totalPlayers: number
   onSubmit: (text: string) => void
 }) {
   const [text, setText] = useState('')
   const hasSubmitted = !!state.yourSubmission
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Manche {state.history.length + 1} / {state.totalRounds}
       </p>
@@ -93,13 +91,13 @@ function WritingView({
       </div>
 
       {hasSubmitted ? (
-        <Card className="text-center">
-          <p className="text-3xl mb-2">✅</p>
-          <p className="font-semibold mb-1">Réponse envoyée</p>
-          <p className="text-chalk-soft text-sm">
-            En attente des autres… ({state.submittedCount}/{totalPlayers})
-          </p>
-        </Card>
+        <WaitState
+          title="Réponse envoyée"
+          actedIds={state.submittedMemberIds}
+          noun="réponses reçues"
+          verb="a répondu"
+          mode="creative"
+        />
       ) : (
         <div className="flex flex-col gap-3">
           <textarea
@@ -163,7 +161,7 @@ function GuessingView({
   }
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Texte {clampedPos + 1} / {guessableIndexes.length}
       </p>
@@ -183,7 +181,12 @@ function GuessingView({
           </div>
           {isLast ? (
             allGuessed ? (
-              <p className="text-center text-chalk-faint text-sm">En attente des autres joueurs…</p>
+              <WaitState
+                title="Toutes tes réponses sont données"
+                actedIds={Object.keys(state.guesses)}
+                noun="ont fini de deviner"
+                verb="a fini"
+              />
             ) : (
               <p className="text-center text-chalk-faint text-sm">Tu as deviné tous les textes !</p>
             )
@@ -246,7 +249,7 @@ function RevealView({
     .filter((d) => d.correct > 0)
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Les vrais auteurs</p>
 
       <div className="flex flex-col gap-3 mb-6">
@@ -284,7 +287,7 @@ function RevealView({
           {isLastRound ? 'Voir les résultats finaux' : 'Manche suivante →'}
         </Button>
       ) : (
-        <p className="text-center text-chalk-faint text-sm">En attente de l'hôte pour continuer…</p>
+        <HostCue action="enchaîne la manche" />
       )}
     </div>
   )
@@ -293,7 +296,7 @@ function RevealView({
 function FinalResults({ members, onExit }: { members: Member[]; onExit: () => void }) {
   const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-10 pb-10 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Partie terminée</p>
       <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">🏆 Classement</h1>
       <div className="flex flex-col gap-2 mb-6">

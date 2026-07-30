@@ -12,5 +12,6 @@ export interface DilemmasClientState {
   totalRounds: number
   history: DilemmaHistoryEntry[]
   votedCount: number
+  votedMemberIds: string[]
   yourVote: 'A' | 'B' | null
 }
