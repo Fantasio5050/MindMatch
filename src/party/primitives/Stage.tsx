@@ -57,8 +57,11 @@ export function Stage({
       {tone !== 'neutral' && (
         <div
           aria-hidden
-          className="absolute inset-0 pointer-events-none transition-opacity duration-500"
-          style={{ background: `radial-gradient(70% 55% at 50% 45%, ${glow}22 0%, transparent 70%)` }}
+          className="absolute inset-0 pointer-events-none transition-opacity"
+          style={{
+            transitionDuration: 'var(--dur-verdict)',
+            background: `radial-gradient(70% 55% at 50% 45%, ${glow}22 0%, transparent 70%)`,
+          }}
         />
       )}
 

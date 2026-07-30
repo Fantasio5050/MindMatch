@@ -1,8 +1,24 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import { getAudioContext } from '../lib/audioContext'
 import { sfxMutedStore } from '../lib/audioPrefs'
+import { useSurface } from '../party/surface'
 
 type SoundName = 'vote' | 'reveal' | 'win' | 'tick' | 'pop' | 'lose' | 'start' | 'join' | 'emote'
+
+/**
+ * Les sons DRAMATIQUES : ceux qui racontent quelque chose à la pièce entière.
+ *
+ * Constat en condition réelle : ces trois-là étaient déclenchés à la fois par les 13 vues de
+ * manette ET par les 13 vues de scène. Dans un salon, ça veut dire huit téléphones plus la TV qui
+ * jouent la même fanfare à 100 ms d'écart — une bouillie, exactement au moment où le produit joue
+ * sa carte la plus forte.
+ *
+ * Ils sont donc réservés à la scène. Le reste (`pop`, `tick`, `vote`, `emote`) est du retour
+ * TACTILE : il appartient à la main qui touche, et lui seul l'entend de toute façon.
+ *
+ * Hors partie (accueil, salon, platine) rien ne change : le téléphone y est seul.
+ */
+const STAGE_ONLY: ReadonlySet<SoundName> = new Set<SoundName>(['reveal', 'win', 'lose', 'start'])
 
 function beep(freq: number, duration: number, delay = 0, type: OscillatorType = 'sine', peak = 0.15): void {
   const ctx = getAudioContext()
@@ -89,8 +105,18 @@ function playSound(sound: SoundName): void {
 
 export function useSound() {
   const muted = useSyncExternalStore(sfxMutedStore.subscribe, sfxMutedStore.get)
+  const surface = useSurface()
 
-  const play = useCallback((sound: SoundName) => !sfxMutedStore.get() && playSound(sound), [])
+  const play = useCallback(
+    (sound: SoundName) => {
+      if (sfxMutedStore.get()) return false
+      // `surface === 'phone'` ne vaut QUE dans une vue de manette : ailleurs le contexte est nul.
+      if (surface === 'phone' && STAGE_ONLY.has(sound)) return false
+      playSound(sound)
+      return true
+    },
+    [surface],
+  )
   const toggleMuted = useCallback(() => sfxMutedStore.set(!sfxMutedStore.get()), [])
 
   return { play, muted, toggleMuted }

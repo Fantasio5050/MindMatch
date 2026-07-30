@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import clsx from 'clsx'
+import { dur, ease } from '../../lib/motion'
+import { useSurface } from '../surface'
 
 /**
  * Verdict — le point final d'un moment : gagnant, perdant, éliminé, mot trouvé.
@@ -25,7 +27,7 @@ export function Verdict({
   subtitle,
   tone = 'neutral',
   icon,
-  surface = 'tv',
+  surface,
   className,
 }: {
   title: ReactNode
@@ -33,12 +35,14 @@ export function Verdict({
   tone?: VerdictTone
   /** Visuel du verdict (avatar du joueur, carte, dessin…). */
   icon?: ReactNode
+  /** Forçage manuel. Par défaut, la surface est celle du contexte — donc juste par construction. */
   surface?: 'tv' | 'phone'
   className?: string
 }) {
   const reduced = useReducedMotion()
+  const contextSurface = useSurface()
   const t = TONES[tone]
-  const isTv = surface === 'tv'
+  const isTv = (surface ?? contextSurface ?? 'tv') === 'tv'
 
   return (
     <motion.div
@@ -46,7 +50,7 @@ export function Verdict({
       // seulement l'élan. La tension vient du RYTHME, pas du déplacement — elle reste intacte.
       initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.86 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={reduced ? { duration: 0.18 } : { duration: 0.5, ease: [0.16, 1.02, 0.3, 1] }}
+      transition={reduced ? { duration: dur.base } : { duration: dur.deal, ease: ease.impact }}
       className={clsx('relative flex flex-col items-center text-center gap-3', className)}
     >
       <div

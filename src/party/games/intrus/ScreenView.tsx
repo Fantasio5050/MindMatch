@@ -25,7 +25,8 @@ export function IntrusScreen() {
 
   useEffect(() => {
     if (phase && phase !== lastPhase.current) {
-      if (phase === 'reveal') play('reveal')
+      // Pas de son sur la phase `reveal` : c'est `Moment` qui le joue, à l'instant exact de la
+      // bascule. Le déclencher ici le faisait tomber 600 ms avant l'image.
       if (phase === 'ended') {
         play('win')
         setConfetti((n) => n + 1)
@@ -282,6 +283,7 @@ function RevealScreen({ state, byId }: { state: IntrusClientState; byId: (id: st
     >
       <Moment
         revealKey={last.memberId}
+        tone={last.role === 'civil' ? 'lose' : 'win'}
         // Temps 1 : on voit QUI tombe, mais pas encore ce qu'il était. Tout le suspense est là.
         suspense={
           <div className="flex flex-col items-center gap-4">

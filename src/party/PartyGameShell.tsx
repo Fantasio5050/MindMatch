@@ -7,6 +7,7 @@ import { joinUrl } from '../lib/joinUrl'
 import { Surface } from '../components/Card'
 import { Player } from '../components/Player'
 import { Stage, PlayerRail } from './primitives'
+import { SurfaceContext } from './surface'
 import { GameIcon } from '../components/icons'
 import type { Group } from '../types'
 
@@ -24,7 +25,12 @@ export function PartyGameShell({ mode }: { mode: 'controller' | 'screen' }) {
 
   const gameId = group.party.currentGameId
   if (!gameId) {
-    if (mode === 'screen') return <ScreenLobbyWaiting group={group} />
+    if (mode === 'screen')
+      return (
+        <SurfaceContext.Provider value="tv">
+          <ScreenLobbyWaiting group={group} />
+        </SurfaceContext.Provider>
+      )
     return (
       <div className="min-h-svh flex items-center justify-center px-6 text-center">
         <p className="text-chalk-soft text-sm">Aucune partie en cours — retournez au salon.</p>
@@ -46,14 +52,20 @@ export function PartyGameShell({ mode }: { mode: 'controller' | 'screen' }) {
     if (group.party.status === 'playing' && !isParticipant) {
       return <WaitingForNextGame group={group} gameId={gameId} />
     }
-    return <entry.Controller />
+    return (
+      <SurfaceContext.Provider value="phone">
+        <entry.Controller />
+      </SurfaceContext.Provider>
+    )
   }
 
   return (
-    <div className="relative">
-      <entry.Screen />
-      <RoomCodeBadge code={group.code} />
-    </div>
+    <SurfaceContext.Provider value="tv">
+      <div className="relative">
+        <entry.Screen />
+        <RoomCodeBadge code={group.code} />
+      </div>
+    </SurfaceContext.Provider>
   )
 }
 
