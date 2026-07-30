@@ -21,7 +21,7 @@ export function AmbientBackground() {
         className="absolute inset-x-0 top-0 h-[70svh]"
         style={{
           background:
-            'radial-gradient(80% 100% at 50% -10%, rgba(255, 236, 209, 0.09) 0%, rgba(255, 236, 209, 0.03) 38%, transparent 72%)',
+            'radial-gradient(80% 100% at 50% -10%, rgba(255, 236, 209, 0.12) 0%, rgba(255, 236, 209, 0.04) 38%, transparent 72%)',
         }}
       />
       {/* Le feutre : la table prend une teinte légèrement plus chaude que le fond. */}
