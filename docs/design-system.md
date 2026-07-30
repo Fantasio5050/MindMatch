@@ -9,13 +9,74 @@ Référence de la refonte UX/UI. Source de vérité technique : **`src/styles/to
 Table de jeu premium (noir chaud, feutre, liserés) **+** plateau télé (typo condensée, révélations).
 Deux surfaces, deux langages, une seule identité.
 
+## Principe fondateur (non négociable)
+
+> ### Jamais seul dans son téléphone.
+> Le téléphone est **une fenêtre vers la soirée**, pas une application isolée.
+
+**Interdit** — tout état purement fonctionnel :
+`En attente des autres…` · `Les joueurs réfléchissent…` · `Chargement…` · `Veuillez patienter`
+
+**Attendu** — un temps mort fait toujours **au moins une** de ces choses :
+informer · créer de l'anticipation · montrer la progression du groupe · monter la tension · provoquer une réaction.
+
+```
+✗  En attente des autres…            ✓  Léo a choisi 🎭
+✗  Chargement…                       ✓  5/8 joueurs prêts
+✗  Les joueurs réfléchissent…        ✓  on n'attend plus que Marie 👀
+```
+
+**Une attente est un moment de jeu.** Une bonne attente donne envie de regarder la TV et les autres joueurs.
+
 ## 5 principes
 
-1. **Le téléphone se tait, la TV parle.** Le téléphone est calme et fonctionnel (ta main, ton secret, ton action). Couleur, mouvement et spectacle vivent sur la TV. *Calme ≠ mort : le téléphone montre toujours ce qui se passe dans la pièce (qui a voté, qui parle).*
+1. **Le téléphone se tait, la TV parle.** Le téléphone est calme et fonctionnel (ta main, ton secret, ton action). Couleur, mouvement et spectacle vivent sur la TV. **Calme ≠ mort** — voir le principe fondateur.
 2. **Personne ne lit.** Plafond dur : **6 mots** pour une instruction en jeu sur téléphone. Les règles longues n'existent qu'en phase d'intro, sur la TV, une fois.
 3. **Le groupe est le sujet, l'interface est le décor.** Les visages sont les plus gros objets à l'écran.
 4. **Une révélation se mérite.** Tout moment de vérité : suspension → bascule → verdict. Jamais d'apparition instantanée.
 5. **Une seule couleur a le droit de crier.** `spark`. Le reste est neutre. La couleur signale, elle ne décore pas.
+
+## Répartition des rôles entre surfaces
+
+| | **TV — le spectacle** | **Téléphone — l'appartenance** |
+|---|---|---|
+| Fabrique | tension, révélation, compétition, émotion collective | secret personnel, action individuelle, retour social, lien au groupe |
+| Registre | fort, grand, théâtral | sobre, dense, tactile |
+| Règle | c'est la scène | il peut être calme, **jamais mort** |
+
+## Grille d'analyse des états de jeu
+
+À appliquer à **chaque** état, dans **chaque** jeu :
+
+> « Est-ce que cet écran amplifie la soirée, ou est-ce qu'il ressemble à une interface qui attend une action ? »
+
+| État | Traitement attendu |
+|---|---|
+| Début de manche | Qui joue, qui est là — la table se remplit |
+| **Attente** | Flux vivant : « Léo a choisi », « 5/8 prêts », visages qui s'allument un par un |
+| Choix individuel | Téléphone sobre, **mais** le bandeau des autres reste visible |
+| Soumission | Confirmation **+** qui manque encore |
+| Vote | Progression sociale, jamais un compteur nu |
+| Révélation | Le téléphone se tait **volontairement** et renvoie vers la TV |
+| Résultat | Réactions du groupe avant les chiffres |
+
+### Contrainte technique associée
+
+Le principe suppose que le téléphone sache **qui** a agi. Ce n'était pas le cas : `sanitizeParty` ne diffusait que des compteurs (`votedCount`, `submittedCount`) — 8 jeux à vote et 3 jeux à soumission étaient donc incapables d'afficher « Léo a choisi ».
+
+La distinction juste n'est pas « anonyme / public » mais :
+
+| Information | Secrète ? | |
+|---|---|---|
+| **QUE** Léo a voté | non — fait social public | **diffusée** (`votedMemberIds`) |
+| **POUR QUI** Léo a voté | oui — c'est le jeu | masquée (`yourVote` seul) |
+
+On diffuse les **clés**, on masque les **valeurs**. Le reste se dérive côté client : qui manque, qui est le dernier, et l'événement « vient d'agir » par comparaison d'instantanés.
+
+### Deux garde-fous de ton
+
+- **Nommer le dernier joueur est une pression sociale.** Amusant sur un jeu rapide, désagréable quand quelqu'un réfléchit vraiment (Coup de Crayon, Qui a écrit ça ?). À formuler avec complicité (« on n'attend plus que Marie 👀 »), jamais en reproche, et à désactiver sur les jeux de création.
+- **Le risque, c'est le bruit.** Si chaque micro-événement s'anime, on recrée la fragmentation d'attention qu'on vient de supprimer. Règle : **un événement affiché à la fois**, remplacé en douceur — jamais un flux qui défile.
 
 ### Le test de validation
 > « Est-ce que ça améliore une soirée réelle avec 8 personnes dans une pièce sombre ? »
