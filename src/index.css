@@ -64,33 +64,32 @@ body {
   scrollbar-width: none;
 }
 
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
+/**
+ * `.shimmer-text` — le titre de scène.
+ *
+ * C'était un dégradé violet-rose animé en boucle infinie, posé sur les ~70 titres du produit :
+ * le marqueur visuel le plus daté de l'app, et un mouvement permanent qui concurrençait les
+ * révélations. On garde volontairement le NOM de la classe (elle est câblée dans les 17 jeux) et
+ * on change ce qu'elle veut dire : la typo de plateau télé, immobile.
+ *
+ * Elle disparaîtra au fur et à mesure que les jeux passeront aux primitives `Stage`/`Moment` —
+ * en attendant, redéfinir la classe suffit à ramener tous les écrans dans la même langue, sans
+ * toucher à une seule ligne de logique de jeu.
+ */
 .shimmer-text {
-  background: linear-gradient(90deg, #f4f2f8 0%, #c084fc 25%, #f472b6 50%, #f4f2f8 75%, #f4f2f8 100%);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: shimmer 5s linear infinite;
+  font-family: var(--font-display);
+  font-stretch: 74%;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: var(--leading-display);
+  text-transform: uppercase;
+  color: var(--color-chalk);
 }
 
 /* Animations décoratives en CSS pur : elles tournent sur le compositeur GPU (transform/opacity
    uniquement), sans travail JavaScript par frame — contrairement aux boucles framer-motion
-   infinies qui réveillaient le main thread 60 fois par seconde et chauffaient les téléphones. */
-@keyframes blob-drift {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(40px, -30px) scale(1.12); }
-  66% { transform: translate(-20px, 20px) scale(0.95); }
-}
-.ambient-blob {
-  animation: blob-drift ease-in-out infinite;
-  will-change: transform;
-}
-
+   infinies qui réveillaient le main thread 60 fois par seconde et chauffaient les téléphones.
+   `blob-drift` a disparu avec les taches néon dérivantes de l'ancien fond. */
 @keyframes float-bob {
   0%, 100% { transform: translateY(0) rotate(-8deg); }
   50% { transform: translateY(-18px) rotate(8deg); }
@@ -109,7 +108,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ambient-blob,
   .float-bob,
   .glow-pulse {
     animation: none;

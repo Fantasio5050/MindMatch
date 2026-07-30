@@ -8,7 +8,7 @@ export function QRCode({ value, size = 160 }: { value: string; size?: number }) 
 
   useEffect(() => {
     let cancelled = false
-    QRCodeLib.toDataURL(value, { width: size, margin: 1, color: { dark: '#1a1030ff', light: '#ffffffff' } })
+    QRCodeLib.toDataURL(value, { width: size, margin: 1, color: { dark: '#0c0b10ff', light: '#f2efe9ff' } })
       .then((url) => {
         if (!cancelled) setDataUrl(url)
       })
@@ -19,7 +19,7 @@ export function QRCode({ value, size = 160 }: { value: string; size?: number }) 
   }, [value, size])
 
   if (!dataUrl) {
-    return <div style={{ width: size, height: size }} className="rounded-xl bg-white/10 animate-pulse" />
+    return <div style={{ width: size, height: size }} className="rounded-control bg-line animate-pulse" />
   }
   return (
     <img
@@ -27,7 +27,7 @@ export function QRCode({ value, size = 160 }: { value: string; size?: number }) 
       width={size}
       height={size}
       alt="QR code pour rejoindre la salle"
-      className="rounded-xl bg-white p-1.5"
+      className="rounded-control bg-chalk p-1.5"
     />
   )
 }

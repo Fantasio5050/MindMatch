@@ -49,7 +49,10 @@ export function Stage({
   }[tone]
 
   return (
-    <div className={clsx('relative min-h-svh w-full flex flex-col items-center px-16 py-12 overflow-hidden', className)}>
+    // `h-svh` et non `min-h-svh` : la scène fait EXACTEMENT un écran. Avec une hauteur minimale,
+    // un contenu un peu haut poussait le rail des joueurs hors du cadre — donc le groupe
+    // disparaissait de l'écran, ce qui est précisément ce que cette primitive doit empêcher.
+    <div className={clsx('relative h-svh w-full flex flex-col items-center px-16 py-10 overflow-hidden', className)}>
       {/* Halo d'ambiance : c'est la scène qui prend la couleur du moment, pas les textes. */}
       {tone !== 'neutral' && (
         <div

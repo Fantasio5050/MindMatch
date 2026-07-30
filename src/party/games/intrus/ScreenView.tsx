@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'
 import { Avatar } from '../../../components/Avatar'
+import { Player } from '../../../components/Player'
 import { Confetti } from '../../../components/Confetti'
 import { Stage, Moment, Verdict, PlayerRail } from '../../primitives'
 import {
   OUTCOME_TEXT,
-  ROLE_COLOR,
   ROLE_EMOJI,
   ROLE_LABEL,
   type IntrusClientState,
@@ -37,7 +37,7 @@ export function IntrusScreen() {
   if (!group) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-xl">Connexion à la salle…</p>
+        <p className="text-tv-xs text-chalk-soft">Connexion à la salle…</p>
       </div>
     )
   }
@@ -45,7 +45,7 @@ export function IntrusScreen() {
   if (!state) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-xl">Préparation de la partie…</p>
+        <p className="text-tv-xs text-chalk-soft">Préparation de la partie…</p>
       </div>
     )
   }
@@ -53,8 +53,10 @@ export function IntrusScreen() {
   const members = group.members
   const byId = (id: string) => members.find((m) => m.id === id)
 
+  // `Stage` porte lui-même la pleine hauteur et les marges de scène : le conteneur ne fait plus
+  // que superposer les confettis.
   return (
-    <div className="min-h-svh flex flex-col items-center justify-center px-12 py-10">
+    <div className="relative">
       <Confetti trigger={confetti} />
       {status === 'ended' ? (
         <EndScreen state={state} members={members} />
@@ -69,61 +71,59 @@ export function IntrusScreen() {
       ) : phase === 'reveal' ? (
         <RevealScreen state={state} byId={byId} />
       ) : (
-        <p className="text-white/40 text-xl">Manche en préparation…</p>
+        <Stage kicker="Manche">
+          <p className="text-tv-base text-chalk-soft">Préparation…</p>
+        </Stage>
       )}
     </div>
   )
 }
 
+/**
+ * La distribution des mots.
+ *
+ * Les joueurs prêts n'ont plus une pastille verte avec « ✅ » et les autres un « … » : ils portent
+ * l'état `acted` du `Player`, comme partout ailleurs. La TV montre donc l'avancée du groupe, pas
+ * une liste de statuts — et personne n'est désigné comme le retardataire.
+ */
 function WordScreen({ state, members }: { state: IntrusClientState; members: Member[] }) {
   const total = state.alive.length
   const rules = [
-    ['🤫', 'Chacun découvre son mot en secret sur son téléphone.'],
-    ['🗣️', 'À tour de rôle, décrivez votre mot à voix haute — un mot, une phrase courte.'],
-    ['🕵️', `${state.undercoverCount} intrus a un mot différent… sans le savoir.`],
-    ...(state.mrWhiteEnabled ? [['🃏', "Et un Mr. White n'a aucun mot : il improvise."]] : []),
-    ['🗳️', 'Puis on vote pour éliminer un suspect.'],
-  ] as const
+    'Chacun découvre son mot en secret, sur son téléphone.',
+    'À tour de rôle, décrivez votre mot à voix haute — un mot, une phrase courte.',
+    `${state.undercoverCount} intrus a un mot différent… sans le savoir.`,
+    ...(state.mrWhiteEnabled ? ["Et un Mr. White n'a aucun mot : il improvise."] : []),
+    'Puis on vote pour éliminer un suspect.',
+  ]
 
   return (
-    <div className="text-center max-w-4xl">
-      <span className="text-7xl mb-3 inline-block">🕵️</span>
-      <h1 className="text-6xl font-extrabold shimmer-text mb-3">L'Intrus</h1>
-      <p className="text-2xl text-white/60 mb-8">
-        Regardez votre téléphone — {state.ready.length}/{total} prêt{state.ready.length > 1 ? 's' : ''}
-      </p>
-      <div className="flex flex-col gap-3 items-start mx-auto w-fit mb-6">
-        {rules.map(([emoji, text], i) => (
-          <motion.p
+    <Stage
+      kicker="Distribution"
+      title="L'Intrus"
+      rail={
+        <div className="text-center">
+          <PlayerRail members={members} actedIds={state.ready} className="mb-4" />
+          <p className="text-tv-xs text-chalk-faint">
+            Regardez votre téléphone — {state.ready.length}/{total} prêt{state.ready.length > 1 ? 's' : ''}
+          </p>
+        </div>
+      }
+    >
+      <ol className="flex flex-col gap-4 items-start w-fit">
+        {rules.map((text, i) => (
+          <motion.li
             key={i}
             initial={{ opacity: 0, x: -16 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.12 * i }}
-            className="text-2xl text-white/85 flex gap-3 text-left"
+            className="text-tv-base text-chalk-muted flex gap-5 text-left"
           >
-            <span>{emoji}</span>
+            <span className="font-stage text-brass-dim shrink-0 w-8">{i + 1}</span>
             <span>{text}</span>
-          </motion.p>
+          </motion.li>
         ))}
-      </div>
-      <div className="flex flex-wrap gap-3 justify-center">
-        {members.map((m) => {
-          const ready = state.ready.includes(m.id)
-          return (
-            <div
-              key={m.id}
-              className={`flex items-center gap-2 rounded-full pl-1.5 pr-4 py-1.5 border transition-colors ${
-                ready ? 'bg-emerald-500/20 border-emerald-400/40' : 'bg-black/30 border-white/10'
-              }`}
-            >
-              <Avatar pseudo={m.pseudo} color={m.color} size={30} photoUrl={m.photoUrl} />
-              <span className="text-lg">{m.pseudo}</span>
-              <span className="text-sm">{ready ? '✅' : '…'}</span>
-            </div>
-          )
-        })}
-      </div>
-    </div>
+      </ol>
+    </Stage>
   )
 }
 
@@ -144,12 +144,22 @@ function CluesScreen({ state, byId }: { state: IntrusClientState; byId: (id: str
     return () => clearInterval(id)
   }, [state.turnStartedAt, state.turnSeconds])
 
-  return (
-    <div className="text-center w-full max-w-5xl">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-6">
-        {state.inDuel ? '⚔️ Duel — indice supplémentaire' : `Tour de parole ${state.speakerIndex + 1} / ${state.speakers.length}`}
-      </p>
+  const speakerMembers = state.speakers.map((id) => byId(id)).filter((m): m is Member => !!m)
+  const spoken = state.speakers.slice(0, state.speakerIndex)
 
+  return (
+    <Stage
+      kicker={state.inDuel ? 'Duel — indice supplémentaire' : `Tour de parole ${state.speakerIndex + 1} / ${state.speakers.length}`}
+      tone={state.inDuel ? 'blood' : 'neutral'}
+      rail={
+        <PlayerRail
+          members={speakerMembers}
+          order={state.speakers}
+          speakingId={speakerId}
+          actedIds={spoken}
+        />
+      }
+    >
       <AnimatePresence mode="wait">
         <motion.div
           key={speakerId ?? 'none'}
@@ -157,37 +167,17 @@ function CluesScreen({ state, byId }: { state: IntrusClientState; byId: (id: str
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 260, damping: 26 }}
-          className="flex flex-col items-center gap-4"
+          className="flex flex-col items-center gap-5"
         >
           {speaker && <Avatar pseudo={speaker.pseudo} color={speaker.color} size={150} photoUrl={speaker.photoUrl} />}
-          <p className="text-5xl font-extrabold">{speaker?.pseudo ?? '…'}</p>
-          <p className="text-2xl text-white/55">🗣️ décris ton mot à voix haute</p>
-          <p className={`text-7xl font-extrabold tabular-nums ${left <= 5 ? 'text-pink-300' : 'text-white/80'}`}>{left}s</p>
+          <p className="font-stage text-tv-2xl text-chalk">{speaker?.pseudo ?? '…'}</p>
+          <p className="text-tv-base text-chalk-soft">décris ton mot à voix haute</p>
+          {/* Le chrono passe au spark dans les 5 dernières secondes : la seule couleur qui a le
+              droit de crier sert ici à faire monter la tension dans la pièce. */}
+          <p className={`font-stage text-tv-3xl tabular-nums ${left <= 5 ? 'text-spark' : 'text-chalk-muted'}`}>{left}s</p>
         </motion.div>
       </AnimatePresence>
-
-      <div className="flex flex-wrap gap-2 justify-center mt-8">
-        {state.speakers.map((id, i) => {
-          const m = byId(id)
-          const done = i < state.speakerIndex
-          const active = i === state.speakerIndex
-          return (
-            <span
-              key={id}
-              className={`rounded-full px-3 py-1 text-base font-semibold border ${
-                active
-                  ? 'bg-fuchsia-500/25 border-fuchsia-400/50'
-                  : done
-                    ? 'bg-white/5 border-white/10 text-white/30 line-through'
-                    : 'bg-white/5 border-white/10 text-white/55'
-              }`}
-            >
-              {m?.pseudo ?? '?'}
-            </span>
-          )
-        })}
-      </div>
-    </div>
+    </Stage>
   )
 }
 
@@ -197,34 +187,36 @@ function VoteScreen({ state, byId }: { state: IntrusClientState; byId: (id: stri
   const shown = isDuel ? tied : state.alive
   const expected = isDuel ? state.alive.filter((id) => !tied.includes(id)).length : state.alive.length
 
+  const shownMembers = shown.map((id) => byId(id)).filter((m): m is Member => !!m)
+
   return (
-    <div className="text-center w-full max-w-5xl">
-      <p className="text-white/40 text-xl uppercase tracking-widest mb-3">{isDuel ? '⚔️ Revote du duel' : 'Vote'}</p>
-      <h1 className="text-6xl font-extrabold shimmer-text mb-3">Qui est l'intrus ?</h1>
-      <p className="text-2xl text-white/60 mb-10">
-        📱 {state.votedCount}/{expected} vote{state.votedCount > 1 ? 's' : ''}
+    <Stage
+      kicker={isDuel ? 'Revote du duel' : 'Vote'}
+      title="Qui est l'intrus ?"
+      tone={isDuel ? 'blood' : 'spark'}
+      rail={
+        <p className="text-tv-xs text-chalk-faint text-center">
+          {isDuel
+            ? 'Les joueurs en duel ne votent pas — ils se défendent.'
+            : 'Le vote reste secret jusqu’au dépouillement.'}
+        </p>
+      }
+    >
+      {/* Le compteur monte, les noms des votants ne sont jamais affichés :
+          « l'action est publique, le choix reste privé ». */}
+      <p className="text-tv-lg text-chalk-muted mb-10">
+        {state.votedCount}/{expected} vote{state.votedCount > 1 ? 's' : ''} déposé
+        {state.votedCount > 1 ? 's' : ''}
       </p>
 
-      <div className="flex flex-wrap gap-8 justify-center">
-        {shown.map((id) => {
-          const m = byId(id)
-          if (!m) return null
-          return (
-            <motion.div
-              key={id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex flex-col items-center gap-2"
-            >
-              <Avatar pseudo={m.pseudo} color={m.color} size={isDuel ? 130 : 88} photoUrl={m.photoUrl} />
-              <span className={`font-bold ${isDuel ? 'text-3xl' : 'text-xl'}`}>{m.pseudo}</span>
-            </motion.div>
-          )
-        })}
+      <div className="flex flex-wrap gap-x-10 gap-y-6 justify-center">
+        {shownMembers.map((m) => (
+          <motion.div key={m.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+            <Player member={m} size={isDuel ? 'stage' : 'focus'} />
+          </motion.div>
+        ))}
       </div>
-
-      {isDuel && <p className="text-white/40 text-lg mt-8">Les joueurs en duel ne votent pas — ils se défendent.</p>}
-    </div>
+    </Stage>
   )
 }
 
@@ -232,20 +224,23 @@ function MrWhiteScreen({ state, byId }: { state: IntrusClientState; byId: (id: s
   const last = state.lastElimination
   const m = last ? byId(last.memberId) : null
   return (
-    <div className="text-center max-w-3xl">
-      <motion.span initial={{ scale: 0.6, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} className="text-8xl inline-block mb-4">
-        🃏
-      </motion.span>
-      <h1 className="text-6xl font-extrabold text-amber-200 mb-4">Mr. White démasqué !</h1>
+    <Stage
+      kicker="Dernière carte"
+      title="Mr. White démasqué"
+      tone="brass"
+      rail={
+        <p className="text-tv-xs text-chalk-faint text-center">
+          S'il trouve, il vole la partie à tout le monde.
+        </p>
+      }
+    >
       {m && (
-        <div className="flex items-center justify-center gap-4 mb-6">
-          <Avatar pseudo={m.pseudo} color={m.color} size={90} photoUrl={m.photoUrl} />
-          <span className="text-4xl font-bold">{m.pseudo}</span>
-        </div>
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="mb-8">
+          <Player member={m} size="stage" />
+        </motion.div>
       )}
-      <p className="text-3xl text-white/70">Une seule chance de deviner le mot des civils…</p>
-      <p className="text-xl text-white/35 mt-4">S'il trouve, il vole la partie à tout le monde 😱</p>
-    </div>
+      <p className="text-tv-lg text-chalk-muted">Une seule chance de deviner le mot des civils…</p>
+    </Stage>
   )
 }
 
@@ -322,55 +317,56 @@ function EndScreen({ state, members }: { state: IntrusClientState; members: Memb
   const truth: IntrusTruth | null = state.revealedTruth ?? null
   const info = state.outcome ? OUTCOME_TEXT[state.outcome] : null
 
+  const cast = truth
+    ? members
+        .filter((m) => truth.roleByMember[m.id])
+        .sort((a, b) => truth.roleByMember[a.id].localeCompare(truth.roleByMember[b.id]))
+    : []
+
   return (
-    <div className="text-center w-full max-w-6xl">
-      <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 220, damping: 20 }}>
-        <span className="text-8xl block mb-2">{info?.emoji ?? '🏁'}</span>
-        <h1 className="text-6xl font-extrabold shimmer-text mb-2">{info?.title ?? 'Fin de partie'}</h1>
-        <p className="text-2xl text-white/55 mb-8">{info?.sub}</p>
-      </motion.div>
+    <Stage
+      kicker="Fin de partie"
+      title={info?.title ?? 'Fin de partie'}
+      tone="brass"
+      rail={
+        <div className="text-center">
+          {/* Le casting complet reste à l'écran : c'est le moment où la pièce comprend qui
+              mentait depuis le début, et où les commentaires partent. */}
+          {cast.length > 0 && (
+            <PlayerRail
+              members={cast}
+              hostId={null}
+              captionFor={(m) => {
+                const role = truth!.roleByMember[m.id]
+                return `${ROLE_EMOJI[role]} ${ROLE_LABEL[role]}`
+              }}
+              className="mb-4"
+            />
+          )}
+          <p className="text-tv-xs text-chalk-faint">L'hôte peut relancer une partie depuis son téléphone.</p>
+        </div>
+      }
+    >
+      <motion.p
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-tv-lg text-chalk-muted mb-10"
+      >
+        {info?.sub}
+      </motion.p>
 
       {truth && (
-        <>
-          <div className="flex gap-6 justify-center mb-10">
-            <div className="rounded-3xl bg-emerald-500/12 border border-emerald-400/25 px-10 py-5">
-              <p className="text-sm uppercase tracking-widest text-emerald-200/70 mb-1">Mot des civils</p>
-              <p className="text-4xl font-extrabold">{truth.civilWord}</p>
-            </div>
-            <div className="rounded-3xl bg-pink-500/12 border border-pink-400/25 px-10 py-5">
-              <p className="text-sm uppercase tracking-widest text-pink-200/70 mb-1">Mot des intrus</p>
-              <p className="text-4xl font-extrabold">{truth.undercoverWord}</p>
-            </div>
+        <div className="flex gap-8 justify-center">
+          <div className="rounded-card border border-line bg-felt px-12 py-6">
+            <p className="kicker text-tv-xs mb-2">Mot des civils</p>
+            <p className="font-stage text-tv-xl text-jade">{truth.civilWord}</p>
           </div>
-
-          <div className="flex flex-wrap gap-4 justify-center">
-            {members
-              .filter((m) => truth.roleByMember[m.id])
-              .sort((a, b) => truth.roleByMember[a.id].localeCompare(truth.roleByMember[b.id]))
-              .map((m, i) => {
-                const role = truth.roleByMember[m.id]
-                return (
-                  <motion.div
-                    key={m.id}
-                    initial={{ opacity: 0, y: 18 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.08 * i }}
-                    className="flex items-center gap-3 rounded-2xl bg-black/30 border border-white/12 pl-2 pr-5 py-2"
-                  >
-                    <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
-                    <div className="text-left">
-                      <p className="text-xl font-bold">{m.pseudo}</p>
-                      <p className={`text-base font-semibold ${ROLE_COLOR[role]}`}>
-                        {ROLE_EMOJI[role]} {ROLE_LABEL[role]}
-                      </p>
-                    </div>
-                  </motion.div>
-                )
-              })}
+          <div className="rounded-card border border-line bg-felt px-12 py-6">
+            <p className="kicker text-tv-xs mb-2">Mot des intrus</p>
+            <p className="font-stage text-tv-xl text-spark">{truth.undercoverWord}</p>
           </div>
-        </>
+        </div>
       )}
-      <p className="text-white/30 text-xl mt-10">L'hôte peut relancer une partie depuis son téléphone 📱</p>
-    </div>
+    </Stage>
   )
 }

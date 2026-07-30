@@ -1,11 +1,12 @@
-import { motion } from 'framer-motion'
 import { usePartyStore } from '../store/usePartyStore'
 import { CLIENT_GAME_REGISTRY } from './gameRegistry'
 import { GAME_META } from '../data/gameMeta'
 import { RoomCodeBadge } from '../components/RoomCodeBadge'
 import { QRCode } from '../components/QRCode'
 import { joinUrl } from '../lib/joinUrl'
-import { Avatar } from '../components/Avatar'
+import { Surface } from '../components/Card'
+import { Player } from '../components/Player'
+import { Stage, PlayerRail } from './primitives'
 import type { Group } from '../types'
 
 export function PartyGameShell({ mode }: { mode: 'controller' | 'screen' }) {
@@ -15,7 +16,7 @@ export function PartyGameShell({ mode }: { mode: 'controller' | 'screen' }) {
   if (!group) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-white/40 text-sm">Connexion à la salle…</p>
+        <p className="text-chalk-soft text-sm">Connexion à la salle…</p>
       </div>
     )
   }
@@ -25,7 +26,7 @@ export function PartyGameShell({ mode }: { mode: 'controller' | 'screen' }) {
     if (mode === 'screen') return <ScreenLobbyWaiting group={group} />
     return (
       <div className="min-h-svh flex items-center justify-center px-6 text-center">
-        <p className="text-white/40 text-sm">Aucune partie en cours — retournez au salon.</p>
+        <p className="text-chalk-soft text-sm">Aucune partie en cours — retournez au salon.</p>
       </div>
     )
   }
@@ -34,7 +35,7 @@ export function PartyGameShell({ mode }: { mode: 'controller' | 'screen' }) {
   if (!entry) {
     return (
       <div className="min-h-svh flex items-center justify-center px-6 text-center">
-        <p className="text-white/40 text-sm">Ce jeu n'est pas encore disponible.</p>
+        <p className="text-chalk-soft text-sm">Ce jeu n'est pas encore disponible.</p>
       </div>
     )
   }
@@ -55,74 +56,83 @@ export function PartyGameShell({ mode }: { mode: 'controller' | 'screen' }) {
   )
 }
 
-/** Shown on a latecomer's phone instead of the live game UI while a round they weren't present
- * for is in progress — they automatically drop into the next game (participantIds is recomputed
- * from the full roster every time a new game starts), no action needed from them. */
+/**
+ * Écran du retardataire : une manche est en cours, il n'y participe pas.
+ *
+ * C'était l'un des pires « jamais seul dans son téléphone » du produit : une icône qui tourne en
+ * boucle et un texte d'excuse. On montre maintenant qui joue en ce moment — le retardataire
+ * regarde la partie depuis sa main au lieu d'attendre qu'on veuille bien de lui. Il entre
+ * automatiquement à la manche suivante (`participantIds` est recalculé à chaque lancement).
+ */
 function WaitingForNextGame({ group, gameId }: { group: Group; gameId: string }) {
   const meta = GAME_META[gameId]
   const playing = group.members.filter((m) => group.party.participantIds.includes(m.id))
 
   return (
     <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center safe-top">
-      <motion.span
-        animate={{ rotate: [0, 8, -8, 0] }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-        className="text-5xl mb-4 block"
-      >
-        {meta?.icon ?? '🎮'}
-      </motion.span>
-      <h1 className="text-xl font-extrabold mb-2">Une partie est en cours</h1>
-      <p className="text-white/60 text-sm max-w-xs mb-6">
-        {meta?.name ?? 'Cette partie'} a déjà commencé. Tu rejoueras dès la prochaine manche — reste
-        sur cette page, pas besoin de rien faire !
+      <p className="kicker text-2xs mb-2">En cours</p>
+      <h1 className="font-display text-2xl text-chalk mb-2">{meta?.name ?? 'Une partie'}</h1>
+      <p className="text-chalk-soft text-sm max-w-xs mb-7">
+        Tu entres à la prochaine manche, automatiquement. Rien à faire.
       </p>
 
       {playing.length > 0 && (
-        <div className="flex flex-wrap gap-2 justify-center mb-8 max-w-xs">
-          {playing.map((m) => (
-            <div key={m.id} className="flex items-center gap-1.5 glass-card rounded-full pl-1 pr-3 py-1">
-              <Avatar pseudo={m.pseudo} color={m.color} size={22} photoUrl={m.photoUrl} />
-              <span className="text-xs">{m.pseudo}</span>
-            </div>
-          ))}
-        </div>
+        <>
+          <p className="kicker text-2xs mb-3">
+            {playing.length} joueur{playing.length > 1 ? 's' : ''} à table
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-3 justify-center mb-8 max-w-xs">
+            {playing.map((m) => (
+              <Player key={m.id} member={m} size="md" host={m.id === group.party.hostMemberId} />
+            ))}
+          </div>
+        </>
       )}
 
-      <div className="glass-card rounded-2xl p-4 flex items-center gap-3">
+      <Surface className="flex items-center gap-3">
         <QRCode value={joinUrl(group.code)} size={56} />
         <div className="text-left">
-          <p className="text-[10px] uppercase tracking-widest text-white/40">Inviter d'autres personnes</p>
-          <p className="text-base font-bold tracking-[0.15em]">{group.code}</p>
+          <p className="kicker text-2xs">Inviter</p>
+          <p className="font-stage text-lg text-brass tracking-[0.2em]">{group.code}</p>
         </div>
-      </div>
+      </Surface>
     </div>
   )
 }
 
-/** TV/spectator view before any game has started — shows the room code prominently (with a QR
- * code to scan) plus who's already connected, instead of a blank "nothing happening" screen. */
+/**
+ * La TV avant le lancement d'une partie.
+ *
+ * L'écran disait « En attente du lancement d'une partie… » — l'exemple type de l'état mort que le
+ * socle interdit. Il ne se passait rien, et l'écran le confirmait. Or c'est LE moment où les gens
+ * arrivent, scannent, choisissent leur pseudo : c'est déjà de la soirée.
+ *
+ * Donc : le code en très grand (c'est l'action que la pièce doit faire), la table qui se remplit
+ * en dessous, et un compteur qui monte à chaque arrivée. Aucune phrase d'attente.
+ */
 function ScreenLobbyWaiting({ group }: { group: Group }) {
-  return (
-    <div className="min-h-svh flex flex-col items-center justify-center px-12 text-center">
-      <p className="text-white/40 text-2xl uppercase tracking-widest mb-3">{group.name}</p>
-      <h1 className="text-3xl text-white/70 mb-10">En attente du lancement d'une partie…</h1>
+  const n = group.members.length
 
-      <div className="glass-card rounded-3xl p-8 flex items-center gap-8 mb-12">
-        <QRCode value={joinUrl(group.code)} size={180} />
+  return (
+    <Stage
+      kicker={group.name}
+      title="Rejoignez la table"
+      rail={
+        <div className="text-center">
+          <PlayerRail members={group.members} hostId={group.party.hostMemberId} className="mb-4" />
+          <p className="text-tv-xs text-chalk-faint">
+            {n} à table · l'hôte lance quand vous êtes prêts
+          </p>
+        </div>
+      }
+    >
+      <div className="flex items-center gap-12">
+        <QRCode value={joinUrl(group.code)} size={200} />
         <div className="text-left">
-          <p className="text-white/40 text-xl uppercase tracking-widest mb-2">Code de la salle</p>
-          <p className="text-6xl font-extrabold tracking-[0.15em] shimmer-text">{group.code}</p>
+          <p className="kicker text-tv-xs mb-2">Code de la salle</p>
+          <p className="font-stage text-tv-3xl text-brass tracking-[0.12em] leading-none">{group.code}</p>
         </div>
       </div>
-
-      <div className="flex flex-wrap gap-3 justify-center max-w-2xl">
-        {group.members.map((m) => (
-          <div key={m.id} className="flex items-center gap-2 glass-card rounded-full pl-1.5 pr-4 py-1.5">
-            <Avatar pseudo={m.pseudo} color={m.color} size={32} photoUrl={m.photoUrl} />
-            <span className="text-lg font-medium">{m.pseudo}</span>
-          </div>
-        ))}
-      </div>
-    </div>
+    </Stage>
   )
 }
