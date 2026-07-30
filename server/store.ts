@@ -46,9 +46,15 @@ export function sanitizeMember(member: StoredMember, isSelf: boolean): Member {
 
 /**
  * Hides per-player secret state from everyone except its owner, following platform-wide
- * conventions any game module can opt into just by naming its roundData fields this way:
- *  - `roundData.votes: Record<memberId, choice>` -> replaced with `votedCount` + `yourVote`
- *    (keeps votes anonymous while resolved).
+ * conventions any game module can opt into just by naming its roundData fields this way.
+ *
+ * Règle sociale du produit : **l'action est publique, le choix reste privé.**
+ * Savoir que Léo a voté est un fait social — c'est ce qui permet au téléphone de rester une
+ * fenêtre sur la soirée (« Léo a choisi », « on attend Marie ») au lieu d'un écran d'attente mort.
+ * Savoir POUR QUI il a voté détruirait le jeu. On diffuse donc les CLÉS, jamais les VALEURS.
+ *
+ *  - `roundData.votes: Record<memberId, choice>` -> replaced with `votedCount` +
+ *    `votedMemberIds` (qui a voté) + `yourVote` (ton propre choix, et lui seul).
  *  - `roundData.hands: Record<memberId, card[]>` -> replaced with `yourHand` (keeps card hands
  *    private to their owner, e.g. for Pyramide).
  *  - `roundData.submissions: Record<memberId, text>` -> replaced with `submittedCount` +
@@ -67,6 +73,8 @@ function sanitizeParty(party: PartySession, requestingMemberId: string | null): 
     roundData = {
       ...rest,
       votedCount: Object.keys(votes).length,
+      // Les clés (qui a voté) partent, les valeurs (pour qui) restent au serveur.
+      votedMemberIds: Object.keys(votes),
       yourVote: requestingMemberId ? (votes[requestingMemberId] ?? null) : null,
     }
   }
@@ -90,6 +98,9 @@ function sanitizeParty(party: PartySession, requestingMemberId: string | null): 
     roundData = {
       ...rest,
       submittedCount: Object.keys(submissions).length,
+      // Même règle : on sait QUI a rendu sa copie, jamais ce qu'elle contient. Dans « Qui a écrit
+      // ça ? », savoir que Léo a rendu son texte ne dit pas lequel des textes mélangés est le sien.
+      submittedMemberIds: Object.keys(submissions),
       yourSubmission: requestingMemberId ? (submissions[requestingMemberId] ?? null) : null,
     }
   }

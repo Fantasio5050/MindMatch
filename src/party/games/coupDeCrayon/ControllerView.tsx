@@ -6,6 +6,7 @@ import { useSound } from '../../../hooks/useSound'
 import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
+import { GroupPulse } from '../../../components/GroupPulse'
 import { DrawCanvas, type DrawCanvasHandle } from './DrawCanvas'
 import type { CoupDeCrayonClientState } from './types'
 import type { Member } from '../../../types'
@@ -179,9 +180,17 @@ function DrawingView({
           {state.yourSubmission && (
             <img src={state.yourSubmission} alt="Ton dessin" className="w-32 mx-auto rounded-xl border border-white/15 mb-2" />
           )}
-          <p className="text-white/40 text-sm">
-            {state.submittedCount}/{total} — on attend les autres artistes…
-          </p>
+          {/* Jeu créatif : mode collectif. On montre la progression du groupe et les visages qui
+              s'allument, mais on ne nomme JAMAIS le dernier — dessiner prend du temps, et désigner
+              un « retardataire » qui fait bien son travail transformerait le jeu en pression. */}
+          <GroupPulse
+            actedIds={state.submittedMemberIds ?? []}
+            expectedIds={state.order}
+            noun="créations reçues"
+            verb="a rendu son dessin"
+            mode="creative"
+            className="mt-1"
+          />
         </Card>
       ) : (
         <>

@@ -6,6 +6,7 @@ import { useSound } from '../../../hooks/useSound'
 import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
+import { GroupPulse } from '../../../components/GroupPulse'
 import type { WhoIsMostLikelyClientState } from './types'
 
 export function WhoIsMostLikelyController() {
@@ -85,12 +86,11 @@ function VotingView({
       </div>
 
       {hasVoted ? (
+        // Jeu rapide : GroupPulse peut nommer le dernier (« On attend Marie 👀 »), c'est de la
+        // complicité. Il remplace l'ancien « En attente des autres… », qui était un état mort.
         <Card className="text-center">
-          <p className="text-3xl mb-2">✅</p>
-          <p className="font-semibold mb-1">Vote enregistré</p>
-          <p className="text-white/50 text-sm">
-            En attente des autres… ({state.votedCount}/{members.length})
-          </p>
+          <p className="font-semibold mb-3 text-chalk">Vote enregistré</p>
+          <GroupPulse actedIds={state.votedMemberIds ?? []} noun="votes" verb="a voté" mode="rapid" />
         </Card>
       ) : (
         <div className="grid grid-cols-2 gap-3">

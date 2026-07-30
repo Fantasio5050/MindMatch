@@ -11,5 +11,7 @@ export interface WhoIsMostLikelyClientState {
   totalRounds: number
   history: RoundHistoryEntry[]
   votedCount: number
+  /** QUI a voté (jamais pour qui) — convention `votes` de sanitizeParty. Alimente GroupPulse. */
+  votedMemberIds: string[]
   yourVote: string | null
 }

@@ -23,6 +23,8 @@ export interface CoupDeCrayonClientState {
   drawingStartedAt: number | null
   drawSeconds: number
   submittedCount: number
+  /** QUI a rendu son dessin (jamais lequel) — alimente GroupPulse en ton collectif. */
+  submittedMemberIds: string[]
   yourSubmission: string | null
   gallery: { image: string }[]
   votingStartedAt: number | null
