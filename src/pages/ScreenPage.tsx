@@ -7,6 +7,7 @@ import { usePartyStore } from '../store/usePartyStore'
 import { PartyGameShell } from '../party/PartyGameShell'
 import { EmoteOverlay } from '../components/EmoteLayer'
 import { useSound } from '../hooks/useSound'
+import { IconArrowLeft, IconScreen, IconFullscreen, IconFullscreenExit } from '../components/icons'
 
 /** Plein écran via l'API Fullscreen (avec fallback webkit pour les navigateurs de TV) : certains
  * navigateurs TV n'ont aucun bouton plein écran natif, on l'expose donc dans l'UI. */
@@ -80,8 +81,10 @@ export function ScreenPage() {
             onClick={() => navigate('/')}
             className="fixed top-4 left-4 z-40 flex items-center gap-1.5 rounded-chip bg-felt-raised border border-line px-3 h-9 text-chalk-muted text-sm"
           >
+            <IconArrowLeft size={15} />
             Accueil
           </button>
+          <IconScreen size={34} className="text-chalk-soft mb-3" />
           <p className="kicker text-2xs mb-2">Écran partagé</p>
           <h1 className="font-display text-2xl text-chalk mb-6">Afficher la partie ici</h1>
           <Surface level="raised" className="w-full max-w-sm">
@@ -99,7 +102,8 @@ export function ScreenPage() {
               Afficher
             </Button>
             {fullscreenSupported() && (
-              <Button variant="ghost" fullWidth onClick={toggleFullscreen} className="mt-2">
+              <Button variant="ghost" fullWidth onClick={toggleFullscreen} className="mt-2 flex items-center justify-center gap-2">
+                {fullscreen ? <IconFullscreenExit size={17} /> : <IconFullscreen size={17} />}
                 {fullscreen ? 'Quitter le plein écran' : 'Passer en plein écran'}
               </Button>
             )}
@@ -136,6 +140,7 @@ export function ScreenPage() {
           className="flex items-center gap-1.5 rounded-chip bg-felt-raised border border-line px-3 h-9 text-chalk-soft text-sm"
           aria-label="Changer de salle"
         >
+          <IconArrowLeft size={15} />
           Changer de salle
         </button>
         <button
@@ -151,6 +156,7 @@ export function ScreenPage() {
             className="flex items-center gap-1.5 rounded-chip bg-felt-raised border border-line px-3 h-9 text-chalk-soft text-sm"
             aria-label={fullscreen ? 'Quitter le plein écran' : 'Passer en plein écran'}
           >
+            {fullscreen ? <IconFullscreenExit size={15} /> : <IconFullscreen size={15} />}
             {fullscreen ? 'Réduire' : 'Plein écran'}
           </button>
         )}

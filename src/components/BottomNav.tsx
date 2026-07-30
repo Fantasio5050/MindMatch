@@ -1,12 +1,13 @@
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
 import { motion } from 'framer-motion'
+import { IconUser, IconUsers, IconChat, IconTable } from './icons'
 
 const items = [
-  { to: '/profile', label: 'Profil', icon: '👤' },
-  { to: '/group', label: 'Groupe', icon: '👥' },
-  { to: '/debates', label: 'Débats', icon: '💬' },
-  { to: '/lobby', label: 'Salle', icon: '🎉' },
+  { to: '/profile', label: 'Profil', Icon: IconUser },
+  { to: '/group', label: 'Groupe', Icon: IconUsers },
+  { to: '/debates', label: 'Débats', Icon: IconChat },
+  { to: '/lobby', label: 'Salle', Icon: IconTable },
 ]
 
 export function BottomNav() {
@@ -21,7 +22,7 @@ export function BottomNav() {
               className={({ isActive }) =>
                 clsx(
                   'relative flex flex-1 flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-medium transition-colors',
-                  isActive ? 'text-white' : 'text-chalk-faint',
+                  isActive ? 'text-chalk' : 'text-chalk-faint',
                 )
               }
             >
@@ -34,7 +35,7 @@ export function BottomNav() {
                       transition={{ type: 'spring', duration: 0.5 }}
                     />
                   )}
-                  <span className="relative text-lg">{item.icon}</span>
+                  <item.Icon size={20} className="relative" />
                   <span className="relative">{item.label}</span>
                 </>
               )}

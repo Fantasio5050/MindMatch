@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { usePartyStore } from '../store/usePartyStore'
 import { useSound } from '../hooks/useSound'
 import { EMOTES } from '../data/emotes'
+import { IconSmile, IconClose } from './icons'
 
 /** Floating emoji reactions rising across the screen. Mounted on both the phone controllers and
  * the TV screen; purely decorative (pointer-events-none) so it never blocks the game UI. */
@@ -104,10 +105,12 @@ export function EmoteBar() {
       <motion.button
         whileTap={{ scale: 0.9 }}
         onClick={() => setOpen((o) => !o)}
-        className="w-11 h-11 rounded-full glass-card flex items-center justify-center text-xl"
+        className="w-11 h-11 rounded-chip glass-card flex items-center justify-center text-chalk-muted"
         aria-label="Réactions"
       >
-        {open ? '✕' : '😀'}
+        {/* Le bouton est une icône ; ce qu'il ouvre reste des emojis. C'est exactement la
+            frontière posée par le socle : l'interface est dessinée, l'expression est humaine. */}
+        {open ? <IconClose size={19} /> : <IconSmile size={20} />}
       </motion.button>
     </div>
   )

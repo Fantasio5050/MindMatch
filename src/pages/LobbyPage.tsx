@@ -5,12 +5,12 @@ import { PageTransition } from '../components/PageTransition'
 import { Surface } from '../components/Card'
 import { Button } from '../components/Button'
 import { Player } from '../components/Player'
+import { GameIcon, IconProfile, IconTurntable, IconChevron, IconScreen, IconLock, IconCopy } from '../components/icons'
 import { useAppStore } from '../store/useAppStore'
 import { usePartyStore } from '../store/usePartyStore'
 import { useSound } from '../hooks/useSound'
 import { apiGetGameHistory, apiUpdatePhoto, ApiError } from '../lib/api'
 import { compressImage } from '../lib/compressImage'
-import { GAME_META } from '../data/gameMeta'
 import { GAME_LIBRARY, type GameLibraryEntry } from '../data/gameLibrary'
 import { QUIZ_LEVELS } from '../data/quizLevels'
 import { spotifyEnabled } from '../lib/spotify'
@@ -225,7 +225,10 @@ export function LobbyPage() {
              d'interface que l'audit pointait — le décor criait plus fort que le contenu.
              Ici la mise en avant passe par un liseré spark et la typo display, rien d'autre. */}
         <Surface level="raised" className="mb-5 border-spark-dim/50">
-          <p className="kicker text-2xs mb-1">Le test MindMatch</p>
+          <p className="kicker text-2xs flex items-center gap-2 mb-1">
+            <IconProfile size={14} className="text-spark" />
+            Le test MindMatch
+          </p>
           <h3 className="font-display text-xl text-chalk mb-1">Découvre ton archétype</h3>
           <p className="text-xs text-chalk-soft mb-4">
             {quizDone
@@ -401,7 +404,10 @@ function PartyTable({
       <div className="rounded-sheet bg-felt border border-line shadow-card px-4 py-6">
         {/* La mise au centre : le code, gravé façon jeton. */}
         <button onClick={onCopyCode} className="mx-auto block text-center mb-6" aria-label="Copier le code de la salle">
-          <span className="kicker text-2xs block mb-1">{copied ? '✓ Copié' : 'Code de la salle'}</span>
+          <span className="kicker text-2xs flex items-center justify-center gap-1.5 mb-1">
+            {copied ? 'Copié' : 'Code de la salle'}
+            <IconCopy size={12} />
+          </span>
           <span className="font-stage text-3xl text-brass tracking-[0.2em]">{group.code}</span>
         </button>
 
@@ -429,7 +435,7 @@ function PartyTable({
                   size="md"
                   host={m.id === group.party.hostMemberId}
                   offline={!online}
-                  caption={isMe ? (uploadingPhoto ? '…' : 'toi · 📷') : undefined}
+                  caption={isMe ? (uploadingPhoto ? '…' : 'toi') : undefined}
                 />
               </motion.button>
             )
@@ -507,7 +513,7 @@ function SalonSettings({
         className="w-full flex items-center justify-center gap-2 py-3 text-sm text-chalk-soft"
       >
         Réglages du salon
-        <span className={`transition-transform ${open ? 'rotate-180' : ''}`}>⌄</span>
+        <IconChevron size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       <AnimatePresence>
@@ -535,7 +541,8 @@ function SalonSettings({
                   Sur une TV ou un ordinateur, entre le code <b className="text-chalk">{group.code}</b>. Fortement
                   conseillé, jamais obligatoire — tous les jeux restent jouables sur téléphone.
                 </p>
-                <Button variant="secondary" fullWidth onClick={onOpenScreen}>
+                <Button variant="secondary" fullWidth onClick={onOpenScreen} className="flex items-center justify-center gap-2">
+                  <IconScreen size={18} />
                   Ouvrir l'écran ici
                 </Button>
               </Surface>
@@ -546,7 +553,7 @@ function SalonSettings({
                   <div className="flex flex-col gap-2.5">
                     {history.map((h) => (
                       <div key={h.id} className="flex items-center gap-3">
-                        <span className="text-xl shrink-0">{GAME_META[h.gameId]?.icon ?? '🎮'}</span>
+                        <GameIcon gameId={h.gameId} size={22} className="shrink-0 text-chalk-soft" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm truncate text-chalk">{h.gameName}</p>
                           <p className="text-2xs text-chalk-faint">
@@ -589,7 +596,10 @@ function SoireeLaunchCard({ isHost, onLaunch }: { isHost: boolean; onLaunch: (so
 
   return (
     <Surface level="raised" className="mb-5">
-      <p className="kicker text-2xs mb-1">Mode Soirée</p>
+      <p className="kicker text-2xs flex items-center gap-2 mb-1">
+        <IconTurntable size={14} className="text-jade" />
+        Mode Soirée
+      </p>
       <h3 className="font-display text-xl text-chalk mb-1">La platine partagée</h3>
       <p className="text-xs text-chalk-soft mb-4">
         Fini le seul téléphone branché à l'enceinte : tout le monde ajoute des musiques dans une file{' '}
@@ -679,7 +689,12 @@ function GameTile({
           {entry.badge && <TileChip className="bg-spark/20 text-spark">{entry.badge}</TileChip>}
         </div>
 
-        <span className={`text-3xl mt-auto mb-1.5 ${locked ? 'grayscale opacity-50' : ''}`}>{entry.icon}</span>
+        <GameIcon
+          gameId={entry.id}
+          size={30}
+          className={`mt-auto mb-2 ${locked ? 'text-chalk-faint' : 'text-chalk'}`}
+          style={locked ? undefined : { color: entry.hue }}
+        />
         <p className="font-display text-sm text-chalk leading-tight mb-0.5">{entry.name}</p>
         <p className="text-2xs text-chalk-soft leading-snug line-clamp-2">{entry.tagline}</p>
         <p className="text-2xs text-chalk-faint mt-1">{entry.minPlayers}+ joueurs</p>
@@ -687,7 +702,8 @@ function GameTile({
 
       {locked && (
         <div className="absolute inset-0 bg-ink/60 flex items-center justify-center">
-          <span className="rounded-chip bg-felt-raised border border-line-strong px-3 py-1.5 text-2xs font-semibold text-chalk-muted">
+          <span className="flex items-center gap-1.5 rounded-chip bg-felt-raised border border-line-strong px-3 py-1.5 text-2xs font-semibold text-chalk-muted">
+            <IconLock size={13} />
             Mode 18+
           </span>
         </div>
@@ -763,10 +779,10 @@ function GameSheet({
     <div>
       <div className="flex items-center gap-4 mb-3">
         <div
-          className="w-16 h-16 rounded-card flex items-center justify-center text-4xl shrink-0 border border-line bg-felt-raised"
+          className="w-16 h-16 rounded-card flex items-center justify-center shrink-0 border border-line bg-felt-raised"
           style={{ boxShadow: `inset 0 1px 0 ${entry.hue}55` }}
         >
-          {entry.icon}
+          <GameIcon gameId={entry.id} size={32} style={{ color: entry.hue }} />
         </div>
         <div className="min-w-0">
           <h2 className="font-display text-xl text-chalk leading-tight">{entry.name}</h2>

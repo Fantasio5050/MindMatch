@@ -7,6 +7,7 @@ import { joinUrl } from '../lib/joinUrl'
 import { Surface } from '../components/Card'
 import { Player } from '../components/Player'
 import { Stage, PlayerRail } from './primitives'
+import { GameIcon } from '../components/icons'
 import type { Group } from '../types'
 
 export function PartyGameShell({ mode }: { mode: 'controller' | 'screen' }) {
@@ -70,6 +71,7 @@ function WaitingForNextGame({ group, gameId }: { group: Group; gameId: string })
 
   return (
     <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center safe-top">
+      <GameIcon gameId={gameId} size={30} className="text-chalk-soft mb-3" />
       <p className="kicker text-2xs mb-2">En cours</p>
       <h1 className="font-display text-2xl text-chalk mb-2">{meta?.name ?? 'Une partie'}</h1>
       <p className="text-chalk-soft text-sm max-w-xs mb-7">

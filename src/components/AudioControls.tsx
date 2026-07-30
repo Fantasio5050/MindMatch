@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useMusic } from '../hooks/useMusic'
 import { useSound } from '../hooks/useSound'
+import { IconMusic, IconSpeaker, IconSpeakerOff, IconHeadphones, type IconProps } from './icons'
 
 /** Floating audio settings, mounted once at the app root so it (and the music it starts) is
  * available everywhere — menus, lobby, games, TV screen. Also owns the one-time "first user
@@ -43,7 +44,7 @@ export function AudioControls() {
           >
             <ToggleRow
               label="Musique"
-              icon="🎵"
+              Mark={IconMusic}
               active={!music.muted}
               onToggle={() => {
                 sound.play('pop')
@@ -58,11 +59,11 @@ export function AudioControls() {
                 step={0.05}
                 value={music.volume}
                 onChange={(e) => music.setVolume(Number(e.target.value))}
-                className="w-full accent-fuchsia-400 mt-1.5 mb-3"
+                className="w-full accent-spark mt-1.5 mb-3"
                 aria-label="Volume de la musique"
               />
             )}
-            <ToggleRow label="Effets sonores" icon="🔊" active={!sound.muted} onToggle={sound.toggleMuted} />
+            <ToggleRow label="Effets sonores" Mark={IconSpeaker} active={!sound.muted} onToggle={sound.toggleMuted} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -73,10 +74,10 @@ export function AudioControls() {
           sound.play('pop')
           setOpen((o) => !o)
         }}
-        className="w-10 h-10 rounded-full glass-card flex items-center justify-center text-lg"
+        className="w-10 h-10 rounded-chip glass-card flex items-center justify-center text-chalk-muted"
         aria-label="Réglages audio"
       >
-        {allMuted ? '🔇' : '🎧'}
+        {allMuted ? <IconSpeakerOff size={18} /> : <IconHeadphones size={18} />}
       </motion.button>
     </div>
   )
@@ -84,24 +85,24 @@ export function AudioControls() {
 
 function ToggleRow({
   label,
-  icon,
+  Mark,
   active,
   onToggle,
 }: {
   label: string
-  icon: string
+  Mark: (p: IconProps) => React.ReactElement
   active: boolean
   onToggle: () => void
 }) {
   return (
-    <button onClick={onToggle} className="flex items-center gap-2 w-full py-1">
-      <span className="text-base shrink-0">{icon}</span>
+    <button onClick={onToggle} className="flex items-center gap-2.5 w-full py-1">
+      <Mark size={17} className="shrink-0 text-chalk-soft" />
       <span className="flex-1 text-left text-sm text-chalk-muted truncate">{label}</span>
       <span
-        className={`w-9 h-5 rounded-full relative shrink-0 transition-colors ${active ? 'bg-fuchsia-500' : 'bg-felt-raised'}`}
+        className={`w-9 h-5 rounded-chip relative shrink-0 transition-colors ${active ? 'bg-spark' : 'bg-felt-raised'}`}
       >
         <span
-          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${active ? 'translate-x-4' : 'translate-x-0'}`}
+          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-chip bg-chalk transition-transform ${active ? 'translate-x-4' : 'translate-x-0'}`}
         />
       </span>
     </button>

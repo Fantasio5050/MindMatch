@@ -5,6 +5,7 @@ import { usePartyStore } from '../store/usePartyStore'
 import { PartyGameShell } from '../party/PartyGameShell'
 import { EmoteOverlay, EmoteBar } from '../components/EmoteLayer'
 import { useSound } from '../hooks/useSound'
+import { IconArrowLeft, IconCopy, IconCheck } from '../components/icons'
 
 export function PlayPage() {
   const navigate = useNavigate()
@@ -45,17 +46,19 @@ export function PlayPage() {
         <div className="fixed top-4 left-4 z-40 safe-top flex items-center gap-2">
           <button
             onClick={handleBack}
-            className="flex items-center gap-1.5 rounded-full bg-felt-raised px-3 h-9 text-chalk-muted text-sm"
+            className="flex items-center gap-1.5 rounded-chip bg-felt-raised border border-line px-3 h-9 text-chalk-muted text-sm"
           >
-            ← {isHost ? 'Quitter la partie' : 'Salon'}
+            <IconArrowLeft size={15} />
+            {isHost ? 'Quitter la partie' : 'Salon'}
           </button>
           {code && (
             <button
               onClick={copyCode}
-              className="flex items-center gap-1 rounded-full bg-felt-raised px-3 h-9 text-chalk-soft text-xs font-semibold tracking-widest"
+              className="flex items-center gap-1.5 rounded-chip bg-felt-raised border border-line px-3 h-9 text-chalk-soft text-xs font-semibold tracking-widest"
               aria-label="Copier le code de la salle"
             >
-              {copied ? '✓ Copié' : code}
+              {copied ? <IconCheck size={13} className="text-jade" /> : <IconCopy size={13} />}
+              {copied ? 'Copié' : code}
             </button>
           )}
         </div>
