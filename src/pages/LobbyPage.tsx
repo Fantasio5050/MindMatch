@@ -12,7 +12,7 @@ import { useSound } from '../hooks/useSound'
 import { apiGetGameHistory, apiUpdatePhoto, ApiError } from '../lib/api'
 import { compressImage } from '../lib/compressImage'
 import { GAME_LIBRARY, type GameLibraryEntry } from '../data/gameLibrary'
-import { QUIZ_LEVELS } from '../data/quizLevels'
+import { QUESTION_BANK_SIZE, QUIZ_LEVELS } from '../data/quizLevels'
 import { spotifyEnabled } from '../lib/spotify'
 import type { Group, GameHistoryEntry } from '../types'
 
@@ -47,6 +47,7 @@ export function LobbyPage() {
   const partyError = usePartyStore((s) => s.error)
   const clearError = usePartyStore((s) => s.clearError)
   const leaveGroup = useAppStore((s) => s.leaveGroup)
+  const restartQuiz = useAppStore((s) => s.restartQuiz)
 
   const [copied, setCopied] = useState(false)
   const [confirmingAdultMode, setConfirmingAdultMode] = useState(false)
@@ -65,6 +66,7 @@ export function LobbyPage() {
   const [history, setHistory] = useState<GameHistoryEntry[]>([])
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [restarting, setRestarting] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const { play } = useSound()
   const prevMemberCount = useRef<number | null>(null)
@@ -167,6 +169,16 @@ export function LobbyPage() {
     navigate('/')
   }
 
+  const handleRestartQuiz = async () => {
+    play('pop')
+    setRestarting(true)
+    try {
+      await restartQuiz()
+    } finally {
+      setRestarting(false)
+    }
+  }
+
   const handleKick = (targetMemberId: string) => {
     play('pop')
     kickMember(targetMemberId)
@@ -232,21 +244,29 @@ export function LobbyPage() {
           <h3 className="font-display text-xl text-chalk mb-1">Découvre ton archétype</h3>
           <p className="text-xs text-chalk-soft mb-4">
             {quizDone
-              ? 'Déjà fait. Tu peux revoir ton profil, ou refaire le test plus en détail.'
+              ? 'Déjà fait. Refais-le quand tu veux : les questions sont tirées au sort, tu ne retomberas pas sur les mêmes.'
               : 'Le seul moment solo de la soirée — il nourrit ensuite les comparaisons de groupe.'}
           </p>
           {quizDone && (
-            <Button variant="secondary" fullWidth onClick={() => navigate('/profile')} className="mb-3">
-              Voir mon profil
-            </Button>
+            <div className="flex gap-2 mb-3">
+              <Button variant="secondary" fullWidth onClick={() => navigate('/profile')}>
+                Voir mon profil
+              </Button>
+              {/* Refaire le test EFFACE les réponses côté serveur et passe au tirage suivant :
+                  sans ça, le serveur refusait toute nouvelle réponse une fois le test terminé. */}
+              <Button variant="ghost" fullWidth disabled={restarting} onClick={handleRestartQuiz}>
+                {restarting ? '…' : 'Refaire le test'}
+              </Button>
+            </div>
           )}
           <div className="grid grid-cols-3 gap-2">
             {QUIZ_LEVELS.map((l) => (
               <motion.button
                 key={l.key}
                 whileTap={{ scale: 0.95 }}
+                disabled={quizDone}
                 onClick={() => navigate(`/quiz?niveau=${l.key}`)}
-                className="rounded-control bg-felt border border-line px-2 py-3 text-center active:bg-felt-raised transition-colors"
+                className="rounded-control bg-felt border border-line px-2 py-3 text-center active:bg-felt-raised transition-colors disabled:opacity-40"
               >
                 <p className="text-sm font-semibold text-chalk">{l.name}</p>
                 <p className="text-2xs text-chalk-faint mt-0.5">{l.count} questions</p>
@@ -254,6 +274,9 @@ export function LobbyPage() {
               </motion.button>
             ))}
           </div>
+          <p className="text-2xs text-chalk-faint text-center mt-3">
+            Tirées au hasard parmi {QUESTION_BANK_SIZE} questions
+          </p>
         </Surface>
 
         {/* ---- Mode Soirée : la platine musicale partagée ---- */}

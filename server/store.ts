@@ -176,6 +176,7 @@ export function createGroup(groupName: string, pseudo: string): { group: Group; 
     pseudo: pseudo.trim().slice(0, 24),
     color: MEMBER_COLORS[0],
     answers: {},
+    quizAttempt: 0,
     scores: null,
     archetypeId: null,
     finishedAt: null,
@@ -232,6 +233,7 @@ export function joinGroup(
     pseudo: trimmedPseudo,
     color: MEMBER_COLORS[group.members.length % MEMBER_COLORS.length],
     answers: {},
+    quizAttempt: 0,
     scores: null,
     archetypeId: null,
     finishedAt: null,
@@ -296,6 +298,35 @@ export function saveAnswer(
   result.member.answers[questionId] = optionId
   writeDb(db)
   return { ok: true }
+}
+
+/**
+ * Refaire le test.
+ *
+ * Le salon proposait déjà « refaire le test », mais le serveur refusait toute réponse une fois
+ * `finishedAt` posé : le bouton menait à une erreur 409. Avec le tirage aléatoire, un second
+ * passage a maintenant un vrai intérêt — il fallait donc que ce soit réellement possible.
+ *
+ * On repart d'une ardoise vide ET on incrémente `quizAttempt` : c'est ce compteur qui sème le
+ * tirage, donc ce qui garantit un jeu de questions différent du précédent.
+ */
+export function restartMemberQuiz(
+  groupId: string,
+  memberId: string,
+  memberToken: string,
+): { group: Group } | ApiError {
+  const db = readDb()
+  const result = findAuthorizedMember(db, groupId, memberId, memberToken)
+  if (isApiError(result)) return result
+
+  result.member.answers = {}
+  result.member.scores = null
+  result.member.archetypeId = null
+  result.member.finishedAt = null
+  result.member.quizAttempt = (result.member.quizAttempt ?? 0) + 1
+  writeDb(db)
+
+  return { group: sanitizeGroup(result.group, memberId) }
 }
 
 const MAX_PHOTO_LENGTH = 500_000 // ~500KB of base64, plenty for a client-compressed avatar photo

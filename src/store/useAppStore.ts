@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Group, Member } from '../types'
-import { apiCreateGroup, apiJoinGroup, apiGetGroup, apiSaveAnswer, apiFinish, ApiError } from '../lib/api'
+import { apiCreateGroup, apiJoinGroup, apiGetGroup, apiSaveAnswer, apiFinish, apiRestartQuiz, ApiError } from '../lib/api'
 
 interface Identity {
   groupId: string
@@ -20,6 +20,8 @@ interface AppState {
   refreshGroup: () => Promise<void>
   saveAnswer: (questionId: string, optionId: string) => Promise<void>
   finishQuestionnaire: () => Promise<void>
+  /** Efface les réponses et passe au tirage suivant. */
+  restartQuiz: () => Promise<void>
   leaveGroup: () => void
   clearError: () => void
 
@@ -88,6 +90,13 @@ export const useAppStore = create<AppState>()(
         const { identity } = get()
         if (!identity) return
         const group = await apiFinish(identity.groupId, identity.memberId, identity.memberToken)
+        set({ group })
+      },
+
+      restartQuiz: async () => {
+        const { identity } = get()
+        if (!identity) return
+        const group = await apiRestartQuiz(identity.groupId, identity.memberId, identity.memberToken)
         set({ group })
       },
 

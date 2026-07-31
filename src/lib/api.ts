@@ -60,6 +60,15 @@ export async function apiFinish(groupId: string, memberId: string, memberToken: 
   return group
 }
 
+/** Repart d'une ardoise vide et incrémente le passage — donc un nouveau tirage de questions. */
+export async function apiRestartQuiz(groupId: string, memberId: string, memberToken: string): Promise<Group> {
+  const { group } = await request<{ group: Group }>(`/groups/${groupId}/members/${memberId}/quiz/restart`, {
+    method: 'POST',
+    body: JSON.stringify({ memberToken }),
+  })
+  return group
+}
+
 export async function apiUpdatePhoto(
   groupId: string,
   memberId: string,

@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { PageTransition } from '../components/PageTransition'
 import { ProgressBar } from '../components/ProgressBar'
-import { questionsForLevel, quizLevelMeta, type QuizLevel } from '../data/quizLevels'
+import { questionsForLevel, quizLevelMeta, seedFrom, type QuizLevel } from '../data/quizLevels'
 import { useAppStore } from '../store/useAppStore'
+import type { Member } from '../types'
 import { useSound } from '../hooks/useSound'
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -18,33 +19,61 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/**
+ * Garde de montage.
+ *
+ * Au rechargement, le salon est rechargé de façon asynchrone : `currentMember()` vaut null le
+ * temps d'un rendu. Ça paraît anodin, mais deux choses en dépendent — la GRAINE du tirage (sans
+ * joueur, on tirait un questionnaire « anonyme » remplacé une fraction de seconde plus tard) et
+ * l'INDEX de reprise (figé par `useState` au premier rendu, donc calculé sur le mauvais tirage).
+ * Résultat observé : recharger en plein test faisait atterrir sur une question totalement
+ * différente. On ne monte donc le test qu'une fois le joueur connu.
+ */
 export function QuizPage() {
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const member = useAppStore((s) => s.currentMember())
+  const levelParam = searchParams.get('niveau')
+  const level: QuizLevel = levelParam === 'rapide' || levelParam === 'normal' ? levelParam : 'precis'
+  if (!member) {
+    return (
+      <div className="min-h-svh flex items-center justify-center">
+        <p className="text-chalk-soft text-sm">Chargement du test…</p>
+      </div>
+    )
+  }
+  // Le NIVEAU fait partie de la clé, au même titre que le joueur et le passage : il vient de la
+  // query du hash (`#/quiz?niveau=rapide`) et n'est pas résolu au tout premier rendu après un
+  // rechargement. Sans ça, l'index de reprise se calculait sur le tirage « précis » puis le
+  // tirage basculait sur « rapide » sous ses pieds — on restait à la question 4/12, mais ce
+  // n'était plus la même question.
+  return <QuizRunner key={`${member.id}:${member.quizAttempt}:${level}`} member={member} level={level} />
+}
+
+function QuizRunner({ member, level }: { member: Member; level: QuizLevel }) {
+  const navigate = useNavigate()
   const saveAnswer = useAppStore((s) => s.saveAnswer)
   const finishQuestionnaire = useAppStore((s) => s.finishQuestionnaire)
 
-  // Niveau choisi dans le salon (?niveau=rapide|normal|precis) — précis par défaut.
-  const levelParam = searchParams.get('niveau')
-  const level: QuizLevel = levelParam === 'rapide' || levelParam === 'normal' ? levelParam : 'precis'
-  const questions = useMemo(() => questionsForLevel(level), [level])
+  // La graine tient au JOUEUR et à son numéro de passage : recharger la page redonne exactement
+  // le même tirage (sinon la reprise sur les réponses déjà données n'aurait aucun sens), tandis
+  // qu'un nouveau passage — qui incrémente `quizAttempt` — change tout le questionnaire.
+  const seed = useMemo(
+    () => seedFrom(`${member.id}:${member.quizAttempt}:${level}`),
+    [member.id, member.quizAttempt, level],
+  )
+  const questions = useMemo(() => questionsForLevel(level, seed), [level, seed])
   const levelMeta = quizLevelMeta(level)
 
-  const startIndex = useMemo(() => {
-    if (!member) return 0
-    // Reprise : première question du niveau encore sans réponse.
+  // Reprise : première question du tirage encore sans réponse. Calculé une seule fois, au montage
+  // — le composant est monté avec un joueur déjà chargé, donc la valeur est juste d'emblée.
+  const [index, setIndex] = useState(() => {
     const firstUnanswered = questions.findIndex((q) => !member.answers[q.id])
     return firstUnanswered === -1 ? questions.length - 1 : firstUnanswered
-  }, [member, questions])
-
-  const [index, setIndex] = useState(startIndex)
+  })
   const [direction, setDirection] = useState(1)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const { play } = useSound()
-
-  if (!member) return null
 
   const question = questions[index]
   const selected = member.answers[question.id]

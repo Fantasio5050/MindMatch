@@ -41,6 +41,7 @@ sqlite.exec(`
     scores TEXT,
     archetype_id TEXT,
     finished_at INTEGER,
+    quiz_attempt INTEGER NOT NULL DEFAULT 0,
     xp INTEGER NOT NULL DEFAULT 0,
     badges TEXT NOT NULL DEFAULT '[]',
     game_stats TEXT NOT NULL DEFAULT '{}',
@@ -77,6 +78,10 @@ if (!memberColumns.some((c) => c.name === 'photo_url')) {
   sqlite.exec('ALTER TABLE members ADD COLUMN photo_url TEXT')
 }
 
+if (!memberColumns.some((c) => c.name === 'quiz_attempt')) {
+  sqlite.exec('ALTER TABLE members ADD COLUMN quiz_attempt INTEGER NOT NULL DEFAULT 0')
+}
+
 interface GroupRow {
   id: string
   code: string
@@ -102,6 +107,7 @@ interface MemberRow {
   scores: string | null
   archetype_id: string | null
   finished_at: number | null
+  quiz_attempt: number
   xp: number
   badges: string
   game_stats: string
@@ -118,6 +124,7 @@ function rowToMember(row: MemberRow): StoredMember {
     scores: row.scores ? JSON.parse(row.scores) : null,
     archetypeId: row.archetype_id,
     finishedAt: row.finished_at,
+    quizAttempt: row.quiz_attempt ?? 0,
     xp: row.xp,
     badges: JSON.parse(row.badges),
     gameStats: JSON.parse(row.game_stats),
@@ -182,8 +189,8 @@ const upsertGroup = sqlite.prepare(`
 `)
 
 const upsertMember = sqlite.prepare(`
-  INSERT INTO members (id, group_id, pseudo, color, answers, scores, archetype_id, finished_at, xp, badges, game_stats, token, photo_url)
-  VALUES (@id, @group_id, @pseudo, @color, @answers, @scores, @archetype_id, @finished_at, @xp, @badges, @game_stats, @token, @photo_url)
+  INSERT INTO members (id, group_id, pseudo, color, answers, scores, archetype_id, finished_at, quiz_attempt, xp, badges, game_stats, token, photo_url)
+  VALUES (@id, @group_id, @pseudo, @color, @answers, @scores, @archetype_id, @finished_at, @quiz_attempt, @xp, @badges, @game_stats, @token, @photo_url)
   ON CONFLICT(id) DO UPDATE SET
     pseudo = excluded.pseudo,
     color = excluded.color,
@@ -191,6 +198,7 @@ const upsertMember = sqlite.prepare(`
     scores = excluded.scores,
     archetype_id = excluded.archetype_id,
     finished_at = excluded.finished_at,
+    quiz_attempt = excluded.quiz_attempt,
     xp = excluded.xp,
     badges = excluded.badges,
     game_stats = excluded.game_stats,
@@ -225,6 +233,7 @@ const writeTx = sqlite.transaction((db: Database) => {
         scores: member.scores ? JSON.stringify(member.scores) : null,
         archetype_id: member.archetypeId,
         finished_at: member.finishedAt,
+        quiz_attempt: member.quizAttempt ?? 0,
         xp: member.xp,
         badges: JSON.stringify(member.badges),
         game_stats: JSON.stringify(member.gameStats),

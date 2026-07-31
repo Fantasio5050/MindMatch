@@ -41,6 +41,9 @@ export interface Member {
   scores: TraitScores | null
   archetypeId: string | null
   finishedAt: number | null
+  /** Numéro du passage au test, incrémenté à chaque « Refaire le test ». Il sert de graine au
+   * tirage des questions : c'est lui qui garantit qu'un second passage ne repose pas les mêmes. */
+  quizAttempt: number
   xp: number
   badges: string[]
   gameStats: Record<string, number>

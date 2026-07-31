@@ -12,6 +12,7 @@ import {
   getGroup,
   saveAnswer,
   finishMember,
+  restartMemberQuiz,
   updateMemberPhoto,
   findAuthorizedMember,
   isApiError,
@@ -82,6 +83,18 @@ api.post('/groups/:groupId/members/:memberId/finish', (req, res) => {
     return res.status(400).json({ error: 'memberToken est requis.' })
   }
   const result = finishMember(groupId, memberId, memberToken)
+  if (isApiError(result)) return res.status(result.status).json({ error: result.error })
+  broadcastRoom(groupId)
+  res.json(result)
+})
+
+api.post('/groups/:groupId/members/:memberId/quiz/restart', (req, res) => {
+  const { groupId, memberId } = req.params
+  const { memberToken } = req.body ?? {}
+  if (typeof memberToken !== 'string') {
+    return res.status(400).json({ error: 'memberToken est requis.' })
+  }
+  const result = restartMemberQuiz(groupId, memberId, memberToken)
   if (isApiError(result)) return res.status(result.status).json({ error: result.error })
   broadcastRoom(groupId)
   res.json(result)
