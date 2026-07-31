@@ -85,14 +85,18 @@
    * L'échelle téléphone, elle, reste en rem — c'est là que la préférence de l'utilisateur compte.
    *
    * Valeurs de référence en 1080p, ~13 % plus petites qu'avant : à l'usage sur une vraie TV, tout
-   * était un cran trop gros. */
-  --text-tv-xs: clamp(11px, 1.65 * var(--tv-unit), 21px);  /* ~18px — mention de bas d'écran */
-  --text-tv-sm: clamp(13px, 2 * var(--tv-unit), 26px);     /* ~22px — étiquette joueur */
-  --text-tv-base: clamp(15px, 2.45 * var(--tv-unit), 32px);/* ~26px — texte de scène */
-  --text-tv-lg: clamp(18px, 3.25 * var(--tv-unit), 42px);  /* ~35px — sous-titre */
-  --text-tv-xl: clamp(23px, 4.5 * var(--tv-unit), 58px);   /* ~49px — titre */
-  --text-tv-2xl: clamp(30px, 6.1 * var(--tv-unit), 80px);  /* ~66px — révélation */
-  --text-tv-3xl: clamp(38px, 8.4 * var(--tv-unit), 108px); /* ~91px — verdict plein écran */
+   * était un cran trop gros.
+   *
+   * Les plafonds laissent la place à un écran deux fois plus grand que le 1080p : certains
+   * navigateurs de TV exposent réellement 3840x2160 pixels CSS, et un plafond serré y donnait un
+   * titre deux fois trop petit en proportion — le défaut inverse, tout aussi illisible de loin. */
+  --text-tv-xs: clamp(11px, 1.65 * var(--tv-unit), 40px);  /* ~18px — mention de bas d'écran */
+  --text-tv-sm: clamp(13px, 2 * var(--tv-unit), 48px);     /* ~22px — étiquette joueur */
+  --text-tv-base: clamp(15px, 2.45 * var(--tv-unit), 58px);/* ~26px — texte de scène */
+  --text-tv-lg: clamp(18px, 3.25 * var(--tv-unit), 76px);  /* ~35px — sous-titre */
+  --text-tv-xl: clamp(23px, 4.5 * var(--tv-unit), 106px);  /* ~49px — titre */
+  --text-tv-2xl: clamp(30px, 6.1 * var(--tv-unit), 144px); /* ~66px — révélation */
+  --text-tv-3xl: clamp(38px, 8.4 * var(--tv-unit), 200px); /* ~91px — verdict plein écran */
 
   /* ---- Rayons --------------------------------------------------------- */
   /* 4 rayons intentionnels, contre 6 valeurs mélangées (Card en 3xl, Button en 2xl…). */
@@ -148,9 +152,11 @@
 
   /* Gabarit de scène, en unités : la marge d'un écran court doit rétrécir avec lui, sinon 80 px de
      respiration verticale mangent 15 % d'un écran de 540 px de haut. */
-  --tv-gutter-x: clamp(16px, 5.6 * var(--tv-unit), 64px);
-  --tv-gutter-y: clamp(10px, 3.4 * var(--tv-unit), 40px);
-  --tv-gutter-scene: clamp(8px, 2.6 * var(--tv-unit), 32px);
+  /* Plafonds calés sur le double du 1080p : au-delà, l'écran est un 4K qui expose vraiment ses
+     pixels CSS, et tout doit grandir avec lui. */
+  --tv-gutter-x: clamp(16px, 5.6 * var(--tv-unit), 128px);
+  --tv-gutter-y: clamp(10px, 3.4 * var(--tv-unit), 80px);
+  --tv-gutter-scene: clamp(8px, 2.6 * var(--tv-unit), 64px);
 
   /* La barre de service de la TV (« Changer de salle », « Accueil », « Plein écran ») flotte en
      position fixe au-dessus de la scène. La marge haute ne peut donc jamais descendre sous sa
@@ -161,12 +167,12 @@
 
   /* Avatars de scène. Le rail des joueurs est le plus gros bloc de la TV : figé à 88 px il
      occupait à lui seul plus du tiers d'un écran court, d'où le chevauchement. */
-  --tv-avatar-focus: clamp(34px, 7 * var(--tv-unit), 88px);
-  --tv-avatar-stage: clamp(52px, 11 * var(--tv-unit), 140px);
+  --tv-avatar-focus: clamp(34px, 7 * var(--tv-unit), 176px);
+  --tv-avatar-stage: clamp(52px, 11 * var(--tv-unit), 280px);
 
   /* QR code d'invitation : c'est l'objet à scanner, il doit rester généreux sans jamais pousser
      le code de la salle hors de l'écran. */
-  --tv-qr: clamp(84px, 17 * var(--tv-unit), 200px);
+  --tv-qr: clamp(84px, 17 * var(--tv-unit), 400px);
 }
 
 body {
