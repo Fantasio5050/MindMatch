@@ -19,7 +19,15 @@ import type { Member } from '../types'
  */
 export type PlayerSize = 'chip' | 'md' | 'focus' | 'stage'
 
-const AVATAR_PX: Record<PlayerSize, number> = { chip: 26, md: 40, focus: 88, stage: 140 }
+/* Les deux tailles de scène sont FLUIDES : figées en pixels, le rail des joueurs occupait à lui
+ * seul plus du tiers de la hauteur d'un écran de TV court, et poussait la scène par-dessus le
+ * titre. Les valeurs plafond (88 / 140) restent celles d'origine, en 1080p. */
+const AVATAR_PX: Record<PlayerSize, number | string> = {
+  chip: 26,
+  md: 40,
+  focus: 'var(--tv-avatar-focus)',
+  stage: 'var(--tv-avatar-stage)',
+}
 const NAME_CLASS: Record<PlayerSize, string> = {
   chip: 'text-xs',
   md: 'text-sm',
@@ -56,6 +64,8 @@ export function Player({
   className,
 }: PlayerProps) {
   const px = AVATAR_PX[size]
+  // Longueur CSS unique, que la taille soit un nombre de pixels ou une expression fluide.
+  const sz = typeof px === 'number' ? `${px}px` : px
   const ring = speaking
     ? 'ring-2 ring-spark'
     : acted
@@ -89,7 +99,11 @@ export function Player({
         {host && (
           <span
             className="absolute -bottom-0.5 -right-0.5 rounded-chip bg-brass text-ink grid place-items-center font-bold"
-            style={{ width: Math.max(14, px * 0.34), height: Math.max(14, px * 0.34), fontSize: Math.max(8, px * 0.2) }}
+            style={{
+              width: `max(14px, calc(${sz} * 0.34))`,
+              height: `max(14px, calc(${sz} * 0.34))`,
+              fontSize: `max(8px, calc(${sz} * 0.2))`,
+            }}
             aria-label="Hôte"
           >
             ★

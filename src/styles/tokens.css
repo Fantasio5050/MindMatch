@@ -71,14 +71,28 @@
   --text-2xl: 1.75rem;     /* 28px — titre d'écran */
   --text-3xl: 2.25rem;     /* 36px — chiffre héros (chrono, score) */
 
-  /* Échelle TV — lecture à 3-5 m. Ne JAMAIS utiliser l'échelle téléphone sur la scène. */
-  --text-tv-xs: 1.25rem;   /* 20px — mention de bas d'écran */
-  --text-tv-sm: 1.5rem;    /* 24px — étiquette joueur */
-  --text-tv-base: 1.875rem;/* 30px — texte de scène */
-  --text-tv-lg: 2.5rem;    /* 40px — sous-titre */
-  --text-tv-xl: 3.5rem;    /* 56px — titre */
-  --text-tv-2xl: 4.75rem;  /* 76px — révélation */
-  --text-tv-3xl: 6.5rem;   /* 104px — verdict plein écran */
+  /* Échelle TV — lecture à 3-5 m. Ne JAMAIS utiliser l'échelle téléphone sur la scène.
+   *
+   * Exprimée en multiples de `--tv-unit` (1 % de la hauteur d'écran, voir plus bas) et non en
+   * pixels fixes : ce qui compte sur un écran partagé, c'est la taille ANGULAIRE du texte, pas son
+   * nombre de pixels. Un titre qui occupe 4,5 % de la hauteur se lit pareil de l'autre bout du
+   * salon, que le navigateur de la TV expose 1920x1080 ou 1024x600 en pixels CSS.
+   *
+   * Les bornes sont en px, délibérément — pas en rem. Les navigateurs de TV imposent souvent une
+   * taille de police racine agrandie ; avec des bornes en rem, tout le gabarit gonflait d'un coup
+   * sur un écran déjà court, et la scène débordait sur le titre et sur les joueurs. La scène TV
+   * n'est ni lue de près ni manipulable : c'est la seule surface où l'on ignore ce réglage.
+   * L'échelle téléphone, elle, reste en rem — c'est là que la préférence de l'utilisateur compte.
+   *
+   * Valeurs de référence en 1080p, ~13 % plus petites qu'avant : à l'usage sur une vraie TV, tout
+   * était un cran trop gros. */
+  --text-tv-xs: clamp(11px, 1.65 * var(--tv-unit), 21px);  /* ~18px — mention de bas d'écran */
+  --text-tv-sm: clamp(13px, 2 * var(--tv-unit), 26px);     /* ~22px — étiquette joueur */
+  --text-tv-base: clamp(15px, 2.45 * var(--tv-unit), 32px);/* ~26px — texte de scène */
+  --text-tv-lg: clamp(18px, 3.25 * var(--tv-unit), 42px);  /* ~35px — sous-titre */
+  --text-tv-xl: clamp(23px, 4.5 * var(--tv-unit), 58px);   /* ~49px — titre */
+  --text-tv-2xl: clamp(30px, 6.1 * var(--tv-unit), 80px);  /* ~66px — révélation */
+  --text-tv-3xl: clamp(38px, 8.4 * var(--tv-unit), 108px); /* ~91px — verdict plein écran */
 
   /* ---- Rayons --------------------------------------------------------- */
   /* 4 rayons intentionnels, contre 6 valeurs mélangées (Card en 3xl, Button en 2xl…). */
@@ -119,6 +133,40 @@
   /* Interlignage serré sur les titres display : c'est ce qui donne le côté « affiche » plutôt
      que « paragraphe de site web ». */
   --leading-display: 0.92;
+
+  /* ---- L'unité de scène ------------------------------------------------
+   * Tout ce qui s'affiche sur la TV — typo, marges, avatars, QR code — se mesure avec ça.
+   *
+   * 1 unité = 1 % de la hauteur d'écran, plafonnée par la largeur (`0.5625vw` = 1 % de la hauteur
+   * d'un 16/9). Sur un écran 16/9 les deux termes sont égaux ; sur un écran plus large que 16/9
+   * c'est la hauteur qui commande (sinon la typo exploserait sur un ultra-large), et sur un écran
+   * plus étroit c'est la largeur (sinon les titres déborderaient sur les côtés).
+   *
+   * Pourquoi la hauteur et pas la largeur : une scène TV est un empilement vertical — sur-titre,
+   * sujet, rail des joueurs. C'est toujours la hauteur qui manque en premier. */
+  --tv-unit: min(1vh, 0.5625vw);
+
+  /* Gabarit de scène, en unités : la marge d'un écran court doit rétrécir avec lui, sinon 80 px de
+     respiration verticale mangent 15 % d'un écran de 540 px de haut. */
+  --tv-gutter-x: clamp(16px, 5.6 * var(--tv-unit), 64px);
+  --tv-gutter-y: clamp(10px, 3.4 * var(--tv-unit), 40px);
+  --tv-gutter-scene: clamp(8px, 2.6 * var(--tv-unit), 32px);
+
+  /* La barre de service de la TV (« Changer de salle », « Accueil », « Plein écran ») flotte en
+     position fixe au-dessus de la scène. La marge haute ne peut donc jamais descendre sous sa
+     hauteur, sinon les boutons se posent sur le sur-titre — c'était le cas dès que l'écran
+     raccourcissait. En rem, parce que la barre elle-même est en rem : `top-4` + `h-9` + une
+     respiration. */
+  --tv-gutter-top: max(var(--tv-gutter-y), 3.75rem);
+
+  /* Avatars de scène. Le rail des joueurs est le plus gros bloc de la TV : figé à 88 px il
+     occupait à lui seul plus du tiers d'un écran court, d'où le chevauchement. */
+  --tv-avatar-focus: clamp(34px, 7 * var(--tv-unit), 88px);
+  --tv-avatar-stage: clamp(52px, 11 * var(--tv-unit), 140px);
+
+  /* QR code d'invitation : c'est l'objet à scanner, il doit rester généreux sans jamais pousser
+     le code de la salle hors de l'écran. */
+  --tv-qr: clamp(84px, 17 * var(--tv-unit), 200px);
 }
 
 body {
@@ -147,6 +195,51 @@ body {
   letter-spacing: -0.015em;
   line-height: var(--leading-display);
   text-transform: uppercase;
+}
+
+/**
+ * `.tv-surface` — « ce document est une TV ».
+ *
+ * Le socle définit deux échelles typographiques, et une seule des 17 vues TV utilise réellement
+ * l'échelle TV : toutes les autres ont été composées à l'échelle TÉLÉPHONE, en rem fixes. D'où le
+ * défaut de fond signalé sur une vraie TV — un `text-xl` vaut 22 px que l'écran fasse 1080 ou 600
+ * pixels CSS de haut, donc le même écran passe de « juste » à « énorme et qui déborde ».
+ *
+ * Plutôt que de retoucher 16 fichiers à la main (et de rejuger chaque taille une par une), on
+ * REDÉFINIT l'échelle téléphone sur la surface TV. Tailwind émet `font-size: var(--text-xl)` :
+ * redéfinir la variable ici suffit à faire respirer tout ce qui est en dessous.
+ *
+ * Les multiplicateurs sont calés pour redonner EXACTEMENT les tailles actuelles en 1080p
+ * (11 / 12.5 / 14 / 16 / 18 / 22 / 28 / 36 px). Rien ne change donc sur l'écran de référence :
+ * la valeur ne bouge qu'en dessous, là où elle était disproportionnée, et au-dessus (4K), là où
+ * elle était minuscule.
+ *
+ * À terme, la vraie réponse reste de migrer ces vues sur `Stage` et l'échelle `text-tv-*`.
+ * D'ici là, ceci empêche le défaut de se reproduire dans chaque jeu.
+ */
+.tv-surface {
+  --text-2xs: clamp(9px, 1.02 * var(--tv-unit), 22px);
+  --text-xs: clamp(10px, 1.16 * var(--tv-unit), 25px);
+  --text-sm: clamp(11px, 1.3 * var(--tv-unit), 28px);
+  --text-base: clamp(12px, 1.48 * var(--tv-unit), 32px);
+  --text-lg: clamp(13px, 1.67 * var(--tv-unit), 36px);
+  --text-xl: clamp(15px, 2.04 * var(--tv-unit), 44px);
+  --text-2xl: clamp(18px, 2.59 * var(--tv-unit), 56px);
+  --text-3xl: clamp(22px, 3.33 * var(--tv-unit), 72px);
+}
+
+/* Cadre de scène TV pour les jeux pas encore passés sur la primitive `Stage`.
+ * Remplace le `px-16 py-12` figé qui traînait à l'identique dans 15 vues : sur un navigateur de TV
+ * qui expose 1024 px de large, 64 px de marge de chaque côté mangeaient 12 % de l'écran. */
+.tv-frame {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--tv-gutter-x);
+  padding-top: var(--tv-gutter-top);
+  padding-bottom: var(--tv-gutter-y);
 }
 
 /* Sur-titre : la petite ligne au-dessus d'un titre, qui situe le moment (« MANCHE 2 / 6 »). */

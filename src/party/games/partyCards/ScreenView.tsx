@@ -21,7 +21,7 @@ export function PartyCardsScreen() {
   const state = party.roundData as PartyCardsClientState | null
 
   return (
-    <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12">
+    <div className="tv-frame">
       {party.status === 'ended' && <FinalPodium members={members} />}
 
       {party.status !== 'ended' && party.phase === 'card' && state && (

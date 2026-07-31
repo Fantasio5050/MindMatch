@@ -48,7 +48,7 @@ export function RussianRouletteScreen() {
   const isBang = phase === 'result' && state.lastPull?.bang
 
   return (
-    <div className="relative min-h-svh flex flex-col items-center justify-center px-16 py-12 overflow-hidden">
+    <div className="relative tv-frame overflow-hidden">
       {/* Flash rouge au BANG */}
       <AnimatePresence>
         {isBang && (
@@ -158,7 +158,7 @@ function IntroScreen() {
 function FinalPodium({ members, state }: { members: Member[]; state: RussianRouletteClientState }) {
   const ranked = [...members].sort((a, b) => (state.totalSips[a.id] ?? 0) - (state.totalSips[b.id] ?? 0))
   return (
-    <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12 text-center">
+    <div className="tv-frame text-center">
       <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">
         Roulette russe — {state.barrelsUsed} barillet{state.barrelsUsed > 1 ? 's' : ''}
       </p>

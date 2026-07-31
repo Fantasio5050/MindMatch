@@ -35,7 +35,7 @@ export function WhoIsMostLikelyScreen() {
   const state = party.roundData as WhoIsMostLikelyClientState | null
 
   return (
-    <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12">
+    <div className="tv-frame">
       <Confetti trigger={confettiTrigger} />
 
       {status === 'ended' && <FinalPodium members={members} />}

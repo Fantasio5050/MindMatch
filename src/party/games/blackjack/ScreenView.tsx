@@ -145,7 +145,7 @@ function FinalPodium({ members, state }: { members: Member[]; state: BlackjackCl
     state.adult ? (state.totalSips[a.id] ?? 0) - (state.totalSips[b.id] ?? 0) : (state.chips[b.id] ?? 0) - (state.chips[a.id] ?? 0),
   )
   return (
-    <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12 text-center">
+    <div className="tv-frame text-center">
       <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">
         Blackjack — {state.roundsPlayed} donne{state.roundsPlayed > 1 ? 's' : ''}
       </p>

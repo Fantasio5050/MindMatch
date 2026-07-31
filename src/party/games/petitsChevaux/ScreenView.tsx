@@ -110,7 +110,7 @@ export function PetitsChevauxScreen() {
 
   if (status === 'ended') {
     return (
-      <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12 text-center">
+      <div className="tv-frame text-center">
         <Confetti trigger={confetti} />
         <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Petits Chevaux — course terminée</p>
         <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏆 Classement final</h1>

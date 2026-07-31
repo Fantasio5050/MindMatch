@@ -14,10 +14,13 @@ export function Avatar({
 }: {
   pseudo: string
   color: string
-  size?: number
+  /** Taille en pixels, ou n'importe quelle longueur CSS — les scènes TV passent une taille fluide
+   * (`var(--tv-avatar-focus)`) pour que le rail des joueurs rétrécisse avec l'écran. */
+  size?: number | string
   photoUrl?: string | null
 }) {
-  const s = Math.round(size * AVATAR_SCALE)
+  // Une seule expression pour les deux cas : `calc()` accepte aussi bien 88px qu'un `clamp()`.
+  const s = typeof size === 'number' ? `${Math.round(size * AVATAR_SCALE)}px` : `calc(${size} * ${AVATAR_SCALE})`
   if (photoUrl) {
     return (
       <img
@@ -35,7 +38,7 @@ export function Avatar({
       style={{
         width: s,
         height: s,
-        fontSize: s * 0.38,
+        fontSize: `calc(${s} * 0.38)`,
         background: `linear-gradient(135deg, ${color}, ${color}99)`,
         boxShadow: `0 4px 14px ${color}55`,
       }}

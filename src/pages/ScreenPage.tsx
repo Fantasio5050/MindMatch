@@ -133,7 +133,9 @@ export function ScreenPage() {
   }
 
   return (
-    <div className="relative">
+    // `tv-surface` déclare la surface : c'est ce qui met TOUT ce qui est en dessous à l'échelle de
+    // l'écran plutôt qu'à une taille en pixels figée (voir styles/tokens.css).
+    <div className="relative tv-surface">
       <div className="fixed top-4 left-4 z-40 flex items-center gap-2">
         <button
           onClick={handleExit}

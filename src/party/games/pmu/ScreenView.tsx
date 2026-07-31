@@ -344,7 +344,7 @@ function ResultsOverlay({ state, members }: { state: PmuClientState; members: Me
 function FinalPodium({ members, state }: { members: Member[]; state: PmuClientState }) {
   const ranked = [...members].sort((a, b) => (state.totalSipsDrunk[a.id] ?? 0) - (state.totalSipsDrunk[b.id] ?? 0))
   return (
-    <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12 text-center">
+    <div className="tv-frame text-center">
       <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">PMU terminé — {state.racesPlayed} course{state.racesPlayed > 1 ? 's' : ''}</p>
       <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏇 Classement final</h1>
       <div className="flex flex-col gap-4 items-center">

@@ -28,7 +28,7 @@ export function DilemmasScreen() {
   const state = party.roundData as DilemmasClientState | null
 
   return (
-    <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12">
+    <div className="tv-frame">
       {status === 'ended' && (
         <div className="text-center">
           <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Débat terminé</p>

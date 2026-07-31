@@ -52,7 +52,16 @@ export function Stage({
     // `h-svh` et non `min-h-svh` : la scène fait EXACTEMENT un écran. Avec une hauteur minimale,
     // un contenu un peu haut poussait le rail des joueurs hors du cadre — donc le groupe
     // disparaissait de l'écran, ce qui est précisément ce que cette primitive doit empêcher.
-    <div className={clsx('relative h-svh w-full flex flex-col items-center px-16 py-10 overflow-hidden', className)}>
+    // Marges en unités de scène : sur un écran court, une respiration figée à 40 px devient une
+    // respiration de luxe qu'on paie en chevauchements.
+    <div
+      className={clsx('relative h-svh w-full flex flex-col items-center overflow-hidden', className)}
+      style={{
+        paddingInline: 'var(--tv-gutter-x)',
+        paddingTop: 'var(--tv-gutter-top)',
+        paddingBottom: 'var(--tv-gutter-y)',
+      }}
+    >
       {/* Halo d'ambiance : c'est la scène qui prend la couleur du moment, pas les textes. */}
       {tone !== 'neutral' && (
         <div
@@ -70,7 +79,15 @@ export function Stage({
         {title && <h1 className="font-stage text-tv-xl text-chalk">{title}</h1>}
       </header>
 
-      <main className="relative flex-1 w-full flex flex-col items-center justify-center min-h-0 py-8">
+      {/* `overflow-hidden` est un garde-fou, pas une mise en page : `min-h-0` autorise cette zone à
+          descendre sous la hauteur de son contenu (sinon le rail des joueurs serait poussé hors du
+          cadre), mais sans découpe le contenu débordait alors PAR-DESSUS le titre et les avatars.
+          C'est exactement le défaut vu sur TV. Le dimensionnement fluide fait que ça ne devrait
+          jamais découper ; si ça arrive, mieux vaut un sujet rogné qu'une scène illisible. */}
+      <main
+        className="relative flex-1 w-full flex flex-col items-center justify-center min-h-0 overflow-hidden"
+        style={{ paddingBlock: 'var(--tv-gutter-scene)' }}
+      >
         {children}
       </main>
 

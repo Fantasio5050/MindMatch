@@ -140,9 +140,12 @@ function ScreenLobbyWaiting({ group }: { group: Group }) {
         </div>
       }
     >
-      <div className="flex items-center gap-12">
-        <QRCode value={joinUrl(group.code)} size={200} />
-        <div className="text-left">
+      {/* QR et code de salle dimensionnés en unités de scène. Figés (200 px + 104 px de typo), ils
+          recouvraient le titre et les avatars sur les TV dont le navigateur expose un viewport
+          court — c'est exactement le défaut remonté depuis une vraie TV. */}
+      <div className="flex items-center" style={{ gap: 'var(--tv-gutter-x)' }}>
+        <QRCode value={joinUrl(group.code)} size="var(--tv-qr)" />
+        <div className="text-left min-w-0">
           <p className="kicker text-tv-xs mb-2">Code de la salle</p>
           <p className="font-stage text-tv-3xl text-brass tracking-[0.12em] leading-none">{group.code}</p>
         </div>

@@ -199,7 +199,7 @@ function OutcomeBanner({ state, memberName }: { state: WheelClientState; memberN
 function FinalPodium({ members, state }: { members: Member[]; state: WheelClientState }) {
   const ranked = [...members].sort((a, b) => (state.totalSips[a.id] ?? 0) - (state.totalSips[b.id] ?? 0))
   return (
-    <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12 text-center">
+    <div className="tv-frame text-center">
       <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">
         Roue Infernale — {state.spinsDone} lancer{state.spinsDone > 1 ? 's' : ''}
       </p>

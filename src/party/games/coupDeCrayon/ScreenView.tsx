@@ -34,7 +34,7 @@ export function CoupDeCrayonScreen() {
 
   if (status === 'ended') {
     return (
-      <div className="min-h-svh flex flex-col items-center justify-center px-16 py-12 text-center">
+      <div className="tv-frame text-center">
         <Confetti trigger={confetti} />
         <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Coup de Crayon — {state.roundsPlayed} manche{state.roundsPlayed > 1 ? 's' : ''}</p>
         <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏆 Classement final</h1>

@@ -287,7 +287,7 @@ function RevealScreen({ state, byId }: { state: IntrusClientState; byId: (id: st
         // Temps 1 : on voit QUI tombe, mais pas encore ce qu'il était. Tout le suspense est là.
         suspense={
           <div className="flex flex-col items-center gap-4">
-            <Avatar pseudo={m.pseudo} color={m.color} size={140} photoUrl={m.photoUrl} />
+            <Avatar pseudo={m.pseudo} color={m.color} size="var(--tv-avatar-stage)" photoUrl={m.photoUrl} />
             <p className="font-stage text-tv-2xl text-chalk">{m.pseudo}</p>
             <p className="text-tv-base text-chalk-faint">était…</p>
           </div>
@@ -296,7 +296,7 @@ function RevealScreen({ state, byId }: { state: IntrusClientState; byId: (id: st
         {/* Temps 2 et 3 : la bascule, puis le verdict qui RESTE. */}
         <Verdict
           tone={last.role === 'civil' ? 'lose' : 'win'}
-          icon={<Avatar pseudo={m.pseudo} color={m.color} size={140} photoUrl={m.photoUrl} />}
+          icon={<Avatar pseudo={m.pseudo} color={m.color} size="var(--tv-avatar-stage)" photoUrl={m.photoUrl} />}
           title={`${m.pseudo} — ${ROLE_LABEL[last.role]}`}
           subtitle={
             <>
