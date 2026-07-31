@@ -7,6 +7,7 @@ import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
 import { PlayingCard } from '../shared/PlayingCard'
+import { allDistributed, pendingGivers, receivedBy, tallyFor } from './tally'
 import { HORSES, PMU_TRACK_LEN } from './types'
 import type { PmuClientState } from './types'
 import { usePmuPlayback } from './usePmuPlayback'
@@ -309,6 +310,13 @@ function ResultsView({
 }) {
   const winner = state.winnerSuit !== null ? HORSES[state.winnerSuit] : null
   const myResult = state.raceResults[selfId]
+  const myTally = tallyFor(state, selfId)
+  const myFrom = receivedBy(state, selfId)
+  // Tant qu'un gagnant garde des gorgées en main, la course n'est pas soldée.
+  const pending = pendingGivers(state)
+    .filter((id) => id !== selfId)
+    .map((id) => members.find((m) => m.id === id)?.pseudo ?? '?')
+  const settled = allDistributed(state)
 
   return (
     <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
@@ -354,18 +362,35 @@ function ResultsView({
             )}
           </Card>
         ) : (
-          <Card className="mb-4 border-pink-500/30 text-center">
-            <p className="font-bold mb-1">
-              ❌ {HORSES[myResult.bet.suit].symbol} n'a pas tenu la distance…
+          <Card className="mb-4 border-blood/40 text-center">
+            <p className="font-bold mb-1">{HORSES[myResult.bet.suit].symbol} n'a pas tenu la distance…</p>
+            {/* Le total inclut les gorgées SERVIES par les gagnants : c'est ce que tu bois
+                vraiment, et ça monte en direct pendant qu'ils distribuent. */}
+            <p className="text-blood font-semibold">
+              Tu bois <b className="text-chalk">{myTally.total}</b> gorgée{myTally.total > 1 ? 's' : ''}
             </p>
-            <p className="text-pink-300 text-sm font-semibold">
-              Tu bois {myResult.sipsToDrink} gorgée{myResult.sipsToDrink > 1 ? 's' : ''} 🍻
-            </p>
+            {myTally.received > 0 && (
+              <p className="text-chalk-soft text-xs mt-1">
+                {myTally.owed} de ton pari · {myTally.received} servie{myTally.received > 1 ? 's' : ''} par{' '}
+                {Object.entries(myFrom)
+                  .map(([id, n]) => `${members.find((m) => m.id === id)?.pseudo ?? '?'}${n > 1 ? ` ×${n}` : ''}`)
+                  .join(', ')}
+              </p>
+            )}
           </Card>
         )
       ) : (
         <Card className="mb-4 text-center">
           <p className="text-chalk-faint text-sm">Tu n'avais pas parié sur cette course.</p>
+          {myTally.received > 0 && (
+            <p className="text-blood font-semibold mt-1">
+              Mais tu bois <b className="text-chalk">{myTally.received}</b> gorgée
+              {myTally.received > 1 ? 's' : ''} — offerte{myTally.received > 1 ? 's' : ''} par{' '}
+              {Object.entries(myFrom)
+                .map(([id, n]) => `${members.find((m) => m.id === id)?.pseudo ?? '?'}${n > 1 ? ` ×${n}` : ''}`)
+                .join(', ')}
+            </p>
+          )}
         </Card>
       )}
 
@@ -378,8 +403,12 @@ function ResultsView({
               <Avatar pseudo={m.pseudo} color={m.color} size={28} photoUrl={m.photoUrl} />
               <span className="flex-1 truncate">{m.pseudo}</span>
               <span style={{ color: HORSES[r.bet.suit].color }}>{HORSES[r.bet.suit].symbol}</span>
-              <span className={r.won ? 'text-emerald-300' : 'text-pink-300'}>
-                {r.won ? `distribue ${r.sipsToGive}` : `boit ${r.sipsToDrink} 🍻`}
+              <span className={r.won ? 'text-brass' : 'text-blood'}>
+                {r.won
+                  ? r.remaining > 0
+                    ? `distribue — ${r.remaining} en main`
+                    : `${r.sipsToGive} distribuée${r.sipsToGive > 1 ? 's' : ''}`
+                  : `boit ${tallyFor(state, m.id).total}`}
               </span>
             </div>
           )
@@ -389,15 +418,24 @@ function ResultsView({
       <div className="mt-auto pt-4 flex flex-col gap-2">
         {isHost ? (
           <>
-            <Button fullWidth onClick={onNextRace}>
-              🏇 Course suivante
+            {/* Relancer maintenant effacerait les gorgées encore en main : les résultats sont
+                remplacés par ceux de la course suivante et plus personne ne saurait quoi boire. */}
+            <Button fullWidth onClick={onNextRace} disabled={!settled}>
+              {settled ? 'Course suivante' : 'Distribution en cours…'}
             </Button>
-            <Button fullWidth variant="secondary" onClick={onFinish}>
+            <Button fullWidth variant="secondary" onClick={onFinish} disabled={!settled}>
               Terminer le PMU (podium)
             </Button>
+            {!settled && (
+              <p className="text-center text-chalk-soft text-xs">
+                {pending.length > 0
+                  ? `On attend que ${pending.join(', ')} place${pending.length > 1 ? 'nt' : ''} ses gorgées`
+                  : 'Place tes gorgées pour relancer'}
+              </p>
+            )}
           </>
         ) : (
-          <p className="text-center text-chalk-faint text-sm">L'hôte relance une course ou clôt le PMU…</p>
+          <HostCue action={settled ? 'relance la course' : 'attend la fin de la distribution'} />
         )}
       </div>
     </div>

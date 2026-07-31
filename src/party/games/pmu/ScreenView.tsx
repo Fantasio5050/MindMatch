@@ -9,6 +9,7 @@ import { SceneErrorBoundary } from '../../../components/SceneErrorBoundary'
 import { CardFace } from '../pyramid/CardFace'
 import { HORSES, PMU_TRACK_LEN } from './types'
 import type { PmuClientState } from './types'
+import { allDistributed, involvedIds, pendingGivers, receivedBy, tallyFor } from './tally'
 import { usePmuPlayback } from './usePmuPlayback'
 import type { Member } from '../../../types'
 
@@ -238,38 +239,102 @@ function RaceHud({
   )
 }
 
+/**
+ * L'écran des résultats — désormais VIVANT.
+ *
+ * Il affichait le verdict initial et n'en bougeait plus : la distribution des gorgées, qui se joue
+ * ensuite depuis les téléphones des gagnants, n'apparaissait nulle part. La pièce ne voyait donc
+ * jamais qui donnait à qui — alors que c'est exactement le moment que le jeu produit.
+ *
+ * Trois choses changent :
+ *  - un bandeau nomme les gagnants qui ont encore des gorgées en main (la pièce sait où regarder) ;
+ *  - chaque ligne affiche ce que le joueur boit RÉELLEMENT (sa mise perdue + ce qu'on lui a servi) ;
+ *  - on voit qui a servi qui, en clair.
+ */
 function ResultsOverlay({ state, members }: { state: PmuClientState; members: Member[] }) {
   const winner = state.winnerSuit !== null ? HORSES[state.winnerSuit] : null
+  const byId = (id: string) => members.find((m) => m.id === id)
+  const pending = pendingGivers(state).map(byId).filter((m): m is Member => !!m)
+  const done = allDistributed(state)
+  const shown = involvedIds(state, members.map((m) => m.id))
+    .map(byId)
+    .filter((m): m is Member => !!m)
+
   return (
     <div className="flex-1 flex items-center justify-center p-10">
-      <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} className="glass-card rounded-3xl px-12 py-8 bg-ink/50 max-w-2xl w-full">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="rounded-sheet border border-line bg-ink/70 backdrop-blur-sm px-12 py-8 max-w-3xl w-full"
+      >
         {winner && (
-          <h1 className="text-4xl font-extrabold text-center mb-6">
-            🏆 <span style={{ color: winner.color }}>{winner.symbol} {winner.name}</span> l'emporte !
+          <h1 className="font-stage text-tv-xl text-center mb-6">
+            <span style={{ color: winner.color }}>{winner.symbol} {winner.name}</span> l'emporte
           </h1>
         )}
+
         <div className="flex flex-col gap-3">
-          {members.map((m) => {
-            const r = state.raceResults[m.id]
-            if (!r) return null
+          {shown.map((m) => {
+            const t = tallyFor(state, m.id)
+            const from = receivedBy(state, m.id)
+            const bet = state.raceResults[m.id]?.bet
             return (
-              <div key={m.id} className="flex items-center gap-3 text-xl">
-                <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
+              <div key={m.id} className="flex items-center gap-4 text-tv-sm">
+                <Avatar pseudo={m.pseudo} color={m.color} size={40} photoUrl={m.photoUrl} />
                 <span className="w-40 truncate font-medium">{m.pseudo}</span>
-                <span style={{ color: HORSES[r.bet.suit].color }}>{HORSES[r.bet.suit].symbol}</span>
-                <span className="flex-1 text-right">
-                  {r.won ? (
-                    <span className="text-emerald-300">distribue {r.sipsToGive} gorgée{r.sipsToGive > 1 ? 's' : ''} 🎉</span>
+                {bet ? (
+                  <span style={{ color: HORSES[bet.suit].color }}>{HORSES[bet.suit].symbol}</span>
+                ) : (
+                  <span className="text-chalk-faint">—</span>
+                )}
+
+                <span className="flex-1 text-right tabular-nums whitespace-nowrap">
+                  {t.won ? (
+                    t.remaining > 0 ? (
+                      // On dit ce qu'il RESTE à donner : c'est l'action en cours, pas un bilan.
+                      <span className="text-brass">
+                        distribue {t.toGive} · <b className="text-spark">{t.remaining}</b> en main
+                      </span>
+                    ) : (
+                      <span className="text-jade">{t.toGive} distribuée{t.toGive > 1 ? 's' : ''}</span>
+                    )
+                  ) : t.total > 0 ? (
+                    <span className="text-blood">
+                      boit <b className="text-chalk">{t.total}</b>
+                      {t.received > 0 && (
+                        <span className="text-chalk-soft">
+                          {' '}({t.owed > 0 ? `${t.owed} pari + ` : ''}{t.received} reçue{t.received > 1 ? 's' : ''})
+                        </span>
+                      )}
+                    </span>
                   ) : (
-                    <span className="text-pink-300">boit {r.sipsToDrink} gorgée{r.sipsToDrink > 1 ? 's' : ''} 🍻</span>
+                    <span className="text-chalk-faint">rien à boire</span>
                   )}
                 </span>
+
+                {/* Qui l'a servi : l'attribution est publique, c'est tout l'intérêt du moment. */}
+                {Object.keys(from).length > 0 && (
+                  <span className="w-52 shrink-0 text-right text-tv-xs text-chalk-soft truncate">
+                    de {Object.entries(from).map(([id, n]) => `${byId(id)?.pseudo ?? '?'}${n > 1 ? ` ×${n}` : ''}`).join(', ')}
+                  </span>
+                )}
               </div>
             )
           })}
         </div>
-        <p className="text-chalk-faint text-lg text-center mt-6">
-          Course {state.racesPlayed} — l'hôte peut relancer une course ou clore le PMU 📱
+
+        {/* Une seule information dominante en bas : soit on attend quelqu'un, soit c'est plié. */}
+        <p className="text-tv-xs text-center mt-7">
+          {pending.length > 0 ? (
+            <span className="text-brass">
+              {pending.map((m) => m.pseudo).join(', ')} {pending.length > 1 ? 'ont' : 'a'} encore des gorgées à
+              placer — {pending.length > 1 ? 'sur leurs téléphones' : 'sur son téléphone'}
+            </span>
+          ) : done ? (
+            <span className="text-chalk-faint">
+              Tout est distribué · l'hôte relance une course ou clôt le PMU
+            </span>
+          ) : null}
         </p>
       </motion.div>
     </div>
