@@ -56,7 +56,7 @@ export function IntrusController() {
             </p>
             <div className="flex flex-wrap gap-x-4 gap-y-3 justify-center mb-8 max-w-xs">
               {playing.map((m) => (
-                <Avatar key={m.id} member={m} size="md" host={m.id === group.party.hostMemberId} />
+                <Avatar key={m.id} pseudo={m.pseudo} color={m.color} size={32} photoUrl={m.photoUrl} />
               ))}
             </div>
           </>
