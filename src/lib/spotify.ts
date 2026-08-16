@@ -161,14 +161,18 @@ export interface SpotifySearchResult {
   id: string
   title: string
   artist: string
+  subtitle?: string
   thumbnail: string | null
   durationMs: number | null
+  kind?: 'track' | 'album' | 'artist' | 'playlist'
+  uri?: string
 }
 
 export async function searchSpotify(query: string): Promise<SpotifySearchResult[]> {
   const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(query)}`)
   if (!res.ok) throw new Error('Recherche Spotify indisponible.')
-  const data = (await res.json()) as { tracks?: SpotifySearchResult[] }
+  const data = (await res.json()) as { results?: SpotifySearchResult[]; tracks?: SpotifySearchResult[] }
+  if (Array.isArray(data.results) && data.results.length > 0) return data.results
   return data.tracks ?? []
 }
 

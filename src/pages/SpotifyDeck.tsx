@@ -21,10 +21,20 @@ function makePlatineId(): string {
   return `pl-${uuid}`
 }
 
+const DEFAULT_CROSSFADE_SEC = 3
+const MAX_CROSSFADE_SEC = 10
+const CROSSFADE_STORE_KEY = 'mindmatch-spotify-crossfade-sec'
+
+function readCrossfadeSec(): number {
+  if (typeof window === 'undefined') return DEFAULT_CROSSFADE_SEC
+  const raw = Number(window.localStorage.getItem(CROSSFADE_STORE_KEY))
+  if (!Number.isFinite(raw)) return DEFAULT_CROSSFADE_SEC
+  return Math.max(0, Math.min(MAX_CROSSFADE_SEC, raw))
+}
+
 /**
  * Platine Spotify : connexion du compte (Premium) sur l'appareil-platine, lecture via le Web
- * Playback SDK. La recherche/ajout se fait côté téléphones (via le serveur). Pas de fondu enchaîné
- * ici (un seul lecteur SDK) : coupure nette entre les morceaux.
+ * Playback SDK. La recherche/ajout se fait côté téléphones (via le serveur).
  */
 export function SpotifyDeck({ code }: { code: string }) {
   const navigate = useNavigate()
@@ -43,9 +53,13 @@ export function SpotifyDeck({ code }: { code: string }) {
   const [started, setStarted] = useState(false)
   const [ready, setReady] = useState(false)
   const [fatal, setFatal] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [crossfadeSec, setCrossfadeSec] = useState(readCrossfadeSec)
 
   const playerRef = useRef<SpotifyPlayer | null>(null)
   const deviceIdRef = useRef<string | null>(null)
+  const volumeRef = useRef(100)
+  const fadeTimerRef = useRef<ReturnType<typeof window.setInterval> | null>(null)
   const loadedRef = useRef<string | null>(null)
   const endedGuardRef = useRef<string | null>(null)
   const lastPosRef = useRef(0)
@@ -56,6 +70,39 @@ export function SpotifyDeck({ code }: { code: string }) {
   const isActive = !platineOwner || platineOwner === platineId
   const isActiveRef = useRef(isActive)
   isActiveRef.current = isActive
+
+  const setPlayerVolume = async (value: number) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(value)))
+    volumeRef.current = clamped
+    try { await playerRef.current?.setVolume(clamped / 100) } catch { /* pas prêt */ }
+  }
+
+  const stopVolumeFade = () => {
+    if (fadeTimerRef.current) {
+      window.clearInterval(fadeTimerRef.current)
+      fadeTimerRef.current = null
+    }
+  }
+
+  const applyCrossfade = (durationSec: number) => {
+    stopVolumeFade()
+    if (!playerRef.current || durationSec <= 0) {
+      void setPlayerVolume(100)
+      return
+    }
+    const durationMs = durationSec * 1000
+    const startAt = Date.now()
+    const startVol = volumeRef.current
+    const endVol = 100
+    const tickMs = 50
+    fadeTimerRef.current = window.setInterval(() => {
+      const elapsed = Date.now() - startAt
+      const progress = Math.min(elapsed / durationMs, 1)
+      const next = startVol + (endVol - startVol) * progress
+      void setPlayerVolume(next)
+      if (progress >= 1) stopVolumeFade()
+    }, tickMs)
+  }
 
   const startPlatine = async () => {
     setStarted(true)
@@ -70,6 +117,7 @@ export function SpotifyDeck({ code }: { code: string }) {
       playerRef.current = player
       player.addListener('ready', (arg) => {
         deviceIdRef.current = (arg as SpotifyReadyEvent).device_id
+        void setPlayerVolume(100)
         setReady(true)
       })
       player.addListener('authentication_error', () => { disconnectSpotify(); setConnected(false); setFatal('Connexion Spotify expirée — reconnecte-toi.') })
@@ -95,14 +143,23 @@ export function SpotifyDeck({ code }: { code: string }) {
       lastDurRef.current = 0
       loadedAtRef.current = Date.now()
       everPlayedRef.current = false
-      playSpotifyTrack(deviceIdRef.current, current.sourceId)
+      stopVolumeFade()
+      if (crossfadeSec > 0) {
+        void setPlayerVolume(0)
+        window.setTimeout(() => {
+          void playSpotifyTrack(deviceIdRef.current!, current.sourceId)
+          if (isPlaying) applyCrossfade(crossfadeSec)
+        }, 120)
+      } else {
+        void playSpotifyTrack(deviceIdRef.current!, current.sourceId)
+      }
       if (!isPlaying) window.setTimeout(() => playerRef.current?.pause().catch(() => {}), 500)
     } else if (isPlaying) {
       playerRef.current?.resume().catch(() => {})
     } else {
       playerRef.current?.pause().catch(() => {})
     }
-  }, [ready, isActive, current, current?.sourceId, isPlaying])
+  }, [ready, isActive, current, current?.sourceId, isPlaying, crossfadeSec])
 
   // Remonte la position + détecte la fin d'un morceau (le SDK repasse en pause à la position 0).
   useEffect(() => {
@@ -133,7 +190,14 @@ export function SpotifyDeck({ code }: { code: string }) {
     return () => clearInterval(id)
   }, [ready, started, platineId, reportPosition])
 
-  useEffect(() => () => { playerRef.current?.disconnect() }, [])
+  useEffect(() => () => {
+    stopVolumeFade()
+    playerRef.current?.disconnect()
+  }, [])
+
+  useEffect(() => {
+    try { window.localStorage.setItem(CROSSFADE_STORE_KEY, String(crossfadeSec)) } catch { /* stockage indispo */ }
+  }, [crossfadeSec])
 
   const queue = music ? orderedQueue(music) : []
 
@@ -149,9 +213,39 @@ export function SpotifyDeck({ code }: { code: string }) {
           <span className="text-[10px] rounded-full bg-felt-raised text-chalk-faint px-2 py-0.5">en veille</span>
         ))}
       </div>
-      <button onClick={() => { disconnect(); navigate('/') }} className="rounded-full bg-felt-raised px-3 h-8 text-chalk-soft text-xs">
-        Quitter
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setSettingsOpen((v) => !v)}
+          className="rounded-full bg-felt-raised px-2.5 h-8 text-chalk-soft text-xs"
+          aria-label="Réglages platine Spotify"
+        >
+          ⚙️ {crossfadeSec === 0 ? 'coupé' : `${crossfadeSec}s`}
+        </button>
+        <button onClick={() => { disconnect(); navigate('/') }} className="rounded-full bg-felt-raised px-3 h-8 text-chalk-soft text-xs">
+          Quitter
+        </button>
+      </div>
+      {settingsOpen && (
+        <div className="absolute right-3 top-12 z-50 w-64 rounded-2xl border border-line bg-[#171122] p-4 shadow-xl">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold">Fondu Spotify</span>
+            <span className="text-sm text-emerald-300 tabular-nums">{crossfadeSec === 0 ? 'Coupé' : `${crossfadeSec}s`}</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={MAX_CROSSFADE_SEC}
+            step={1}
+            value={crossfadeSec}
+            onChange={(e) => setCrossfadeSec(Number(e.target.value))}
+            className="w-full accent-emerald-400"
+            aria-label="Durée du fondu Spotify"
+          />
+          <p className="text-[11px] text-chalk-faint mt-2">
+            {crossfadeSec === 0 ? 'Transition nette entre les morceaux.' : 'Le volume monte progressivement entre deux pistes.'}
+          </p>
+        </div>
+      )}
     </div>
   )
 

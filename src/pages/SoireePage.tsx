@@ -496,6 +496,7 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
     }
   }
   const add = (r: SpotifySearchResult) => {
+    if (r.kind && r.kind !== 'track') return
     onAdd('add', { source: 'spotify', sourceId: r.id, title: r.title, artist: r.artist, thumbnail: r.thumbnail, durationMs: r.durationMs })
     play('pop')
   }
@@ -530,9 +531,16 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
               )}
               <div className="min-w-0 flex-1">
                 <p className="text-sm truncate">{r.title}</p>
-                <p className="text-[11px] text-chalk-faint truncate">{r.artist}{r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}</p>
+                <p className="text-[11px] text-chalk-faint truncate">
+                  {r.subtitle ?? r.artist}
+                  {r.kind && r.kind !== 'track' ? ` · ${r.kind}` : r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}
+                </p>
               </div>
-              <span className="text-emerald-300 text-lg shrink-0">＋</span>
+              {r.kind && r.kind !== 'track' ? (
+                <span className="text-[10px] uppercase tracking-[0.12em] text-chalk-faint shrink-0">{r.kind}</span>
+              ) : (
+                <span className="text-emerald-300 text-lg shrink-0">＋</span>
+              )}
             </button>
           ))}
         </div>
