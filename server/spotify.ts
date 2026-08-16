@@ -99,8 +99,8 @@ function mapTrackItem(t: SpotifyApiTrack): SpotifyCatalogItem {
   }
 }
 
-function mapAlbumItem(album: { id?: string; name?: string; artists?: { name?: string }[]; images?: { url?: string }[] }): SpotifyCatalogItem | null {
-  if (!album.id || !album.name) return null
+function mapAlbumItem(album: { id?: string; name?: string; artists?: { name?: string }[]; images?: { url?: string }[] } | null | undefined): SpotifyCatalogItem | null {
+  if (!album || !album.id || !album.name) return null
   return {
     kind: 'album',
     id: album.id,
@@ -113,8 +113,8 @@ function mapAlbumItem(album: { id?: string; name?: string; artists?: { name?: st
   }
 }
 
-function mapArtistItem(artist: { id?: string; name?: string; images?: { url?: string }[] }): SpotifyCatalogItem | null {
-  if (!artist.id || !artist.name) return null
+function mapArtistItem(artist: { id?: string; name?: string; images?: { url?: string }[] } | null | undefined): SpotifyCatalogItem | null {
+  if (!artist || !artist.id || !artist.name) return null
   return {
     kind: 'artist',
     id: artist.id,
@@ -127,8 +127,8 @@ function mapArtistItem(artist: { id?: string; name?: string; images?: { url?: st
   }
 }
 
-function mapPlaylistItem(playlist: { id?: string; name?: string; owner?: { display_name?: string }; images?: { url?: string }[] }): SpotifyCatalogItem | null {
-  if (!playlist.id || !playlist.name) return null
+function mapPlaylistItem(playlist: { id?: string; name?: string; owner?: { display_name?: string }; images?: { url?: string }[] } | null | undefined): SpotifyCatalogItem | null {
+  if (!playlist || !playlist.id || !playlist.name) return null
   return {
     kind: 'playlist',
     id: playlist.id,
