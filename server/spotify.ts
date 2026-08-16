@@ -14,8 +14,13 @@ export const spotifyConfigured = !!(CLIENT_ID && CLIENT_SECRET)
 let appToken: { value: string; expiresAt: number } | null = null
 
 async function getAppToken(): Promise<string | null> {
-  if (!CLIENT_ID || !CLIENT_SECRET) return null
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    console.warn('Spotify credentials missing: SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET are not configured.')
+    return null
+  }
+
   if (appToken && Date.now() < appToken.expiresAt - 30_000) return appToken.value
+
   try {
     const res = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
@@ -25,11 +30,27 @@ async function getAppToken(): Promise<string | null> {
       },
       body: 'grant_type=client_credentials',
     })
-    if (!res.ok) return null
-    const data = (await res.json()) as { access_token: string; expires_in: number }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      console.error('Spotify token request failed:', {
+        status: res.status,
+        statusText: res.statusText,
+        body: text.slice(0, 500),
+      })
+      return null
+    }
+
+    const data = (await res.json()) as { access_token?: string; expires_in?: number }
+    if (!data.access_token || typeof data.expires_in !== 'number') {
+      console.error('Spotify token response missing access_token or expires_in:', data)
+      return null
+    }
+
     appToken = { value: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 }
     return appToken.value
-  } catch {
+  } catch (error) {
+    console.error('Spotify token fetch threw an error:', error)
     return null
   }
 }
@@ -59,12 +80,27 @@ export async function spotifySearchHandler(req: Request, res: Response): Promise
   }
   try {
     const r = await fetch(`https://api.spotify.com/v1/search?type=track&limit=15&q=${encodeURIComponent(q)}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      },
     })
+
     if (!r.ok) {
-      res.status(502).json({ error: 'Recherche Spotify indisponible.' })
+      const text = await r.text().catch(() => '')
+      console.error('Spotify search request failed:', {
+        status: r.status,
+        statusText: r.statusText,
+        query: q,
+        body: text.slice(0, 500),
+      })
+      res.status(502).json({
+        error: 'Recherche Spotify indisponible pour le moment.',
+        details: text.slice(0, 500) || 'No body returned by Spotify',
+      })
       return
     }
+
     const data = (await r.json()) as { tracks?: { items?: SpotifyApiTrack[] } }
     const tracks = (data.tracks?.items ?? []).map((t) => ({
       id: t.id,
@@ -74,7 +110,8 @@ export async function spotifySearchHandler(req: Request, res: Response): Promise
       durationMs: typeof t.duration_ms === 'number' ? t.duration_ms : null,
     }))
     res.json({ tracks })
-  } catch {
-    res.status(502).json({ error: 'Recherche Spotify indisponible.' })
+  } catch (error) {
+    console.error('Spotify search fetch threw an error:', error)
+    res.status(502).json({ error: 'Recherche Spotify indisponible pour le moment.' })
   }
 }
