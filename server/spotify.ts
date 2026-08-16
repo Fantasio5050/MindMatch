@@ -9,6 +9,7 @@ import type { Request, Response } from 'express'
 
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET
+const SPOTIFY_SEARCH_LIMIT = 10
 export const spotifyConfigured = !!(CLIENT_ID && CLIENT_SECRET)
 
 let appToken: { value: string; expiresAt: number } | null = null
@@ -79,7 +80,8 @@ export async function spotifySearchHandler(req: Request, res: Response): Promise
     return
   }
   try {
-    const r = await fetch(`https://api.spotify.com/v1/search?type=track&limit=15&q=${encodeURIComponent(q)}`, {
+    const limit = Math.min(50, Math.max(1, SPOTIFY_SEARCH_LIMIT))
+    const r = await fetch(`https://api.spotify.com/v1/search?type=track&limit=${limit}&q=${encodeURIComponent(q)}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: 'application/json',
