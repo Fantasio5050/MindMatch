@@ -59,7 +59,7 @@ export function SpotifyDeck({ code }: { code: string }) {
   const playerRef = useRef<SpotifyPlayer | null>(null)
   const deviceIdRef = useRef<string | null>(null)
   const volumeRef = useRef(100)
-  const fadeTimerRef = useRef<ReturnType<typeof window.setInterval> | null>(null)
+  const fadeTimerRef = useRef<number | null>(null)
   const loadedRef = useRef<string | null>(null)
   const endedGuardRef = useRef<string | null>(null)
   const lastPosRef = useRef(0)
