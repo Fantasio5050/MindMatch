@@ -225,28 +225,32 @@ export function SpotifyDeck({ code }: { code: string }) {
           Quitter
         </button>
       </div>
-      {settingsOpen && (
-        <div className="absolute right-3 top-12 z-50 w-64 rounded-2xl border border-line bg-[#171122] p-4 shadow-xl">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold">Fondu Spotify</span>
-            <span className="text-sm text-emerald-300 tabular-nums">{crossfadeSec === 0 ? 'Coupé' : `${crossfadeSec}s`}</span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={MAX_CROSSFADE_SEC}
-            step={1}
-            value={crossfadeSec}
-            onChange={(e) => setCrossfadeSec(Number(e.target.value))}
-            className="w-full accent-emerald-400"
-            aria-label="Durée du fondu Spotify"
-          />
-          <p className="text-[11px] text-chalk-faint mt-2">
-            {crossfadeSec === 0 ? 'Transition nette entre les morceaux.' : 'Le volume monte progressivement entre deux pistes.'}
-          </p>
-        </div>
-      )}
     </div>
+    {settingsOpen && (
+      <div className="absolute right-4 top-16 z-50 w-72 rounded-2xl border border-line bg-[#171122] p-4 shadow-xl">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-semibold">Fondu entre morceaux</span>
+          <button onClick={() => setSettingsOpen(false)} className="text-chalk-faint hover:text-chalk-soft text-lg">✕</button>
+        </div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-chalk-muted">Durée</span>
+          <span className="text-sm text-emerald-300 font-mono">{crossfadeSec === 0 ? 'Coupé' : `${crossfadeSec}s`}</span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={MAX_CROSSFADE_SEC}
+          step={1}
+          value={crossfadeSec}
+          onChange={(e) => setCrossfadeSec(Number(e.target.value))}
+          className="w-full accent-emerald-400"
+          aria-label="Durée du fondu Spotify"
+        />
+        <p className="text-[11px] text-chalk-faint mt-3 leading-snug">
+          {crossfadeSec === 0 ? '🔇 Transition nette entre les morceaux.' : `🔊 Volume monte en ${crossfadeSec}s au début de chaque piste.`}
+        </p>
+      </div>
+    )}
   )
 
   // Spotify non configuré sur ce déploiement → message joueur, sans aucun terme technique.

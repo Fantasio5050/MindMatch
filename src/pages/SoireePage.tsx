@@ -475,11 +475,27 @@ function QueueRow({
 
 function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) => void }) {
   const { play } = useSound()
+  const [tab, setTab] = useState<'search' | 'featured'>('search')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SpotifySearchResult[]>([])
+  const [featured, setFeatured] = useState<SpotifySearchResult[]>([])
   const [busy, setBusy] = useState(false)
   const [searched, setSearched] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+
+  // Charger les featured playlists au montage
+  useEffect(() => {
+    const loadFeatured = async () => {
+      try {
+        const res = await fetch('/api/spotify/featured-playlists')
+        if (res.ok) {
+          const data = (await res.json()) as { playlists?: SpotifySearchResult[] }
+          setFeatured(data.playlists ?? [])
+        }
+      } catch { /* erreur silencieuse */ }
+    }
+    loadFeatured()
+  }, [])
 
   const submit = async () => {
     if (!query.trim()) return
@@ -503,26 +519,63 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
 
   return (
     <Card className="mt-4">
-      <h3 className="text-sm font-bold text-chalk-muted mb-3">➕ Ajouter une musique</h3>
-      <div className="flex gap-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && submit()}
-          placeholder="Titre, artiste…"
-          className="flex-1 rounded-2xl bg-felt-raised border border-line px-3.5 py-3 text-sm text-white placeholder:text-chalk-faint outline-none focus:border-emerald-400/60"
-        />
-        <button
-          onClick={submit}
-          disabled={busy || !query.trim()}
-          className="rounded-2xl bg-emerald-500/80 px-4 text-sm font-bold disabled:opacity-40 active:bg-emerald-500"
-        >
-          {busy ? '…' : '🔍'}
-        </button>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-bold text-chalk-muted">➕ Ajouter une musique</h3>
+        <div className="flex gap-1 text-xs">
+          <TabPill active={tab === 'search'} onClick={() => setTab('search')}>Rechercher</TabPill>
+          <TabPill active={tab === 'featured'} onClick={() => setTab('featured')}>À la mode</TabPill>
+        </div>
       </div>
-      {results.length > 0 && (
-        <div className="flex flex-col gap-1.5 mt-3 max-h-72 overflow-y-auto">
-          {results.map((r) => (
+
+      {tab === 'search' ? (
+        <>
+          <div className="flex gap-2 mb-3">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder="Titre, artiste…"
+              className="flex-1 rounded-2xl bg-felt-raised border border-line px-3.5 py-3 text-sm text-white placeholder:text-chalk-faint outline-none focus:border-emerald-400/60"
+            />
+            <button
+              onClick={submit}
+              disabled={busy || !query.trim()}
+              className="rounded-2xl bg-emerald-500/80 px-4 text-sm font-bold disabled:opacity-40 active:bg-emerald-500"
+            >
+              {busy ? '…' : '🔍'}
+            </button>
+          </div>
+          {results.length > 0 && (
+            <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
+              {results.map((r) => (
+                <button key={r.id} onClick={() => add(r)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised">
+                  {r.thumbnail ? (
+                    <img src={r.thumbnail} alt="" className="w-11 h-11 rounded object-cover shrink-0" />
+                  ) : (
+                    <div className="w-11 h-11 rounded bg-felt-raised flex items-center justify-center shrink-0">🎵</div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm truncate">{r.title}</p>
+                    <p className="text-[11px] text-chalk-faint truncate">
+                      {r.subtitle ?? r.artist}
+                      {r.kind && r.kind !== 'track' ? ` · ${r.kind}` : r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}
+                    </p>
+                  </div>
+                  {r.kind && r.kind !== 'track' ? (
+                    <span className="text-[10px] uppercase tracking-[0.12em] text-chalk-faint shrink-0">{r.kind}</span>
+                  ) : (
+                    <span className="text-emerald-300 text-lg shrink-0">＋</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+          {searched && !busy && results.length === 0 && !localError && <p className="text-[11px] text-chalk-faint mt-2">Aucun résultat.</p>}
+          {localError && <p className="text-xs text-pink-300 mt-2">{localError}</p>}
+        </>
+      ) : (
+        <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
+          {featured.length > 0 ? featured.map((r) => (
             <button key={r.id} onClick={() => add(r)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised">
               {r.thumbnail ? (
                 <img src={r.thumbnail} alt="" className="w-11 h-11 rounded object-cover shrink-0" />
@@ -531,22 +584,13 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
               )}
               <div className="min-w-0 flex-1">
                 <p className="text-sm truncate">{r.title}</p>
-                <p className="text-[11px] text-chalk-faint truncate">
-                  {r.subtitle ?? r.artist}
-                  {r.kind && r.kind !== 'track' ? ` · ${r.kind}` : r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}
-                </p>
+                <p className="text-[11px] text-chalk-faint truncate">{r.artist}</p>
               </div>
-              {r.kind && r.kind !== 'track' ? (
-                <span className="text-[10px] uppercase tracking-[0.12em] text-chalk-faint shrink-0">{r.kind}</span>
-              ) : (
-                <span className="text-emerald-300 text-lg shrink-0">＋</span>
-              )}
+              <span className="text-emerald-300 text-lg shrink-0">＋</span>
             </button>
-          ))}
+          )) : <p className="text-[11px] text-chalk-faint text-center py-4">À la mode bientôt…</p>}
         </div>
       )}
-      {searched && !busy && results.length === 0 && !localError && <p className="text-[11px] text-chalk-faint mt-2">Aucun résultat.</p>}
-      {localError && <p className="text-xs text-pink-300 mt-2">{localError}</p>}
     </Card>
   )
 }
