@@ -38,11 +38,50 @@ export function IntrusController() {
   }, [phase, play])
 
   if (!group || !myId) return null
+  
+  // Si un jeu est en cours et que je n'y suis pas (joueur arrivé tard), afficher l'écran d'attente.
+  if (group.party.status === 'playing' && !group.party.participantIds.includes(myId)) {
+    const playing = group.members.filter((m) => group.party.participantIds.includes(m.id))
+    return (
+      <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center safe-top">
+        <p className="kicker text-2xs mb-2">En cours</p>
+        <h1 className="font-display text-2xl text-chalk mb-2">L'Intrus</h1>
+        <p className="text-chalk-soft text-sm max-w-xs mb-7">
+          Tu entres à la prochaine manche, automatiquement. Rien à faire.
+        </p>
+        {playing.length > 0 && (
+          <>
+            <p className="kicker text-2xs mb-3">
+              {playing.length} joueur{playing.length > 1 ? 's' : ''} à table
+            </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-3 justify-center mb-8 max-w-xs">
+              {playing.map((m) => (
+                <Avatar key={m.id} member={m} size="md" host={m.id === group.party.hostMemberId} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+  
   const state = group.party.roundData as IntrusClientState | null
   if (!state) {
     return (
       <div className="min-h-svh flex items-center justify-center px-6">
         <p className="text-chalk-soft text-sm">Préparation de la partie…</p>
+      </div>
+    )
+  }
+
+  // Sécurité : si on n'a pas reçu notre mot (données manquantes), afficher un message d'erreur clair
+  if (state.yourWord === undefined && phase === 'reveal-word') {
+    return (
+      <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center safe-top">
+        <p className="text-chalk-soft text-sm mb-4">Erreur lors du chargement du jeu</p>
+        <p className="text-chalk-faint text-xs max-w-xs">
+          Tes données n'ont pas pu être chargées. Recharge la page ou relance le jeu.
+        </p>
       </div>
     )
   }

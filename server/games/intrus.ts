@@ -180,11 +180,17 @@ function computeOutcome(state: IntrusState): IntrusOutcome | null {
 function startClueRound(state: IntrusState, tied: string[] | null): IntrusState {
   const base = state.order.filter((id) => state.alive.includes(id))
   const pool = tied && tied.length > 0 ? base.filter((id) => tied.includes(id)) : base
+  const roles = state.secrets?.roleByMember ?? {}
   const offset = pool.length > 0 ? Math.floor(Math.random() * pool.length) : 0
   const speakers = pool.map((_, i) => pool[(offset + i) % pool.length])
+
+  const firstNonMrWhiteIndex = speakers.findIndex((id) => roles[id] !== 'mrwhite')
+  const rotatedSpeakers =
+    firstNonMrWhiteIndex > 0 ? [...speakers.slice(firstNonMrWhiteIndex), ...speakers.slice(0, firstNonMrWhiteIndex)] : speakers
+
   return {
     ...state,
-    speakers,
+    speakers: rotatedSpeakers,
     speakerIndex: 0,
     turnStartedAt: Date.now(),
     votes: {},
