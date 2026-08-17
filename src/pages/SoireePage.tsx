@@ -534,18 +534,21 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
   const [expandedTracks, setExpandedTracks] = useState<SpotifySearchResult[]>([])
   const [expanding, setExpanding] = useState(false)
 
-  // Charger les featured playlists au montage
+  // Charger les tendances au montage : pre-recherche de termes populaires
+  // (l'API featured-playlists retourne 403 en client credentials).
+  const TREND_QUERIES = ['Top hits 2026', 'Hits du moment', 'Chill mix']
   useEffect(() => {
-    const loadFeatured = async () => {
+    const loadTrends = async () => {
       try {
-        const res = await fetch('/api/spotify/featured-playlists')
-        if (res.ok) {
-          const data = (await res.json()) as { playlists?: SpotifySearchResult[] }
-          setFeatured(data.playlists ?? [])
-        }
+        const all = await Promise.all(TREND_QUERIES.map(q => searchSpotify(q).catch(() => [])))
+        const tracks = all.flat()
+          .filter(r => r.kind === 'track' || !r.kind)
+          .filter((r, i, arr) => arr.findIndex(x => x.id === r.id) === i)
+          .slice(0, 15)
+        setFeatured(tracks)
       } catch { /* erreur silencieuse */ }
     }
-    loadFeatured()
+    loadTrends()
   }, [])
 
   const submit = async () => {
