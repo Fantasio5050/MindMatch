@@ -695,6 +695,15 @@ function GameTile({
       onClick={onOpen}
       className="relative overflow-hidden rounded-card border border-line bg-felt aspect-[4/5] text-left shadow-card"
     >
+      {/* Vignette du jeu en fond, avec overlay sombre pour la lisibilité. */}
+      <img
+        src={`/game-thumbnails/${entry.id}.png`}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ opacity: locked ? 0.3 : 0.55 }}
+        loading="lazy"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/80 to-ink/40" />
       {/* La couleur du jeu, réduite à deux traces : un liseré haut et un halo au sol. */}
       <span className="absolute inset-x-0 top-0 h-px" style={{ background: entry.hue, opacity: locked ? 0.2 : 0.7 }} />
       <span
