@@ -217,7 +217,12 @@ export interface SpotifyPlayer {
   getCurrentState(): Promise<SpotifyPlayerState | null>
   pause(): Promise<void>
   resume(): Promise<void>
+  togglePlay(): Promise<void>
   setVolume(v: number): Promise<void>
+  seek(position_ms: number): Promise<void>
+  nextTrack(): Promise<void>
+  previousTrack(): Promise<void>
+  getVolume(): Promise<number>
 }
 
 interface SpotifyNamespace {

@@ -68,6 +68,22 @@ export function SoireePage() {
   return (
     <PageTransition>
       <div className="px-5 pt-8 pb-16 safe-top max-w-lg mx-auto">
+        {/* Stats : combien de morceaux chaque joueur a fait passer */}
+        {Object.keys(music.playedCounts).length > 0 && (
+          <div className="flex flex-wrap gap-2 justify-center mb-4">
+            {group.members
+              .filter(m => music.playedCounts[m.id])
+              .sort((a, b) => (music.playedCounts[b.id] ?? 0) - (music.playedCounts[a.id] ?? 0))
+              .map(m => (
+                <div key={m.id} className="flex items-center gap-1.5 rounded-full bg-felt-raised border border-line px-2.5 py-1">
+                  <Avatar pseudo={m.pseudo} color={m.color} size={16} photoUrl={m.photoUrl} />
+                  <span className="text-[11px] text-chalk-soft">{m.pseudo}</span>
+                  <span className="text-[11px] font-mono text-emerald-300/80">{music.playedCounts[m.id] ?? 0}</span>
+                </div>
+              ))}
+          </div>
+        )}
+
         <div className="text-center mb-5">
           <p className="text-xs uppercase tracking-widest text-chalk-faint">Mode Soirée</p>
           <h1 className="text-3xl font-extrabold shimmer-text mb-1">🎶 La platine partagée</h1>
@@ -143,6 +159,32 @@ export function SoireePage() {
           )}
         </div>
 
+        {/* Historique des morceaux joués */}
+        {music.history.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-sm font-bold text-chalk-muted mb-2 px-1">Récemment joués</h3>
+            <div className="flex flex-col gap-1.5">
+              {music.history.slice(0, 5).map((track, i) => {
+                const adder = memberById(track.addedById)
+                return (
+                  <div key={track.id + '-' + i} className="flex items-center gap-2.5 rounded-xl bg-felt-sunken/60 border border-line/60 p-1.5 opacity-70">
+                    {track.thumbnail ? (
+                      <img src={track.thumbnail} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0 grayscale" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-lg bg-felt-raised flex items-center justify-center shrink-0 text-xs">🎵</div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs truncate">{track.title}</p>
+                      <p className="text-[10px] text-chalk-faint truncate">{track.artist}{adder ? ` · ${adder.pseudo}` : ''}</p>
+                    </div>
+                    <span className="text-[10px] text-chalk-faint shrink-0">✓</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Rappel platine */}
         <Card className="mt-6 text-center" delay={0.1}>
           <p className="text-sm font-semibold mb-1">🔊 La platine (lecture du son)</p>
@@ -217,7 +259,9 @@ function NowPlaying({
           {addedBy && (
             <div className="flex items-center gap-1.5 mt-1.5">
               <Avatar pseudo={addedBy.pseudo} color={addedBy.color} size={18} photoUrl={addedBy.photoUrl} />
-              <span className="text-[11px] text-chalk-faint">ajoutée par {addedBy.pseudo}</span>
+              <span className={`text-[11px] ${addedBy.id === myId ? 'text-emerald-300 font-semibold' : 'text-chalk-faint'}`}>
+                {addedBy.id === myId ? '★ ajoutée par toi' : `ajoutée par ${addedBy.pseudo}`}
+              </span>
             </div>
           )}
         </div>
@@ -556,9 +600,24 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
         <h3 className="text-sm font-bold text-chalk-muted">➕ Ajouter une musique</h3>
         <div className="flex gap-1 text-xs">
           <TabPill active={tab === 'search'} onClick={() => { setTab('search'); setExpanded(null) }}>Rechercher</TabPill>
-          <TabPill active={tab === 'featured'} onClick={() => { setTab('featured'); setExpanded(null) }}>À la mode</TabPill>
+          <TabPill active={tab === 'featured'} onClick={() => setTab('featured')}>À la mode</TabPill>
         </div>
       </div>
+
+      {/* Suggestions rapides */}
+      {tab === 'search' && !expanded && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {['Hits', 'Chill', 'Énergie', 'Années 90', 'Rap FR'].map(tag => (
+            <button
+              key={tag}
+              onClick={() => { setQuery(tag); setBusy(true); setSearched(true); setLocalError(null); searchSpotify(tag).then(setResults).catch(() => { setResults([]); setLocalError('Recherche indisponible.') }).finally(() => setBusy(false)) }}
+              className="rounded-full bg-felt-sunken border border-line px-2.5 py-1 text-[11px] text-chalk-soft active:bg-felt-raised"
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
 
       {tab === 'search' ? (
         <>
@@ -646,59 +705,25 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
           )}
         </>
       ) : (
-        // Onglet "À la mode" — featured playlists cliquables
-        <>
-          {expanded ? (
-            <>
-              <div className="flex items-center gap-2 mb-3">
-                <button onClick={collapse} className="text-xs text-chalk-faint hover:text-chalk-soft shrink-0">← Retour</button>
-                <div className="flex items-center gap-2 min-w-0">
-                  {expanded.thumbnail && <img src={expanded.thumbnail} alt="" className="w-7 h-7 rounded object-cover shrink-0" />}
-                  <span className="text-sm font-semibold truncate">{expanded.title}</span>
-                </div>
-              </div>
-              {expanding ? (
-                <p className="text-xs text-chalk-faint text-center py-4">Chargement des morceaux…</p>
+        // Onglet "À la mode" — morceaux tendance (pre-recherche au montage)
+        <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
+          {featured.length > 0 ? featured.map((r) => (
+            <button key={r.id} onClick={() => add(r)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised">
+              {r.thumbnail ? (
+                <img src={r.thumbnail} alt="" className="w-11 h-11 rounded object-cover shrink-0" />
               ) : (
-                <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
-                  {expandedTracks.length > 0 ? expandedTracks.map((t) => (
-                    <button key={t.id} onClick={() => add(t)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised">
-                      {t.thumbnail ? (
-                        <img src={t.thumbnail} alt="" className="w-11 h-11 rounded object-cover shrink-0" />
-                      ) : (
-                        <div className="w-11 h-11 rounded bg-felt-raised flex items-center justify-center shrink-0">🎵</div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm truncate">{t.title}</p>
-                        <p className="text-[11px] text-chalk-faint truncate">
-                          {t.artist}{t.durationMs ? ` · ${formatDuration(t.durationMs)}` : ''}
-                        </p>
-                      </div>
-                      <span className="text-emerald-300 text-lg shrink-0">＋</span>
-                    </button>
-                  )) : <p className="text-[11px] text-chalk-faint text-center py-4">Aucun morceau trouvé.</p>}
-                </div>
+                <div className="w-11 h-11 rounded bg-felt-raised flex items-center justify-center shrink-0">🎵</div>
               )}
-            </>
-          ) : (
-            <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
-              {featured.length > 0 ? featured.map((r) => (
-                <button key={r.id} onClick={() => expand(r)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised">
-                  {r.thumbnail ? (
-                    <img src={r.thumbnail} alt="" className="w-11 h-11 rounded object-cover shrink-0" />
-                  ) : (
-                    <div className="w-11 h-11 rounded bg-felt-raised flex items-center justify-center shrink-0">🎵</div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm truncate">{r.title}</p>
-                    <p className="text-[11px] text-chalk-faint truncate">{r.artist}</p>
-                  </div>
-                  <span className="text-[10px] uppercase tracking-[0.12em] text-chalk-faint shrink-0">playlist →</span>
-                </button>
-              )) : <p className="text-[11px] text-chalk-faint text-center py-4">À la mode bientôt…</p>}
-            </div>
-          )}
-        </>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm truncate">{r.title}</p>
+                <p className="text-[11px] text-chalk-faint truncate">
+                  {r.artist}{r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}
+                </p>
+              </div>
+              <span className="text-emerald-300 text-lg shrink-0">＋</span>
+            </button>
+          )) : <p className="text-[11px] text-chalk-faint text-center py-4">Chargement des tendances…</p>}
+        </div>
       )}
     </Card>
   )
