@@ -176,6 +176,29 @@ export async function searchSpotify(query: string): Promise<SpotifySearchResult[
   return data.tracks ?? []
 }
 
+// ---- Récupération des morceaux d'un album / artiste / playlist (déléguée au serveur) ----
+
+export async function fetchAlbumTracks(albumId: string): Promise<SpotifySearchResult[]> {
+  const res = await fetch(`/api/spotify/album-tracks?albumId=${encodeURIComponent(albumId)}`)
+  if (!res.ok) throw new Error('Morceaux de l\'album indisponibles.')
+  const data = (await res.json()) as { tracks?: SpotifySearchResult[] }
+  return data.tracks ?? []
+}
+
+export async function fetchArtistTopTracks(artistId: string): Promise<SpotifySearchResult[]> {
+  const res = await fetch(`/api/spotify/artist-top-tracks?artistId=${encodeURIComponent(artistId)}`)
+  if (!res.ok) throw new Error('Top tracks de l\'artiste indisponibles.')
+  const data = (await res.json()) as { tracks?: SpotifySearchResult[] }
+  return data.tracks ?? []
+}
+
+export async function fetchPlaylistTracks(playlistId: string): Promise<SpotifySearchResult[]> {
+  const res = await fetch(`/api/spotify/playlist-tracks?playlistId=${encodeURIComponent(playlistId)}`)
+  if (!res.ok) throw new Error('Morceaux de la playlist indisponibles.')
+  const data = (await res.json()) as { tracks?: SpotifySearchResult[] }
+  return data.tracks ?? []
+}
+
 // ---- Web Playback SDK ----
 
 export interface SpotifyPlayerState {

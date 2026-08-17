@@ -38,7 +38,7 @@ export function IntrusController() {
   }, [phase, play])
 
   if (!group || !myId) return null
-  
+
   // Si un jeu est en cours et que je n'y suis pas (joueur arrivé tard), afficher l'écran d'attente.
   if (group.party.status === 'playing' && !group.party.participantIds.includes(myId)) {
     const playing = group.members.filter((m) => group.party.participantIds.includes(m.id))
@@ -64,7 +64,7 @@ export function IntrusController() {
       </div>
     )
   }
-  
+
   const state = group.party.roundData as IntrusClientState | null
   if (!state) {
     return (
