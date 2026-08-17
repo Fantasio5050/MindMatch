@@ -33,6 +33,12 @@ import { CoupDeCrayonController } from './games/coupDeCrayon/ControllerView'
 import { CoupDeCrayonScreen } from './games/coupDeCrayon/ScreenView'
 import { IntrusController } from './games/intrus/ControllerView'
 import { IntrusScreen } from './games/intrus/ScreenView'
+import { OneWordStoryController } from './games/oneWordStory/ControllerView'
+import { OneWordStoryScreen } from './games/oneWordStory/ScreenView'
+import { TruthOrDareController } from './games/truthOrDare/ControllerView'
+import { TruthOrDareScreen } from './games/truthOrDare/ScreenView'
+import { LoupGarouController } from './games/loupGarou/ControllerView'
+import { LoupGarouScreen } from './games/loupGarou/ScreenView'
 
 interface ClientGameEntry {
   Controller: ComponentType
@@ -57,4 +63,7 @@ export const CLIENT_GAME_REGISTRY: Record<string, ClientGameEntry> = {
   'petits-chevaux': { Controller: PetitsChevauxController, Screen: PetitsChevauxScreen },
   'coup-de-crayon': { Controller: CoupDeCrayonController, Screen: CoupDeCrayonScreen },
   intrus: { Controller: IntrusController, Screen: IntrusScreen },
+  'one-word-story': { Controller: OneWordStoryController, Screen: OneWordStoryScreen },
+  'truth-or-dare': { Controller: TruthOrDareController, Screen: TruthOrDareScreen },
+  'loup-garou': { Controller: LoupGarouController, Screen: LoupGarouScreen },
 }

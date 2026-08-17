@@ -31,6 +31,9 @@ export const GAME_LIBRARY: GameLibraryEntry[] = [
   { id: 'secret-profile', name: 'Profil secret', tagline: 'Des indices sur les traits, devinez qui c\'est', hue: '#818cf8', minPlayers: 3, quizFinishedNeed: 2 },
   { id: 'coup-de-crayon', name: 'Coup de Crayon', tagline: 'Tous le même mot — votez le plus beau ET le plus drôle', hue: '#fb923c', minPlayers: 3, tvOptimized: true, config: 'crayon' },
   { id: 'intrus', name: "L'Intrus", tagline: 'Un mot différent, un imposteur qui s\'ignore — démasquez-le', hue: '#6366f1', minPlayers: 4, tvOptimized: true, config: 'intrus', badge: 'NOUVEAU' },
+  { id: 'one-word-story', name: 'One Word Story', tagline: 'Une histoire collective, un mot à la fois', hue: '#06b6d4', minPlayers: 3, tvOptimized: true, badge: 'NOUVEAU' },
+  { id: 'truth-or-dare', name: 'Action ou Vérité', tagline: 'Choisis ton camp — le groupe vote', hue: '#ec4899', minPlayers: 3, config: 'pack', badge: 'NOUVEAU' },
+  { id: 'loup-garou', name: 'Loup-Garou', tagline: 'Village, loups, rôles cachés — sans meneur de jeu', hue: '#dc2626', minPlayers: 8, tvOptimized: true, badge: 'NOUVEAU' },
   // --- 18+ ---
   { id: 'blanc', name: 'Le Grand Blanc', tagline: 'Cartes à trous trash — votez la plus drôle', hue: '#e2e8f0', minPlayers: 3, adult: true, tvOptimized: true },
   { id: 'petits-chevaux', name: 'Petits Chevaux', tagline: 'Dé, captures, cases à boire et gages', hue: '#ca8a04', minPlayers: 2, adult: true, tvOptimized: true },
