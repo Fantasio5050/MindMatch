@@ -24,8 +24,27 @@ function makePlatineId(): string {
 const DEFAULT_FADEIN_SEC = 3
 const MAX_FADEIN_SEC = 10
 const FADEIN_STORE_KEY = 'mindmatch-spotify-fadein-sec'
+const VOLUME_STORE_KEY = 'mindmatch-spotify-volume'
+const TRANSITION_STORE_KEY = 'mindmatch-spotify-transition'
 const FADEOUT_WINDOW_SEC = 4
 const FADEOUT_TICK_MS = 50
+
+/** Profils de transition — simulent le feel d'un sweep filtre Pioneer DDJ. */
+type TransitionProfile = 'cut' | 'linear' | 'lowpass' | 'highpass'
+
+const TRANSITION_LABELS: Record<TransitionProfile, string> = {
+  cut: 'Net',
+  linear: 'Fondu',
+  lowpass: 'Sweep basse',
+  highpass: 'Sweep aiguë',
+}
+
+const TRANSITION_DESCS: Record<TransitionProfile, string> = {
+  cut: '🔇 Coupure nette entre les morceaux.',
+  linear: '🔊 Volume monte et descend linéairement.',
+  lowpass: '🎚️ Monte lentement puis accélère — feel low-pass qui s\'ouvre.',
+  highpass: '📻 Démarre rapide puis plateau — feel high-pass qui se ferme.',
+}
 
 function readFadeInSec(): number {
   if (typeof window === 'undefined') return DEFAULT_FADEIN_SEC
@@ -34,7 +53,37 @@ function readFadeInSec(): number {
   return Math.max(0, Math.min(MAX_FADEIN_SEC, raw))
 }
 
-/** Format mm:ss depuis des millisecondes. */
+function readVolume(): number {
+  if (typeof window === 'undefined') return 100
+  const raw = Number(window.localStorage.getItem(VOLUME_STORE_KEY))
+  if (!Number.isFinite(raw)) return 100
+  return Math.max(0, Math.min(100, raw))
+}
+
+function readTransition(): TransitionProfile {
+  if (typeof window === 'undefined') return 'linear'
+  const raw = window.localStorage.getItem(TRANSITION_STORE_KEY)
+  if (raw === 'cut' || raw === 'linear' || raw === 'lowpass' || raw === 'highpass') return raw
+  return 'linear'
+}
+
+/** Courbe d'easing selon le profil de transition. */
+function easeProgress(profile: TransitionProfile, p: number): number {
+  switch (profile) {
+    case 'cut':
+      return p >= 1 ? 1 : 0
+    case 'lowpass':
+      // Exponentielle : monte lentement au début, accélère à la fin (feel low-pass qui s'ouvre)
+      return p * p
+    case 'highpass':
+      // Racine : démarre rapide, ralentit vers la fin (feel high-pass qui se ferme)
+      return Math.sqrt(p)
+    case 'linear':
+    default:
+      return p
+  }
+}
+
 function fmt(ms: number): string {
   if (!ms || ms < 0) return '0:00'
   const s = Math.floor(ms / 1000)
@@ -43,9 +92,8 @@ function fmt(ms: number): string {
 
 /**
  * Platine Spotify : connexion du compte (Premium) sur l'appareil-platine, lecture via le Web
- * Playback SDK. La recherche/ajout se fait côté téléphones (via le serveur). Fondu d'entrée
- * optionnel + fade-out en fin de piste (le SDK ne supporte qu'un seul lecteur, donc pas de vrai
- * crossfade — la transition se fait par fondu de volume).
+ * Playback SDK. La recherche/ajout se fait côté téléphones (via le serveur). Transitions
+ * configurables (net / fondu / sweep basse / sweep aiguë) + fondu de sortie automatique.
  */
 export function SpotifyDeck({ code }: { code: string }) {
   const navigate = useNavigate()
@@ -67,16 +115,17 @@ export function SpotifyDeck({ code }: { code: string }) {
   const [fatal, setFatal] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [fadeInSec, setFadeInSec] = useState(readFadeInSec)
+  const [volumeUi, setVolumeUi] = useState(readVolume)
+  const [transition, setTransition] = useState<TransitionProfile>(readTransition)
 
   // État playback local (pour l'UI — barre de progression + timer)
   const [position, setPosition] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [playerVolumeState, setPlayerVolumeState] = useState(100)
   const [seeking, setSeeking] = useState(false)
 
   const playerRef = useRef<SpotifyPlayer | null>(null)
   const deviceIdRef = useRef<string | null>(null)
-  const volumeRef = useRef(100)
+  const volumeRef = useRef(readVolume())
   const fadeTimerRef = useRef<number | null>(null)
   const fadeOutTimerRef = useRef<number | null>(null)
   const loadedRef = useRef<string | null>(null)
@@ -88,16 +137,28 @@ export function SpotifyDeck({ code }: { code: string }) {
   const positionRef = useRef(0)
   const durationRef = useRef(0)
   const isPlayingRef = useRef(false)
+  const transitionRef = useRef(transition)
+  transitionRef.current = transition
 
   const isActive = !platineOwner || platineOwner === platineId
   const isActiveRef = useRef(isActive)
   isActiveRef.current = isActive
 
-  // ---- Volume ----
-  const setPlayerVolume = useCallback(async (value: number) => {
+  // ---- Volume (interne, ne déclenche PAS de re-render pendant les fondus) ----
+  const applyVolume = useCallback(async (value: number) => {
     const clamped = Math.max(0, Math.min(100, Math.round(value)))
     volumeRef.current = clamped
-    setPlayerVolumeState(clamped)
+    try { await playerRef.current?.setVolume(clamped / 100) } catch { /* pas prêt */ }
+  }, [])
+
+  // ---- Volume manuel (depuis le slider dans les réglages) ----
+  const setManualVolume = useCallback(async (value: number) => {
+    stopVolumeFade()
+    stopFadeOut()
+    const clamped = Math.max(0, Math.min(100, Math.round(value)))
+    volumeRef.current = clamped
+    setVolumeUi(clamped)
+    try { window.localStorage.setItem(VOLUME_STORE_KEY, String(clamped)) } catch { /* stockage indispo */ }
     try { await playerRef.current?.setVolume(clamped / 100) } catch { /* pas prêt */ }
   }, [])
 
@@ -115,11 +176,12 @@ export function SpotifyDeck({ code }: { code: string }) {
     }
   }
 
-  // ---- Fade-in (début de piste) ----
+  // ---- Fade-in (début de piste) — utilise applyVolume, PAS setVolumeUi ----
   const applyFadeIn = (durationSec: number) => {
     stopVolumeFade()
-    if (!playerRef.current || durationSec <= 0) {
-      void setPlayerVolume(100)
+    const profile = transitionRef.current
+    if (!playerRef.current || durationSec <= 0 || profile === 'cut') {
+      void applyVolume(volumeRef.current > 0 ? volumeRef.current : 100)
       return
     }
     const durationMs = durationSec * 1000
@@ -129,27 +191,39 @@ export function SpotifyDeck({ code }: { code: string }) {
     const tickMs = 50
     fadeTimerRef.current = window.setInterval(() => {
       const elapsed = Date.now() - startAt
-      const progress = Math.min(elapsed / durationMs, 1)
-      const next = startVol + (endVol - startVol) * progress
-      void setPlayerVolume(next)
-      if (progress >= 1) stopVolumeFade()
+      const rawProgress = Math.min(elapsed / durationMs, 1)
+      const eased = easeProgress(profile, rawProgress)
+      const next = startVol + (endVol - startVol) * eased
+      void applyVolume(next)
+      if (rawProgress >= 1) {
+        stopVolumeFade()
+        void applyVolume(endVol)
+      }
     }, tickMs)
   }
 
-  // ---- Fade-out (fin de piste) ----
+  // ---- Fade-out (fin de piste) — utilise applyVolume, PAS setVolumeUi ----
   const applyFadeOut = (windowSec: number, onComplete: () => void) => {
     stopFadeOut()
+    const profile = transitionRef.current
     const startVol = volumeRef.current
+    if (profile === 'cut') {
+      onComplete()
+      return
+    }
     const durationMs = windowSec * 1000
     const startAt = Date.now()
     const tickMs = FADEOUT_TICK_MS
     fadeOutTimerRef.current = window.setInterval(() => {
       const elapsed = Date.now() - startAt
-      const progress = Math.min(elapsed / durationMs, 1)
-      const next = startVol * (1 - progress)
-      void setPlayerVolume(next)
-      if (progress >= 1) {
+      const rawProgress = Math.min(elapsed / durationMs, 1)
+      // Fade-out : ease inversé (highpass → s'ouvre, lowpass → se ferme)
+      const eased = easeProgress(profile, 1 - rawProgress)
+      const next = startVol * (1 - eased)
+      void applyVolume(next)
+      if (rawProgress >= 1) {
         stopFadeOut()
+        void applyVolume(0)
         onComplete()
       }
     }, tickMs)
@@ -179,17 +253,16 @@ export function SpotifyDeck({ code }: { code: string }) {
       const player = new Spotify.Player({
         name: 'MindMatch Platine',
         getOAuthToken: (cb) => { getSpotifyToken().then((t) => { if (t) cb(t) }) },
-        volume: 1,
+        volume: volumeRef.current / 100,
       })
       playerRef.current = player
       player.addListener('ready', (arg) => {
         deviceIdRef.current = (arg as SpotifyReadyEvent).device_id
-        void setPlayerVolume(100)
+        void applyVolume(volumeRef.current)
         setReady(true)
       })
       player.addListener('authentication_error', () => { disconnectSpotify(); setConnected(false); setFatal('Connexion Spotify expirée — reconnecte-toi.') })
       player.addListener('account_error', () => setFatal('Un compte Spotify Premium est nécessaire pour la lecture.'))
-      // État de lecture en temps réel (plus précis que le polling)
       player.addListener('player_state_changed', (state: unknown) => {
         const s = state as SpotifyPlayerState | null
         if (!s) return
@@ -227,19 +300,20 @@ export function SpotifyDeck({ code }: { code: string }) {
       setDuration(current.durationMs ?? 0)
       stopVolumeFade()
       stopFadeOut()
-      if (fadeInSec > 0) {
-        void setPlayerVolume(0)
+      if (fadeInSec > 0 && transitionRef.current !== 'cut') {
+        void applyVolume(0)
         window.setTimeout(() => {
           void playSpotifyTrack(deviceIdRef.current!, current.sourceId)
           if (isPlaying) applyFadeIn(fadeInSec)
         }, 120)
       } else {
+        void applyVolume(volumeRef.current)
         void playSpotifyTrack(deviceIdRef.current!, current.sourceId)
       }
       if (!isPlaying) window.setTimeout(() => playerRef.current?.pause().catch(() => {}), 500)
     } else if (isPlaying) {
       stopFadeOut()
-      void setPlayerVolume(volumeRef.current > 0 ? volumeRef.current : 100)
+      void applyVolume(volumeRef.current > 0 ? volumeRef.current : 100)
       playerRef.current?.resume().catch(() => {})
     } else {
       playerRef.current?.pause().catch(() => {})
@@ -269,14 +343,11 @@ export function SpotifyDeck({ code }: { code: string }) {
       const cur = session?.current
       if (state.position > 0) everPlayedRef.current = true
 
-      // Fin naturelle (le SDK repasse en pause à la position 0)
       const endedNaturally =
         state.paused && state.position === 0 && lastPosRef.current > 3000 && lastPosRef.current >= lastDurRef.current - 4000
 
-      // Piste injouable
       const stuck = !!session?.isPlaying && !everPlayedRef.current && Date.now() - loadedAtRef.current > 12000
 
-      // Fade-out : si on approche de la fin et qu'on n'a pas déjà commencé
       if (cur && session?.isPlaying && !state.paused && state.duration > 0 && !fadeOutTimerRef.current) {
         const remainingSec = (state.duration - state.position) / 1000
         if (remainingSec <= FADEOUT_WINDOW_SEC && remainingSec > 0.5 && state.duration > 10000) {
@@ -313,7 +384,11 @@ export function SpotifyDeck({ code }: { code: string }) {
     try { window.localStorage.setItem(FADEIN_STORE_KEY, String(fadeInSec)) } catch { /* stockage indispo */ }
   }, [fadeInSec])
 
-  // ---- Timer local pour l'UI (incrémente la position pendant la lecture) ----
+  useEffect(() => {
+    try { window.localStorage.setItem(TRANSITION_STORE_KEY, transition) } catch { /* stockage indispo */ }
+  }, [transition])
+
+  // ---- Timer local pour l'UI ----
   useEffect(() => {
     if (!isPlaying || seeking) return
     const id = setInterval(() => {
@@ -325,14 +400,18 @@ export function SpotifyDeck({ code }: { code: string }) {
     return () => clearInterval(id)
   }, [isPlaying, seeking])
 
-  // ---- Skip manuel (boutons prev/next sur la platine) ----
+  // ---- Skip manuel ----
   const handleSkip = () => {
     stopFadeOut()
     stopVolumeFade()
+    void applyVolume(volumeRef.current)
     musicAction('hostSkip')
   }
+
   const queue = music ? orderedQueue(music) : []
   const progress = duration > 0 ? Math.min(1, position / duration) : 0
+
+  const settingsLabel = transition === 'cut' ? 'Net' : transition === 'linear' ? `${fadeInSec}s` : `${TRANSITION_LABELS[transition]} ${fadeInSec}s`
 
   const Header = (
     <div className="flex items-center justify-between px-4 py-3 border-b border-line relative z-10">
@@ -352,7 +431,7 @@ export function SpotifyDeck({ code }: { code: string }) {
           className="rounded-full bg-felt-raised px-2.5 h-8 text-chalk-soft text-xs"
           aria-label="Réglages platine Spotify"
         >
-          ⚙️ {fadeInSec === 0 ? 'coupé' : `${fadeInSec}s`}
+          ⚙️ {settingsLabel}
         </button>
         <button onClick={() => { disconnect(); navigate('/') }} className="rounded-full bg-felt-raised px-3 h-8 text-chalk-soft text-xs">
           Quitter
@@ -361,7 +440,6 @@ export function SpotifyDeck({ code }: { code: string }) {
     </div>
   )
 
-  // Spotify non configuré → message joueur
   if (!spotifyEnabled) {
     return (
       <div className="min-h-svh flex flex-col bg-black">
@@ -377,7 +455,6 @@ export function SpotifyDeck({ code }: { code: string }) {
 
   return (
     <div className="min-h-svh flex flex-col bg-black relative overflow-hidden">
-      {/* Fond dynamique : pochette floutée */}
       {current?.thumbnail && (
         <div className="absolute inset-0 pointer-events-none" aria-hidden>
           <img src={current.thumbnail} alt="" className="w-full h-full object-cover blur-3xl scale-125 opacity-30" />
@@ -386,32 +463,77 @@ export function SpotifyDeck({ code }: { code: string }) {
       )}
       {Header}
       {settingsOpen && (
-        <div className="absolute right-4 top-16 z-50 w-72 rounded-2xl border border-line bg-felt-raised p-4 shadow-xl">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-semibold">Fondu d'entrée</span>
+        <div className="absolute right-4 top-16 z-50 w-80 rounded-2xl border border-line bg-felt-raised p-4 shadow-xl">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-semibold">Réglages de la platine</span>
             <button onClick={() => setSettingsOpen(false)} className="text-chalk-faint hover:text-chalk-soft text-lg">✕</button>
           </div>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-chalk-muted">Durée</span>
-            <span className="text-sm text-emerald-300 font-mono">{fadeInSec === 0 ? 'Coupé' : `${fadeInSec}s`}</span>
+
+          {/* Volume */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-chalk-muted">Volume</span>
+              <span className="text-sm text-emerald-300 font-mono">{volumeUi}%</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={volumeUi}
+              onChange={(e) => void setManualVolume(Number(e.target.value))}
+              className="w-full accent-emerald-400"
+              aria-label="Volume de la platine"
+            />
           </div>
-          <input
-            type="range"
-            min={0}
-            max={MAX_FADEIN_SEC}
-            step={1}
-            value={fadeInSec}
-            onChange={(e) => setFadeInSec(Number(e.target.value))}
-            className="w-full accent-emerald-400"
-            aria-label="Durée du fondu d'entrée Spotify"
-          />
+
+          <div className="h-px bg-line my-3" />
+
+          {/* Profil de transition */}
+          <div className="mb-3">
+            <span className="text-xs text-chalk-muted block mb-2">Transition entre morceaux</span>
+            <div className="grid grid-cols-2 gap-1.5">
+              {(Object.keys(TRANSITION_LABELS) as TransitionProfile[]).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setTransition(p)}
+                  className={`rounded-lg px-2 py-1.5 text-xs font-semibold border transition-colors ${
+                    transition === p
+                      ? 'bg-emerald-500/25 border-emerald-400/40 text-emerald-200'
+                      : 'bg-felt-sunken border-line text-chalk-soft'
+                  }`}
+                >
+                  {TRANSITION_LABELS[p]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Durée du fondu (masqué si "Net") */}
+          {transition !== 'cut' && (
+            <div className="mb-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-chalk-muted">Durée du fondu</span>
+                <span className="text-sm text-emerald-300 font-mono">{fadeInSec === 0 ? 'Coupé' : `${fadeInSec}s`}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={MAX_FADEIN_SEC}
+                step={1}
+                value={fadeInSec}
+                onChange={(e) => setFadeInSec(Number(e.target.value))}
+                className="w-full accent-emerald-400"
+                aria-label="Durée du fondu"
+              />
+            </div>
+          )}
+
           <p className="text-[11px] text-chalk-faint mt-3 leading-snug">
-            {fadeInSec === 0 ? '🔇 Transition nette + fondu de sortie automatique.' : `🔊 Volume monte en ${fadeInSec}s au début + fondu de sortie en fin de piste.`}
+            {TRANSITION_DESCS[transition]}
           </p>
         </div>
       )}
 
-      {/* Zone principale */}
       <div className="relative z-10 flex-1 flex flex-col lg:flex-row">
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-4">
           {fatal && <p className="text-pink-300 text-sm">{fatal}</p>}
@@ -443,7 +565,6 @@ export function SpotifyDeck({ code }: { code: string }) {
             </>
           ) : current ? (
             <>
-              {/* Pochette agrandie */}
               {current.thumbnail && (
                 <img
                   src={current.thumbnail}
@@ -462,7 +583,6 @@ export function SpotifyDeck({ code }: { code: string }) {
               {/* Barre de progression + timer */}
               {duration > 0 && (
                 <div className="w-full max-w-md mt-2">
-                  {/* Barre cliquable pour seek */}
                   <div
                     onClick={handleSeek}
                     className="group relative h-1.5 rounded-full bg-felt-raised cursor-pointer hover:h-2.5 transition-all"
@@ -471,13 +591,11 @@ export function SpotifyDeck({ code }: { code: string }) {
                       className="absolute inset-y-0 left-0 rounded-full bg-emerald-400 transition-all duration-150"
                       style={{ width: `${progress * 100}%` }}
                     />
-                    {/* Curseur visible au hover */}
                     <div
                       className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-emerald-300 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                       style={{ left: `${progress * 100}%` }}
                     />
                   </div>
-                  {/* Timer */}
                   <div className="flex justify-between mt-1.5 text-[11px] text-chalk-faint font-mono">
                     <span>{fmt(position)}</span>
                     <span>{fmt(duration)}</span>
@@ -485,7 +603,7 @@ export function SpotifyDeck({ code }: { code: string }) {
                 </div>
               )}
 
-              {/* Contrôles : prev / play-pause / next */}
+              {/* Contrôles : play-pause + skip */}
               <div className="flex items-center gap-3 mt-2">
                 <button
                   onClick={() => musicAction('setPlayback', { isPlaying: !isPlaying })}
@@ -502,21 +620,6 @@ export function SpotifyDeck({ code }: { code: string }) {
                   ⏭
                 </button>
               </div>
-
-              {/* Volume (platine only) */}
-              <div className="flex items-center gap-2 w-full max-w-xs mt-2">
-                <span className="text-xs text-chalk-faint shrink-0">🔈</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={playerVolumeState}
-                  onChange={(e) => { stopVolumeFade(); void setPlayerVolume(Number(e.target.value)) }}
-                  className="flex-1 accent-emerald-400"
-                  aria-label="Volume de la platine"
-                />
-                <span className="text-xs text-chalk-faint font-mono shrink-0 w-8 text-right">{playerVolumeState}%</span>
-              </div>
             </>
           ) : (
             <>
@@ -526,7 +629,7 @@ export function SpotifyDeck({ code }: { code: string }) {
           )}
         </div>
 
-        {/* File d'attente + stats */}
+        {/* File d'attente */}
         <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-line p-4 overflow-y-auto max-h-[40svh] lg:max-h-none">
           <p className="text-xs uppercase tracking-widest text-chalk-faint mb-1">À suivre</p>
           <p className="text-sm text-chalk-muted mb-3">
