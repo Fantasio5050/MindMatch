@@ -39,6 +39,14 @@ import { TruthOrDareController } from './games/truthOrDare/ControllerView'
 import { TruthOrDareScreen } from './games/truthOrDare/ScreenView'
 import { LoupGarouController } from './games/loupGarou/ControllerView'
 import { LoupGarouScreen } from './games/loupGarou/ScreenView'
+import { TimesUpController } from './games/timesUp/ControllerView'
+import { TimesUpScreen } from './games/timesUp/ScreenView'
+import { QuiproquoController } from './games/quiproquo/ControllerView'
+import { QuiproquoScreen } from './games/quiproquo/ScreenView'
+import { UnoController } from './games/uno/ControllerView'
+import { UnoScreen } from './games/uno/ScreenView'
+import { PokerController } from './games/poker/ControllerView'
+import { PokerScreen } from './games/poker/ScreenView'
 
 interface ClientGameEntry {
   Controller: ComponentType
@@ -66,4 +74,8 @@ export const CLIENT_GAME_REGISTRY: Record<string, ClientGameEntry> = {
   'one-word-story': { Controller: OneWordStoryController, Screen: OneWordStoryScreen },
   'truth-or-dare': { Controller: TruthOrDareController, Screen: TruthOrDareScreen },
   'loup-garou': { Controller: LoupGarouController, Screen: LoupGarouScreen },
+  'times-up': { Controller: TimesUpController, Screen: TimesUpScreen },
+  quiproquo: { Controller: QuiproquoController, Screen: QuiproquoScreen },
+  uno: { Controller: UnoController, Screen: UnoScreen },
+  poker: { Controller: PokerController, Screen: PokerScreen },
 }

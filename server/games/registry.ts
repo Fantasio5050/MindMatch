@@ -19,6 +19,10 @@ import { intrus } from './intrus'
 import { oneWordStory } from './oneWordStory'
 import { truthOrDare } from './truthOrDare'
 import { loupGarou } from './loupGarou'
+import { timesUp } from './timesUp'
+import { quiproquo } from './quiproquo'
+import { uno } from './uno'
+import { poker } from './poker'
 
 export const GAME_REGISTRY: Record<string, GameModule> = {
   [whoIsMostLikely.id]: whoIsMostLikely,
@@ -41,6 +45,10 @@ export const GAME_REGISTRY: Record<string, GameModule> = {
   [oneWordStory.id]: oneWordStory,
   [truthOrDare.id]: truthOrDare,
   [loupGarou.id]: loupGarou,
+  [timesUp.id]: timesUp,
+  [quiproquo.id]: quiproquo,
+  [uno.id]: uno,
+  [poker.id]: poker,
 }
 
 export function getGame(gameId: string): GameModule | null {

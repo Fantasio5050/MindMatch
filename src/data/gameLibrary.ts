@@ -34,6 +34,10 @@ export const GAME_LIBRARY: GameLibraryEntry[] = [
   { id: 'one-word-story', name: 'One Word Story', tagline: 'Une histoire collective, un mot à la fois', hue: '#06b6d4', minPlayers: 3, tvOptimized: true, badge: 'NOUVEAU' },
   { id: 'truth-or-dare', name: 'Action ou Vérité', tagline: 'Choisis ton camp — le groupe vote', hue: '#ec4899', minPlayers: 3, config: 'pack', badge: 'NOUVEAU' },
   { id: 'loup-garou', name: 'Loup-Garou', tagline: 'Village, loups, rôles cachés — sans meneur de jeu', hue: '#dc2626', minPlayers: 8, tvOptimized: true, badge: 'NOUVEAU' },
+  { id: 'times-up', name: "Time's Up", tagline: 'Décris, un mot, mime — 3 rounds de plus en plus hard', hue: '#f59e0b', minPlayers: 4, tvOptimized: true, badge: 'NOUVEAU' },
+  { id: 'quiproquo', name: 'Quiproquo', tagline: 'Contraintes secrètes — démasque les autres', hue: '#8b5cf6', minPlayers: 4, tvOptimized: true, badge: 'NOUVEAU' },
+  { id: 'uno', name: 'UNO', tagline: 'Pose tes cartes, crie UNO, flingue tes potes', hue: '#ef4444', minPlayers: 2, tvOptimized: true, badge: 'NOUVEAU' },
+  { id: 'poker', name: 'Poker Texas Hold\'em', tagline: 'Bluff, jetons — mode assisté pour débutants', hue: '#22c55e', minPlayers: 2, tvOptimized: true, badge: 'NOUVEAU' },
   // --- 18+ ---
   { id: 'blanc', name: 'Le Grand Blanc', tagline: 'Cartes à trous trash — votez la plus drôle', hue: '#e2e8f0', minPlayers: 3, adult: true, tvOptimized: true },
   { id: 'petits-chevaux', name: 'Petits Chevaux', tagline: 'Dé, captures, cases à boire et gages', hue: '#ca8a04', minPlayers: 2, adult: true, tvOptimized: true },
