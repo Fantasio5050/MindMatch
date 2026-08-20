@@ -91,15 +91,17 @@ export function TruthOrDareController() {
         <div className="flex flex-col items-center gap-2 mb-4">
           <Avatar pseudo={currentPlayer?.pseudo ?? '?'} color={currentPlayer?.color ?? '#fff'} size={48} />
           <p className="font-semibold text-sm">{isYou ? "À toi de jouer !" : `${currentPlayer?.pseudo}`}</p>
-          <span className={`inline-block text-xs font-bold uppercase tracking-wider rounded-full px-3 py-1 ${
-            state.currentCard.type === 'truth' ? 'text-sky-300/80 bg-sky-500/10' : 'text-fuchsia-300/80 bg-fuchsia-500/10'
-          }`}>
-            {CHOICE_ICON[state.currentCard.type]} {CHOICE_LABEL[state.currentCard.type]}
-          </span>
+          {state.currentCard && (
+            <span className={`inline-block text-xs font-bold uppercase tracking-wider rounded-full px-3 py-1 ${
+              state.currentCard.type === 'truth' ? 'text-sky-300/80 bg-sky-500/10' : 'text-fuchsia-300/80 bg-fuchsia-500/10'
+            }`}>
+              {CHOICE_ICON[state.currentCard.type]} {CHOICE_LABEL[state.currentCard.type]}
+            </span>
+          )}
         </div>
 
         <Card className="text-center mb-4">
-          <p className="text-lg font-bold leading-snug">{state.currentCard.text}</p>
+          <p className="text-lg font-bold leading-snug">{state.currentCard?.text ?? 'Chargement de la carte…'}</p>
         </Card>
 
         {isYou ? (

@@ -122,6 +122,8 @@ function WritingView({
           const next = prev - 100
           if (next <= 0) {
             if (timerRef.current) clearInterval(timerRef.current)
+            // Timer expiré, on skip automatiquement
+            onSkip()
             return 0
           }
           return next
@@ -132,7 +134,7 @@ function WritingView({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [state.timeLeft, state.phase, state.turnIndex])
+  }, [state.timeLeft, state.phase, state.turnIndex, onSkip])
 
   const currentPlayer = state.currentTurn
   const isMyTurn = state.myTurn

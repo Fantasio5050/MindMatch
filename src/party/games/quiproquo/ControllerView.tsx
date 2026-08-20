@@ -14,7 +14,16 @@ export function QuiproquoController() {
   const isHost = usePartyStore((s) => s.isHost())
   const hostAdvance = usePartyStore((s) => s.hostAdvance)
   const sendAction = usePartyStore((s) => s.sendAction)
-  const state = (group?.party.roundData as QuiproquoClientState | null) ?? null
+  const rawState = (group?.party.roundData as any) ?? null
+  const state = rawState ? {
+    ...rawState,
+    // Derive client-specific fields from server state
+    yourConstraint: rawState.constraintsByMember?.[currentMember?.id ?? ''] ?? null,
+    allConstraints: Object.values(rawState.constraintsByMember ?? {}).map((c: any) => ({
+      id: c.id as string,
+      text: c.text as string,
+    }))
+  } as QuiproquoClientState : null
 
   if (!group || !currentMember || !state) {
     return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-chalk-soft text-sm">Chargement…</p></div>

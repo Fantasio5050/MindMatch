@@ -55,7 +55,7 @@ export const classicDilemmas: Dilemma[] = [
   { id: 'dc-50', pack: 'classic', emojiA: '🤷', textA: 'Dire \"je sais pas\" à toutes les questions pendant 3 tours', emojiB: '💬', textB: 'Répondre à toutes les questions par une question pendant 3 tours' }
 ];
 
-// Trash dilemmas (dt-1 to dt-24) - keeping existing style
+// Trash dilemmas (dt-1 to dt-25) - keeping existing style
 export const trashDilemmas: Dilemma[] = [
   { id: 'dt-1', pack: 'trash', emojiA: '💩', textA: 'Lécher quelque chose qui est par terre', emojiB: '👃', textB: 'Sentir tes propres aisselles et décrire l\'odeur' },
   { id: 'dt-2', pack: 'trash', emojiA: '🤢', textA: 'Boire ton propre urine', emojiB: '🤮', textB: 'Vomir dans un seau et montrer le résultat' },
@@ -80,7 +80,8 @@ export const trashDilemmas: Dilemma[] = [
   { id: 'dt-21', pack: 'trash', emojiA: '👂', textA: 'Manger quelque chose qui a trainé dans tes oreilles', emojiB: '👄', textB: 'Partager ta nourriture déjà entamée' },
   { id: 'dt-22', pack: 'trash', emojiA: '🤮', textA: 'Vomir dans ta main et montrer', emojiB: '😴', textB: 'Baver en dormant et ne pas t\'essuyer' },
   { id: 'dt-23', pack: 'trash', emojiA: '👃', textA: 'Sentir l\'intérieur de tes chaussures après une journée', emojiB: '👄', textB: 'Embrasser quelqu\'un après avoir mangé quelque chose de très épicé' },
-  { id: 'dt-24', pack: 'trash', emojiA: '🤢', textA: 'Essayer de manger quelque chose de très amer sans faire la grimace', emojiB: '👃', textB: 'Renifler quelque chose de très fort et essayer de sourire' }
+  { id: 'dt-24', pack: 'trash', emojiA: '🤢', textA: 'Essayer de manger quelque chose de très amer sans faire la grimace', emojiB: '👃', textB: 'Renifler quelque chose de très fort et essayer de sourire' },
+  { id: 'dt-25', pack: 'trash', emojiA: '🌬️', textA: 'Une puff goût paff', emojiB: '💨', textB: 'Un paff goût puff' }
 ];
 
 // Spicy dilemmas (ds-1 to ds-30) - suggestif/osé mais pas dégoûtant
