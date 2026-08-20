@@ -1,0 +1,10 @@
+services:
+  mindmatch-test:
+    build:
+      context: /var/www/mindmatch
+      dockerfile: playwright.Dockerfile
+    container_name: mindmatch-playwright-tests
+    environment:
+      - TEST_BASE_URL=http://host.docker.internal:5173
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

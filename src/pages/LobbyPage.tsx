@@ -926,7 +926,7 @@ function GameSheet({
       )}
 
       {isHost ? (
-        <Button fullWidth disabled={locked || requirement !== null} onClick={onLaunch}>
+        <Button fullWidth disabled={locked || requirement !== null} onClick={onLaunch} data-testid="launch-game-btn">
           {locked ? 'Verrouillé (18+)' : requirement ?? 'Lancer la partie'}
         </Button>
       ) : (

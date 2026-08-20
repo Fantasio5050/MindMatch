@@ -60,7 +60,7 @@ export function OneWordStoryController() {
         members={group.members}
         isHost={isHost}
         onSubmit={(word) => sendAction('submit-word', { word })}
-        onSkip={() => sendAction('skip', {})}
+        onSkip={() => sendAction('skip-word', {})}
       />
     )
   }
