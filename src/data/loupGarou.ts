@@ -95,10 +95,10 @@ export const ROLES: Record<RoleId, Role> = {
     id: 'sorciere',
     name: 'Sorcière',
     camp: 'village',
-    description: 'Vous avez une potion de guérison et une potion de mort (une seule utilisation chacune).',
+    description: 'Vous avez une potion de vie et une potion de mort, utilisables une seule fois chacune.',
     nightAction: {
       step: 'sorciere',
-      description: 'Décidez d\'utiliser la potion de guérison sur la victime, la potion de mort sur quelqu\'un, ou passez.',
+      description: 'Décidez d\'utiliser la potion de vie sur la victime, la potion de mort sur quelqu\'un, ou passez.',
       canSkip: true,
     },
     minPlayers: 1,
@@ -118,7 +118,7 @@ export const ROLES: Record<RoleId, Role> = {
     id: 'cupidon',
     name: 'Cupidon',
     camp: 'neutre',
-    description: 'Vous liez deux joueurs qui deviennent amoureux. Si l\'un meurt, l\'autre se suicide.',
+    description: 'Vous liez deux joueurs qui tombent amoureux. Si l\'un meurt, l\'autre meurt de chagrin.',
     nightAction: {
       step: 'cupidon',
       description: 'Choisissez deux joueurs à lier par l\'amour.',
@@ -147,7 +147,7 @@ export const ROLES: Record<RoleId, Role> = {
     description: 'Pendant la nuit, vous espionnez les loups et voyez qui ils sont (mais pas qui ils attaquent).',
     nightAction: {
       step: 'petite-fille',
-      description: 'Ouvrez l\'œil : vous voyez les IDs de tous les loups-garous.',
+      description: 'Entrouvrez les yeux : vous apercevez qui sont les loups-garous.',
     },
     minPlayers: 1,
     maxCount: 1,
