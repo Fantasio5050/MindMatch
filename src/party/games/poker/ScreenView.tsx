@@ -29,7 +29,7 @@ export function PokerScreen() {
 
   return (
     <div className="tv-frame">
-      {party.status === 'ended' && <FinalPodium members={members} />}
+      {party.status === 'ended' && <FinalPodium state={state} members={members} />}
 
       {party.status !== 'ended' && party.phase === 'mode-selection' && state && (
         <ModeSelectionScreen state={state} members={members} />
@@ -341,10 +341,14 @@ function ShowdownScreen({ state, members }: { state: PokerClientState; members: 
         </motion.div>
 
         <p className="text-3xl font-extrabold shimmer-text mb-2">
-          {winner?.pseudo} gagne la main !
+          {state.winners.length > 1 ? 'Pot partagé' : `${winner?.pseudo} ramasse le pot`}
         </p>
 
-        <p className="text-xl text-chalk-soft mb-2">{state.winner?.handDescription}</p>
+        {state.winners.map((w) => (
+          <p key={w.memberId} className="text-xl text-chalk-soft mb-1">
+            {members.find((m) => m.id === w.memberId)?.pseudo} · +{w.amount} · {w.handDescription}
+          </p>
+        ))}
 
         <motion.p
           initial={{ scale: 0.5 }}
@@ -364,13 +368,31 @@ function ShowdownScreen({ state, members }: { state: PokerClientState; members: 
           </div>
         )}
 
+        {Object.keys(state.revealedHands).length > 0 && (
+          <div className="flex flex-wrap justify-center gap-6 mb-8">
+            {Object.entries(state.revealedHands).map(([id, r]) => {
+              const m = members.find((x) => x.id === id)
+              const won = state.winners.some((w) => w.memberId === id)
+              return (
+                <div key={id} className={`flex flex-col items-center gap-2 rounded-2xl p-3 ${won ? 'bg-brass/10 border border-brass/40' : 'bg-felt-raised'}`}>
+                  <span className="text-base font-bold text-chalk">{m?.pseudo}</span>
+                  <div className="flex gap-2">
+                    {r.cards.map((c) => <TvCard key={c.id} card={c} />)}
+                  </div>
+                  <span className="text-sm text-chalk-soft">{r.handDescription}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         {/* Chip counts */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
-          {members.map((m) => (
+          {members.filter((m) => state.seats.includes(m.id)).map((m) => (
             <div
               key={m.id}
               className={`flex flex-col items-center gap-1.5 rounded-2xl p-3 ${
-                state.winner?.memberId === m.id
+                state.winners.some((w) => w.memberId === m.id)
                   ? 'bg-emerald-500/10 border border-emerald-400/30'
                   : 'bg-felt-raised'
               }`}
@@ -392,40 +414,34 @@ function ShowdownScreen({ state, members }: { state: PokerClientState; members: 
 // Final Podium
 // ---------------------------------------------------------------------------
 
-function FinalPodium({ members }: { members: Member[] }) {
-  const ranked = [...members].sort((a, b) => b.xp - a.xp)
-  const winner = ranked[0]
+function FinalPodium({ state, members }: { state: PokerClientState | null; members: Member[] }) {
+  const counts = state?.handCounts ?? {}
+  const ranked = (state?.seats ?? members.map((m) => m.id))
+    .map((id) => ({ member: members.find((m) => m.id === id), chips: counts[id] ?? 0 }))
+    .filter((r): r is { member: Member; chips: number } => !!r.member)
+    .sort((a, b) => b.chips - a.chips)
+  const winner = ranked[0]?.member
 
   return (
     <div className="text-center max-w-4xl">
-      <motion.div
-        initial={{ scale: 0, rotate: -20 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring' }}
-        className="text-8xl mb-4"
-      >
-        🏆
-      </motion.div>
-      <p className="text-chalk-faint text-2xl uppercase tracking-widest mb-2">Champion de la table</p>
-      <p className="text-5xl font-extrabold shimmer-text mb-8">{winner?.pseudo}</p>
+      <p className="kicker text-tv-xs mb-3">Champion de la table</p>
+      <p className="font-stage text-tv-2xl text-brass mb-8">{winner?.pseudo}</p>
 
       <div className="flex flex-col gap-3 max-w-md mx-auto">
-        {ranked.map((m, i) => (
+        {ranked.map(({ member: m, chips }, i) => (
           <motion.div
             key={m.id}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.15 }}
             className={`flex items-center gap-3 rounded-2xl p-4 ${
-              i === 0 ? 'bg-amber-500/10 border border-amber-400/30' : 'bg-felt-raised'
+              i === 0 ? 'bg-brass/10 border border-brass/40' : 'bg-felt-raised'
             }`}
           >
-            <span className="text-2xl font-bold w-10 text-center">
-              {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
-            </span>
+            <span className="text-2xl font-bold w-10 text-center text-chalk-soft">{i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={40} photoUrl={m.photoUrl} />
-            <span className="flex-1 text-lg font-bold">{m.pseudo}</span>
-            <span className="text-emerald-300 font-mono text-lg">{m.xp} XP</span>
+            <span className="flex-1 text-lg font-bold text-left">{m.pseudo}</span>
+            <span className="font-mono text-lg text-chalk-soft">{chips} jetons</span>
           </motion.div>
         ))}
       </div>

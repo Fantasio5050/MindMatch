@@ -1,11 +1,9 @@
-import type { Group, PartySession } from '../../src/types'
+import type { PartySession } from '../../src/types'
 import type { GameModule, XpAward } from './types'
 import type {
   PokerCard,
-  PokerClientState,
   PokerConfig,
   BettingRound,
-  PokerPhase,
   HandStrength,
   ActionSuggestion,
   PotOdds,
@@ -19,9 +17,6 @@ import type {
 const DEFAULT_STARTING_CHIPS = 1000
 const DEFAULT_SMALL_BLIND = 10
 const DEFAULT_BIG_BLIND = 20
-const HAND_XP = 5
-const WIN_XP = 15
-const FOLD_XP = 1
 
 const SUITS: PokerCard['suit'][] = ['hearts', 'diamonds', 'clubs', 'spades']
 const RANKS: PokerCard['rank'][] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
@@ -38,70 +33,6 @@ const HAND_NAMES = [
   'Quinte Flush',
   'Quinte Flush Royale',
 ]
-
-// ---------------------------------------------------------------------------
-// Server-side round state (secret)
-// ---------------------------------------------------------------------------
-
-interface PokerRoundState {
-  deck: PokerCard[]
-  hands: Record<string, PokerCard[]>
-  communityCards: PokerCard[]
-  pot: number
-  currentBets: Record<string, number>
-  totalBets: Record<string, number>
-  chips: Record<string, number>
-  currentPlayer: string | null
-  dealerPosition: number
-  smallBlind: number
-  bigBlind: number
-  phase: PokerPhase
-  bettingRound: BettingRound
-  foldedPlayers: string[]
-  allInPlayers: string[]
-  assistedMode: Record<string, boolean>
-  winner: string | null
-  winningHand: string | null
-  lastAction: { playerId: string; action: string; amount: number } | null
-  modesChosen: boolean
-  playersWhoChoseMode: string[]
-  startingChips: number
-  handNumber: number
-  playersActed: string[] // players who acted this betting round
-  lastRaiseAmount: number // size of the last raise (for min raise rule)
-}
-
-function getState(session: PartySession): PokerRoundState {
-  return (
-    (session.roundData as PokerRoundState | null) ?? {
-      deck: [],
-      hands: {},
-      communityCards: [],
-      pot: 0,
-      currentBets: {},
-      totalBets: {},
-      chips: {},
-      currentPlayer: null,
-      dealerPosition: 0,
-      smallBlind: DEFAULT_SMALL_BLIND,
-      bigBlind: DEFAULT_BIG_BLIND,
-      phase: 'dealing',
-      bettingRound: 'preflop',
-      foldedPlayers: [],
-      allInPlayers: [],
-      assistedMode: {},
-      winner: null,
-      winningHand: null,
-      lastAction: null,
-      modesChosen: false,
-      playersWhoChoseMode: [],
-      startingChips: DEFAULT_STARTING_CHIPS,
-      handNumber: 0,
-      playersActed: [],
-      lastRaiseAmount: DEFAULT_BIG_BLIND,
-    }
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Deck helpers
@@ -578,382 +509,336 @@ function pluralCard(n: number): string {
   return n > 1 ? 'cartes' : 'carte'
 }
 
-/**
- * Get the active (non-folded, non-all-in) players in order starting from a given offset.
- */
-function getActivePlayers(state: PokerRoundState, memberIds: string[]): string[] {
-  return memberIds.filter(
-    (id) => !state.foldedPlayers.includes(id) && !state.allInPlayers.includes(id),
-  )
+// ---------------------------------------------------------------------------
+// Déroulé d'une partie
+// ---------------------------------------------------------------------------
+//
+// Réécrit : la version précédente était injouable (aucune vue par joueur : pas de cartes, pas
+// de boutons) et, une fois branchée, fausse :
+//  - quand tout le monde se couchait, le pot était versé AVANT d'y ajouter les mises du tour en
+//    cours — blindes et relances disparaissaient ;
+//  - un tapis suivi partait à l'abattage sans distribuer les cartes communes restantes : la main
+//    se décidait sur deux cartes ;
+//  - pas de pot partagé en cas d'égalité, pas de pot secondaire : un tapis court pouvait rafler
+//    l'argent qu'il n'avait jamais pu couvrir ;
+//  - les joueurs ruinés étaient « ressuscités » à 1 000 jetons, donc la partie ne finissait pas ;
+//  - chaque action reçue après une main redistribuait l'XP de la victoire.
+//
+// Invariant vérifié par simulation : la somme des tapis et des mises engagées ne varie jamais.
+
+const WIN_HAND_XP = 5
+const WIN_GAME_XP = 25
+
+type Street = BettingRound
+
+interface PokerWinner {
+  memberId: string
+  amount: number
+  handDescription: string
 }
 
-/**
- * Get all non-folded players (including all-in).
- */
-function getNonFoldedPlayers(state: PokerRoundState, memberIds: string[]): string[] {
-  return memberIds.filter((id) => !state.foldedPlayers.includes(id))
+interface PokerState {
+  phase: 'mode-selection' | 'betting' | 'ended'
+  /** Ordre de table, figé au lancement (les arrivées en cours de partie regardent). */
+  seats: string[]
+  chips: Record<string, number>
+  startingChips: number
+  smallBlind: number
+  bigBlind: number
+  assisted: Record<string, boolean>
+  modeChosen: string[]
+  handNumber: number
+  dealer: string | null
+  deck: PokerCard[]
+  hands: Record<string, PokerCard[]>
+  board: PokerCard[]
+  street: Street
+  /** Joueurs servis à cette main (ceux qui avaient encore des jetons). */
+  inHand: string[]
+  folded: string[]
+  allIn: string[]
+  /** Mises du tour d'enchères en cours. */
+  streetBets: Record<string, number>
+  /** Total engagé dans la main : sert aux pots secondaires. */
+  committed: Record<string, number>
+  toAct: string | null
+  /** Ont parlé depuis la dernière relance. */
+  acted: string[]
+  lastRaiseSize: number
+  lastAction: { playerId: string; action: string; amount: number } | null
+  /** Résultat de la dernière main : gagnants (plusieurs si partage) et mains montrées. */
+  winners: PokerWinner[]
+  revealed: Record<string, { cards: PokerCard[]; handDescription: string }>
+  gameWinner: string | null
 }
 
-/**
- * Check if betting round is complete.
- * A betting round is complete when:
- * - All active players have acted
- * - All active players have the same bet (or are all-in)
- */
-function isBettingRoundComplete(state: PokerRoundState, memberIds: string[]): boolean {
-  const active = getActivePlayers(state, memberIds)
-  if (active.length <= 1) return true
-
-  // All active players must have acted
-  const allActed = active.every((id) => state.playersActed.includes(id))
-  if (!allActed) return false
-
-  // All active players must have the same bet
-  const bets = active.map((id) => state.currentBets[id] ?? 0)
-  const maxBet = Math.max(...bets, 0)
-  return bets.every((b) => b === maxBet)
+function getState(session: PartySession): PokerState | null {
+  return (session.roundData as PokerState | null) ?? null
 }
 
-/**
- * Find the next player to act.
- */
-function findNextPlayer(state: PokerRoundState, memberIds: string[], afterPlayerId: string | null): string | null {
-  const active = getActivePlayers(state, memberIds)
-  if (active.length === 0) return null
-
-  if (afterPlayerId === null) {
-    return active[0]
+function clone(s: PokerState): PokerState {
+  return {
+    ...s,
+    chips: { ...s.chips },
+    assisted: { ...s.assisted },
+    modeChosen: [...s.modeChosen],
+    deck: [...s.deck],
+    hands: { ...s.hands },
+    board: [...s.board],
+    inHand: [...s.inHand],
+    folded: [...s.folded],
+    allIn: [...s.allIn],
+    streetBets: { ...s.streetBets },
+    committed: { ...s.committed },
+    acted: [...s.acted],
+    winners: [...s.winners],
+    revealed: { ...s.revealed },
   }
+}
 
-  const idx = memberIds.indexOf(afterPlayerId)
-  if (idx === -1) return active[0]
-
-  // Search forward from the next position
-  for (let i = 1; i <= memberIds.length; i++) {
-    const nextId = memberIds[(idx + i) % memberIds.length]
-    if (active.includes(nextId)) {
-      return nextId
-    }
+/** Joueur suivant dans l'ordre de table, parmi `pool`, strictement après `fromId`. */
+function nextIn(seats: string[], pool: string[], fromId: string | null): string | null {
+  if (pool.length === 0) return null
+  const start = fromId ? seats.indexOf(fromId) : -1
+  for (let i = 1; i <= seats.length; i++) {
+    const id = seats[(start + i + seats.length) % seats.length]
+    if (pool.includes(id)) return id
   }
   return null
 }
 
-/**
- * Move to the next betting round or showdown.
- */
-function advanceBettingRound(state: PokerRoundState, memberIds: string[]): PokerRoundState {
-  // Reset bets for the new round
-  const newCurrentBets: Record<string, number> = {}
-  for (const id of memberIds) {
-    newCurrentBets[id] = 0
-  }
+const live = (s: PokerState) => s.inHand.filter((id) => !s.folded.includes(id))
+const canAct = (s: PokerState) => live(s).filter((id) => !s.allIn.includes(id))
+const maxBet = (s: PokerState) => Math.max(0, ...s.inHand.map((id) => s.streetBets[id] ?? 0))
+const potTotal = (s: PokerState) => s.inHand.reduce((a, id) => a + (s.committed[id] ?? 0), 0)
 
-  // Collect bets into pot
-  let newPot = state.pot
-  for (const id of memberIds) {
-    newPot += state.currentBets[id] ?? 0
-  }
+/** Met des jetons au milieu (plafonné au tapis). Mutation de la copie de travail. */
+function putIn(s: PokerState, id: string, amount: number): number {
+  const paid = Math.max(0, Math.min(amount, s.chips[id]))
+  s.chips[id] -= paid
+  s.streetBets[id] = (s.streetBets[id] ?? 0) + paid
+  s.committed[id] = (s.committed[id] ?? 0) + paid
+  if (s.chips[id] === 0 && !s.allIn.includes(id)) s.allIn.push(id)
+  return paid
+}
 
+function isStreetComplete(s: PokerState): boolean {
+  const actors = canAct(s)
+  const top = maxBet(s)
+  if (actors.length === 0) return true
+  // Un seul joueur peut encore miser et il a couvert : il n'a plus personne contre qui parier.
+  if (actors.length === 1 && (s.streetBets[actors[0]] ?? 0) >= top) return true
+  return actors.every((id) => s.acted.includes(id) && (s.streetBets[id] ?? 0) === top)
+}
 
-  const active = getActivePlayers(state, memberIds)
-
-  // If only 1 or 0 active players, go to showdown
-  if (active.length <= 1) {
-    return {
-      ...state,
-      pot: newPot,
-      currentBets: newCurrentBets,
-      playersActed: [],
-      phase: 'showdown',
-    }
-  }
-
-  // Determine next betting round
-  const roundOrder: BettingRound[] = ['preflop', 'flop', 'turn', 'river']
-  const currentIdx = roundOrder.indexOf(state.bettingRound)
-
-  if (currentIdx >= roundOrder.length - 1) {
-    // After river → showdown
-    return {
-      ...state,
-      pot: newPot,
-      currentBets: newCurrentBets,
-      playersActed: [],
-      phase: 'showdown',
-    }
-  }
-
-  const nextRound = roundOrder[currentIdx + 1]
-
-  // Deal community cards
-  let newCommunity = [...state.communityCards]
-  let deck = [...state.deck]
-
-  if (nextRound === 'flop' && newCommunity.length < 3) {
-    // Burn 1, deal 3
-    deck.shift()
-    newCommunity = [...newCommunity, deck[0], deck[1], deck[2]]
-    deck = deck.slice(3)
-  } else if (nextRound === 'turn' && newCommunity.length < 4) {
-    deck.shift()
-    newCommunity = [...newCommunity, deck[0]]
-    deck = deck.slice(1)
-  } else if (nextRound === 'river' && newCommunity.length < 5) {
-    deck.shift()
-    newCommunity = [...newCommunity, deck[0]]
-    deck = deck.slice(1)
-  }
-
-  // Set first player to act (first active after dealer)
-  const firstPlayer = findNextPlayer(state, memberIds, memberIds[state.dealerPosition])
-
-  return {
-    ...state,
-    deck,
-    communityCards: newCommunity,
-    pot: newPot,
-    currentBets: newCurrentBets,
-    bettingRound: nextRound,
-    playersActed: [],
-    currentPlayer: firstPlayer,
-    lastRaiseAmount: state.bigBlind,
+function dealBoardTo(s: PokerState, target: number): void {
+  while (s.board.length < target) {
+    // Une carte brûlée avant le flop, la turn et la river.
+    if (s.board.length === 0 || s.board.length === 3 || s.board.length === 4) s.deck.shift()
+    const n = s.board.length === 0 ? 3 : 1
+    s.board.push(...s.deck.splice(0, n))
   }
 }
 
 /**
- * Resolve the showdown — determine winner and distribute pot.
+ * Pots secondaires. Chaque palier d'engagement forme un pot auquel ne peuvent prétendre que ceux
+ * qui l'ont couvert ; les couchés y ont contribué mais n'y prétendent pas. Partage à égalité, le
+ * jeton indivisible va au premier gagnant après le donneur (règle de salle).
  */
-function resolveShowdown(state: PokerRoundState, memberIds: string[]): PokerRoundState {
-  const nonFolded = getNonFoldedPlayers(state, memberIds)
-
-  if (nonFolded.length === 0) {
-    return { ...state, phase: 'ended', winner: null, winningHand: null }
-  }
-
-  // If only one player left, they win without showdown
-  if (nonFolded.length === 1) {
-    const winner = nonFolded[0]
-    const newChips = { ...state.chips }
-    newChips[winner] = (newChips[winner] ?? 0) + state.pot
-    return {
-      ...state,
-      phase: 'ended',
-      winner,
-      winningHand: 'Gagne par abandon',
-      chips: newChips,
+function settlePots(s: PokerState): PokerWinner[] {
+  const contenders = live(s)
+  const evals = new Map(contenders.map((id) => [id, evaluateHand([...s.hands[id], ...s.board])]))
+  const levels = [...new Set(s.inHand.map((id) => s.committed[id] ?? 0).filter((v) => v > 0))].sort((a, b) => a - b)
+  const won: Record<string, { amount: number; hand: string }> = {}
+  let prev = 0
+  for (const level of levels) {
+    const slice = s.inHand.reduce((a, id) => a + Math.max(0, Math.min(s.committed[id] ?? 0, level) - prev), 0)
+    prev = level
+    if (slice === 0) continue
+    const eligible = contenders.filter((id) => (s.committed[id] ?? 0) >= level)
+    // Personne n'a couvert ce palier (le plus gros tapis était couché) : il revient au(x)
+    // joueur(s) encore en lice qui ont misé le plus.
+    const pool = eligible.length > 0 ? eligible : contenders
+    let best: string[] = []
+    for (const id of pool) {
+      if (best.length === 0) { best = [id]; continue }
+      const cmp = compareHands(evals.get(id)!, evals.get(best[0])!)
+      if (cmp > 0) best = [id]
+      else if (cmp === 0) best.push(id)
+    }
+    const ordered = s.seats.filter((id) => best.includes(id))
+    const firstAfterDealer = nextIn(s.seats, ordered, s.dealer) ?? ordered[0]
+    const share = Math.floor(slice / best.length)
+    let odd = slice - share * best.length
+    for (const id of ordered) {
+      const extra = id === firstAfterDealer && odd > 0 ? odd : 0
+      odd -= extra
+      s.chips[id] += share + extra
+      won[id] = { amount: (won[id]?.amount ?? 0) + share + extra, hand: evals.get(id)!.name }
     }
   }
-
-  // Evaluate all non-folded players' hands
-    let winner: string | null = null
-  let winnerEval: HandEval | null = null
-
-  const evaluations: { playerId: string; eval: HandEval }[] = []
-  for (const playerId of nonFolded) {
-    const hand = state.hands[playerId] ?? []
-    const allCards = [...hand, ...state.communityCards]
-    const evalResult = evaluateHand(allCards)
-    evaluations.push({ playerId, eval: evalResult })
-  }
-
-  // Find the best hand
-  evaluations.sort((a, b) => compareHands(b.eval, a.eval))
-  winner = evaluations[0].playerId
-  winnerEval = evaluations[0].eval
-
-  // Distribute pot to winner
-  const newChips = { ...state.chips }
-  newChips[winner] = (newChips[winner] ?? 0) + state.pot
-
-  return {
-    ...state,
-    phase: 'ended',
-    winner,
-    winningHand: winnerEval.name,
-    chips: newChips,
-  }
+  return Object.entries(won).map(([memberId, w]) => ({ memberId, amount: w.amount, handDescription: w.hand }))
 }
 
-/**
- * Build the client state for a specific player.
- */
-function buildClientState(
-  state: PokerRoundState,
-  group: Group,
-  memberId: string,
-): PokerClientState {
-  const memberIds = group.members.map((m) => m.id)
-  const yourCards = state.hands[memberId] ?? []
-  const yourBet = state.currentBets[memberId] ?? 0
-  const yourChips = state.chips[memberId] ?? 0
-  const assisted = state.assistedMode[memberId] ?? false
-
-  // Current bet to call = max bet in the round
-  const allBets = memberIds.map((id) => state.currentBets[id] ?? 0)
-  const maxBet = Math.max(...allBets, 0)
-  const toCall = Math.max(0, maxBet - yourBet)
-  const canCheck = toCall === 0
-
-  // Current player info
-  let currentPlayer: PokerClientState['currentPlayer'] = null
-  if (state.currentPlayer) {
-    const m = group.members.find((mem) => mem.id === state.currentPlayer)
-    if (m) {
-      currentPlayer = { memberId: m.id, pseudo: m.pseudo, color: m.color }
-    }
+/** Fin de main : paiement, cartes montrées, et éventuellement fin de partie. */
+function finishHand(s: PokerState): XpAward[] {
+  const remaining = live(s)
+  if (remaining.length === 1) {
+    // Tout le monde s'est couché : le dernier ramasse sans montrer ses cartes.
+    const winner = remaining[0]
+    const amount = potTotal(s)
+    s.chips[winner] += amount
+    s.winners = [{ memberId: winner, amount, handDescription: 'Les autres se sont couchés' }]
+    s.revealed = {}
+  } else {
+    dealBoardTo(s, 5)
+    s.winners = settlePots(s)
+    s.revealed = Object.fromEntries(
+      remaining.map((id) => [id, { cards: s.hands[id], handDescription: evaluateHand([...s.hands[id], ...s.board]).name }]),
+    )
   }
+  s.phase = 'ended'
+  s.toAct = null
+  s.committed = {}
+  s.streetBets = {}
 
-  // Winner info
-  let winner: PokerClientState['winner'] = null
-  if (state.winner) {
-    winner = { memberId: state.winner, handDescription: state.winningHand ?? '' }
+  const xp: XpAward[] = s.winners.map((w) => ({
+    memberId: w.memberId,
+    amount: WIN_HAND_XP,
+    statIncrements: { 'poker.handsWon': 1 },
+    reason: `A remporté ${w.amount} jetons`,
+  }))
+  const stillIn = s.seats.filter((id) => s.chips[id] > 0)
+  if (stillIn.length === 1) {
+    s.gameWinner = stillIn[0]
+    xp.push({ memberId: stillIn[0], amount: WIN_GAME_XP, statIncrements: { 'poker.wins': 1 }, reason: 'A raflé tous les jetons' })
   }
-
-  // Last action info
-  let lastAction: PokerClientState['lastAction'] = null
-  if (state.lastAction) {
-    const m = group.members.find((mem) => mem.id === state.lastAction?.playerId)
-    lastAction = {
-      playerId: state.lastAction?.playerId,
-      playerName: m?.pseudo ?? '?',
-      action: state.lastAction?.action,
-      amount: state.lastAction?.amount,
-    }
-  }
-
-  // Hand counts (chips per player)
-  const handCounts: Record<string, number> = {}
-  for (const id of memberIds) {
-    handCounts[id] = state.chips[id] ?? 0
-  }
-
-  const isYourTurn = state.currentPlayer === memberId && !state.foldedPlayers.includes(memberId) && !state.allInPlayers.includes(memberId)
-  const minRaise = state.lastRaiseAmount + maxBet
-
-  // Assisted mode data
-  let handStrength: HandStrength | null = null
-  let suggestion: ActionSuggestion | null = null
-  let potOdds: PotOdds | null = null
-  let outs: PokerOuts | null = null
-
-  if (assisted && yourCards.length === 2 && state.phase !== 'ended') {
-    handStrength = computeHandStrength(yourCards, state.communityCards)
-    suggestion = computeSuggestion(yourCards, state.communityCards, toCall, yourChips, state.pot)
-    potOdds = computePotOdds(toCall, state.pot)
-    outs = computeOuts(yourCards, state.communityCards)
-  }
-
-  return {
-    yourCards,
-    communityCards: state.communityCards,
-    pot: state.pot,
-    currentBet: maxBet,
-    yourChips,
-    yourBet,
-    currentPlayer,
-    phase: state.phase,
-    bettingRound: state.bettingRound,
-    foldedPlayers: state.foldedPlayers,
-    handCounts,
-    winner,
-    assistedMode: assisted,
-    handStrength,
-    suggestion,
-    potOdds,
-    outs,
-    isYourTurn,
-    canCheck,
-    minRaise,
-    lastAction,
-    modesChosen: state.modesChosen,
-    playersWhoChoseMode: state.playersWhoChoseMode,
-  }
+  return xp
 }
 
-/**
- * Start a new hand: shuffle deck, deal cards, post blinds.
- */
-function startNewHand(state: PokerRoundState, group: Group): PokerRoundState {
-  const memberIds = group.members.map((m) => m.id)
-  const config: PokerConfig = {
-    startingChips: state.startingChips,
-    smallBlind: state.smallBlind,
-    bigBlind: state.bigBlind,
+/** Tour d'enchères terminé : carte(s) suivante(s), ou abattage. */
+function advanceStreet(s: PokerState): XpAward[] {
+  s.streetBets = {}
+  s.acted = []
+  s.lastRaiseSize = s.bigBlind
+  if (s.street === 'river' || canAct(s).length <= 1) {
+    // Plus d'enchères possibles (river passée, ou tout le monde à tapis sauf un au plus) : on
+    // retourne tout le tableau et on abat les cartes.
+    return finishHand(s)
   }
+  const order: Street[] = ['preflop', 'flop', 'turn', 'river']
+  s.street = order[order.indexOf(s.street) + 1]
+  dealBoardTo(s, s.street === 'flop' ? 3 : s.street === 'turn' ? 4 : 5)
+  s.toAct = nextIn(s.seats, canAct(s), s.dealer)
+  return []
+}
 
+/** Après chaque action : main gagnée par abandon, tour terminé, ou joueur suivant. */
+function afterAction(s: PokerState, actorId: string): XpAward[] {
+  if (live(s).length === 1) return finishHand(s)
+  if (isStreetComplete(s)) return advanceStreet(s)
+  s.toAct = nextIn(s.seats, canAct(s), actorId)
+  return []
+}
+
+function startHand(s: PokerState): { ended: boolean; xp: XpAward[] } {
+  const players = s.seats.filter((id) => s.chips[id] > 0)
+  if (players.length < 2) {
+    s.phase = 'ended'
+    s.gameWinner = players[0] ?? s.gameWinner
+    return { ended: true, xp: [] }
+  }
   const deck = shuffle(createDeck())
-  const hands: Record<string, PokerCard[]> = {}
-  const chips = { ...state.chips }
+  s.inHand = players
+  s.hands = Object.fromEntries(players.map((id) => [id, [deck.shift()!, deck.shift()!]]))
+  s.deck = deck
+  s.board = []
+  s.folded = []
+  s.allIn = []
+  s.streetBets = {}
+  s.committed = {}
+  s.acted = []
+  s.street = 'preflop'
+  s.winners = []
+  s.revealed = {}
+  s.lastAction = null
+  s.lastRaiseSize = s.bigBlind
+  s.handNumber += 1
+  s.dealer = nextIn(s.seats, players, s.dealer)
 
-  // Ensure all players have chips
-  for (const id of memberIds) {
-    if (chips[id] === undefined || chips[id] <= 0) {
-      chips[id] = config.startingChips ?? DEFAULT_STARTING_CHIPS
-    }
-  }
-
-  // Deal 2 cards to each player
-  for (const id of memberIds) {
-    hands[id] = [deck.shift()!, deck.shift()!]
-  }
-
-  // Post blinds — dealer position rotates
-  const dealerPos = state.handNumber === 0 ? 0 : (state.dealerPosition + 1) % memberIds.length
-  const sbPos = (dealerPos + 1) % memberIds.length
-  const bbPos = (dealerPos + 2) % memberIds.length
-  const sbId = memberIds[sbPos]
-  const bbId = memberIds[bbPos]
-
-  const currentBets: Record<string, number> = {}
-  const totalBets: Record<string, number> = {}
-  for (const id of memberIds) {
-    currentBets[id] = 0
-    totalBets[id] = 0
-  }
-
-  // Small blind
-  const sbAmount = Math.min(config.smallBlind ?? DEFAULT_SMALL_BLIND, chips[sbId])
-  currentBets[sbId] = sbAmount
-  totalBets[sbId] = sbAmount
-  chips[sbId] -= sbAmount
-
-  // Big blind
-  const bbAmount = Math.min(config.bigBlind ?? DEFAULT_BIG_BLIND, chips[bbId])
-  currentBets[bbId] = bbAmount
-  totalBets[bbId] = bbAmount
-  chips[bbId] -= bbAmount
-
-  // First to act pre-flop is left of big blind (UTG)
-  const utgPos = (bbPos + 1) % memberIds.length
-  const firstToAct = memberIds[utgPos]
-
-  return {
-    ...state,
-    deck,
-    hands,
-    chips,
-    communityCards: [],
-    pot: 0,
-    currentBets,
-    totalBets,
-    dealerPosition: dealerPos,
-    currentPlayer: firstToAct,
-    phase: 'betting',
-    bettingRound: 'preflop',
-    foldedPlayers: [],
-    allInPlayers: [],
-    winner: null,
-    winningHand: null,
-    lastAction: null,
-    playersActed: [],
-    lastRaiseAmount: config.bigBlind ?? DEFAULT_BIG_BLIND,
-    handNumber: state.handNumber + 1,
-  }
+  // Tête-à-tête : le donneur est petite blinde et parle en premier avant le flop.
+  const sb = players.length === 2 ? s.dealer! : nextIn(s.seats, players, s.dealer)!
+  const bb = nextIn(s.seats, players, sb)!
+  putIn(s, sb, s.smallBlind)
+  putIn(s, bb, s.bigBlind)
+  s.phase = 'betting'
+  s.toAct = nextIn(s.seats, canAct(s), bb)
+  // Blindes qui mettent tout le monde à tapis : rien à jouer, on retourne le tableau.
+  const xp = !s.toAct || isStreetComplete(s) ? advanceStreet(s) : []
+  return { ended: false, xp }
 }
 
-// ---------------------------------------------------------------------------
-// GameModule implementation
-// ---------------------------------------------------------------------------
+function applyBet(s: PokerState, memberId: string, type: string, payload: unknown): { ok: boolean; xp: XpAward[] } {
+  const mine = s.streetBets[memberId] ?? 0
+  const top = maxBet(s)
+  const toCall = top - mine
+
+  if (type === 'check') {
+    if (toCall > 0) return { ok: false, xp: [] }
+    s.lastAction = { playerId: memberId, action: 'check', amount: 0 }
+  } else if (type === 'call') {
+    if (toCall <= 0) return { ok: false, xp: [] }
+    const paid = putIn(s, memberId, toCall)
+    s.lastAction = { playerId: memberId, action: s.allIn.includes(memberId) ? 'all-in' : 'call', amount: paid }
+  } else if (type === 'fold') {
+    s.folded.push(memberId)
+    s.lastAction = { playerId: memberId, action: 'fold', amount: 0 }
+  } else if (type === 'raise' || type === 'all-in') {
+    const target = type === 'all-in' ? mine + s.chips[memberId] : Number((payload as { amount?: number } | null)?.amount)
+    if (!Number.isFinite(target) || target <= top) return { ok: false, xp: [] }
+    const isAllIn = target >= mine + s.chips[memberId]
+    // Une relance doit être au moins égale à la précédente ; seul un tapis peut faire moins.
+    if (!isAllIn && target < top + s.lastRaiseSize) return { ok: false, xp: [] }
+    const paid = putIn(s, memberId, target - mine)
+    const raisedBy = mine + paid - top
+    // Toute hausse oblige les autres à reparler. Un tapis inférieur à une relance complète ne
+    // devrait, en tournoi, pas rouvrir le droit de relancer ; on le rouvre quand même (règle de
+    // salon, plus lisible au téléphone) mais sans augmenter la relance minimale.
+    if (raisedBy >= s.lastRaiseSize) s.lastRaiseSize = raisedBy
+    s.acted = []
+    s.lastAction = { playerId: memberId, action: s.allIn.includes(memberId) ? 'all-in' : 'raise', amount: mine + paid }
+  } else {
+    return { ok: false, xp: [] }
+  }
+  if (!s.acted.includes(memberId)) s.acted.push(memberId)
+  const xp: XpAward[] =
+    type === 'fold' ? [{ memberId, amount: 1, statIncrements: { 'poker.folds': 1 }, reason: 'S’est couché' }] : []
+  return { ok: true, xp: [...xp, ...afterAction(s, memberId)] }
+}
+
+function withState(session: PartySession, s: PokerState, extra: Partial<PartySession> = {}): PartySession {
+  return { ...session, ...extra, roundData: s }
+}
+
+function sessionPhase(s: PokerState): string {
+  if (s.phase === 'mode-selection') {
+    return s.modeChosen.length >= s.seats.length ? 'mode-selection-ready' : 'mode-selection'
+  }
+  return s.phase === 'betting' ? 'betting' : 'showdown'
+}
+
+/** Démarre une main et renvoie la session correspondante (ou la fin de partie). */
+function dealNext(session: PartySession, state: PokerState): { session: PartySession; xpAwards?: XpAward[] } {
+  const s = clone(state)
+  const { ended, xp } = startHand(s)
+  if (ended) return { session: withState(session, s, { status: 'ended', phase: 'ended' }) }
+  // `startHand` a pu retourner tout le tableau (blindes à tapis) : la main peut être déjà finie.
+  const over = !!s.gameWinner
+  return {
+    session: withState(session, s, { status: over ? 'ended' : 'playing', phase: over ? 'ended' : sessionPhase(s), round: s.handNumber }),
+    xpAwards: xp,
+  }
+}
 
 export const poker: GameModule = {
   id: 'poker',
@@ -961,349 +846,164 @@ export const poker: GameModule = {
   icon: '🃏',
   minPlayers: 2,
 
-  initRound(group, session, config) {
+  initRound(_group, session, config) {
     const state = getState(session)
-    const isFirstRound = session.round === 0
-    const cfg = config as PokerConfig | undefined
-
-    // First round: initialize chips and wait for mode selection
-    if (isFirstRound && state.handNumber === 0) {
-      const memberIds = group.members.map((m) => m.id)
-      const chips: Record<string, number> = {}
-      for (const id of memberIds) {
-        chips[id] = cfg?.startingChips ?? DEFAULT_STARTING_CHIPS
-      }
-
-      const initState: PokerRoundState = {
-        ...state,
-        chips,
-        startingChips: cfg?.startingChips ?? DEFAULT_STARTING_CHIPS,
-        smallBlind: cfg?.smallBlind ?? DEFAULT_SMALL_BLIND,
-        bigBlind: cfg?.bigBlind ?? DEFAULT_BIG_BLIND,
-        phase: 'dealing',
-        modesChosen: false,
-        playersWhoChoseMode: [],
+    if (session.round === 0 || !state) {
+      const cfg = (config ?? {}) as PokerConfig
+      const startingChips = Math.max(100, Math.floor(cfg.startingChips ?? DEFAULT_STARTING_CHIPS))
+      const bigBlind = Math.max(2, Math.floor(cfg.bigBlind ?? DEFAULT_BIG_BLIND))
+      const s: PokerState = {
+        phase: 'mode-selection',
+        seats: [...session.participantIds],
+        chips: Object.fromEntries(session.participantIds.map((id) => [id, startingChips])),
+        startingChips,
+        smallBlind: Math.max(1, Math.floor(cfg.smallBlind ?? Math.min(DEFAULT_SMALL_BLIND, bigBlind / 2))),
+        bigBlind,
+        assisted: {},
+        modeChosen: [],
         handNumber: 0,
+        dealer: null,
+        deck: [],
+        hands: {},
+        board: [],
+        street: 'preflop',
+        inHand: [],
+        folded: [],
+        allIn: [],
+        streetBets: {},
+        committed: {},
+        toAct: null,
+        acted: [],
+        lastRaiseSize: bigBlind,
+        lastAction: null,
+        winners: [],
+        revealed: {},
+        gameWinner: null,
       }
-
-      return {
-        session: {
-          ...session,
-          status: 'playing',
-          phase: 'mode-selection',
-          round: 1,
-          roundData: initState,
-        },
-      }
+      return { session: withState(session, s, { status: 'playing', phase: sessionPhase(s), round: 1 }) }
     }
-
-    // Check if game should end (only 1 player with chips)
-    const memberIds = group.members.map((m) => m.id)
-    const playersWithChips = memberIds.filter((id) => (state.chips[id] ?? 0) > 0)
-    if (playersWithChips.length <= 1 && state.handNumber > 0) {
-      return {
-        session: { ...session, status: 'ended', phase: 'ended', roundData: state },
-      }
+    // Appel de l'hôte après une main : on distribue la suivante (ou on constate la fin).
+    if (state.phase === 'ended') {
+      if (state.gameWinner) return { session: { ...session, status: 'ended', phase: 'ended' } }
+      return dealNext(session, state)
     }
-
-    // Start a new hand
-    const newState = startNewHand(state, group)
-    return {
-      session: {
-        ...session,
-        status: 'playing',
-        phase: 'betting',
-        round: session.round + 1,
-        roundData: newState,
-      },
-    }
-  },
-
-  handleAction(group, session, memberId, action) {
-    const state = getState(session)
-    const memberIds = group.members.map((m) => m.id)
-    const act = action as { type: string; payload: unknown }
-
-    // Action: choose mode (assisted or normal)
-    if (act.type === 'choose-mode') {
-      if (state.playersWhoChoseMode.includes(memberId)) return { session }
-
-      const assisted = (act.payload as { assisted: boolean }).assisted
-      const newAssisted = { ...state.assistedMode, [memberId]: assisted }
-      const newPlayersWhoChose = [...state.playersWhoChoseMode, memberId]
-      const allChosen = newPlayersWhoChose.length >= memberIds.length
-
-      const nextState: PokerRoundState = {
-        ...state,
-        assistedMode: newAssisted,
-        playersWhoChoseMode: newPlayersWhoChose,
-        modesChosen: allChosen,
-      }
-
-      return {
-        session: { ...session, phase: allChosen ? 'mode-selection-ready' : 'mode-selection', roundData: nextState },
-      }
-    }
-
-    // Action: start (host starts the first hand after mode selection)
-    if (act.type === 'start') {
-      if (!state.modesChosen) return { session }
-
-      const newState = startNewHand(state, group)
-      return {
-        session: {
-          ...session,
-          status: 'playing',
-          phase: 'betting',
-          roundData: newState,
-        },
-      }
-    }
-
-    // Betting actions — only valid in betting phase
-    if (state.phase !== 'betting') return { session }
-    if (state.currentPlayer !== memberId) return { session }
-    if (state.foldedPlayers.includes(memberId) || state.allInPlayers.includes(memberId)) return { session }
-
-    const yourBet = state.currentBets[memberId] ?? 0
-    const allBets = memberIds.map((id) => state.currentBets[id] ?? 0)
-    const maxBet = Math.max(...allBets, 0)
-    const toCall = maxBet - yourBet
-    const yourChips = state.chips[memberId] ?? 0
-
-    // Action: check
-    if (act.type === 'check') {
-      if (toCall > 0) return { session } // can't check if there's a bet to call
-
-      const nextState: PokerRoundState = {
-        ...state,
-        playersActed: [...state.playersActed, memberId],
-        lastAction: { playerId: memberId, action: 'check', amount: 0 },
-      }
-
-      // Check if betting round is complete
-      if (isBettingRoundComplete(nextState, memberIds)) {
-        const afterAdvance = advanceBettingRound(nextState, memberIds)
-        return { session: { ...session, roundData: afterAdvance } }
-      }
-
-      // Next player
-      const nextPlayer = findNextPlayer(nextState, memberIds, memberId)
-      return { session: { ...session, roundData: { ...nextState, currentPlayer: nextPlayer } } }
-    }
-
-    // Action: call
-    if (act.type === 'call') {
-      const callAmount = Math.min(toCall, yourChips)
-      const newBet = yourBet + callAmount
-      const newChips = yourChips - callAmount
-
-      const newCurrentBets = { ...state.currentBets, [memberId]: newBet }
-      const newTotalBets = { ...state.totalBets, [memberId]: (state.totalBets[memberId] ?? 0) + callAmount }
-      const newChipsMap = { ...state.chips, [memberId]: newChips }
-
-      const allIn = newChips === 0
-      const newAllIn = allIn ? [...state.allInPlayers, memberId] : state.allInPlayers
-
-      const nextState: PokerRoundState = {
-        ...state,
-        currentBets: newCurrentBets,
-        totalBets: newTotalBets,
-        chips: newChipsMap,
-        allInPlayers: newAllIn,
-        playersActed: [...state.playersActed, memberId],
-        lastAction: { playerId: memberId, action: 'call', amount: callAmount },
-      }
-
-      if (isBettingRoundComplete(nextState, memberIds)) {
-        const afterAdvance = advanceBettingRound(nextState, memberIds)
-        return { session: { ...session, roundData: afterAdvance } }
-      }
-
-      const nextPlayer = findNextPlayer(nextState, memberIds, memberId)
-      return { session: { ...session, roundData: { ...nextState, currentPlayer: nextPlayer } } }
-    }
-
-    // Action: raise
-    if (act.type === 'raise') {
-      const payload = act.payload as { amount: number }
-      const raiseTo = payload.amount // total bet to raise to
-      const raiseDelta = raiseTo - yourBet
-      const minRaiseTo = maxBet + state.lastRaiseAmount
-
-      if (raiseDelta <= 0 || raiseTo < minRaiseTo) return { session }
-      if (raiseDelta > yourChips) return { session }
-
-      const newChips = yourChips - raiseDelta
-      const newCurrentBets = { ...state.currentBets, [memberId]: raiseTo }
-      const newTotalBets = { ...state.totalBets, [memberId]: (state.totalBets[memberId] ?? 0) + raiseDelta }
-      const newChipsMap = { ...state.chips, [memberId]: newChips }
-
-      const allIn = newChips === 0
-      const newAllIn = allIn ? [...state.allInPlayers, memberId] : state.allInPlayers
-
-      // When someone raises, other players need to act again
-      const _newPlayersActed = [memberId]
-
-      const nextState: PokerRoundState = {
-        ...state,
-        currentBets: newCurrentBets,
-        totalBets: newTotalBets,
-        chips: newChipsMap,
-        allInPlayers: newAllIn,
-        playersActed: _newPlayersActed,
-        lastRaiseAmount: raiseTo - maxBet,
-        lastAction: { playerId: memberId, action: 'raise', amount: raiseTo },
-      }
-
-      if (isBettingRoundComplete(nextState, memberIds)) {
-        const afterAdvance = advanceBettingRound(nextState, memberIds)
-        return { session: { ...session, roundData: afterAdvance } }
-      }
-
-      const nextPlayer = findNextPlayer(nextState, memberIds, memberId)
-      return { session: { ...session, roundData: { ...nextState, currentPlayer: nextPlayer } } }
-    }
-
-    // Action: fold
-    if (act.type === 'fold') {
-      const newFolded = [...state.foldedPlayers, memberId]
-      const nextState: PokerRoundState = {
-        ...state,
-        foldedPlayers: newFolded,
-        playersActed: [...state.playersActed, memberId],
-        lastAction: { playerId: memberId, action: 'fold', amount: 0 },
-      }
-
-      // Check if only one player remains
-      const nonFolded = getNonFoldedPlayers(nextState, memberIds)
-      if (nonFolded.length <= 1) {
-        const resolved = resolveShowdown(nextState, memberIds)
-        return {
-          session: { ...session, phase: 'showdown', roundData: resolved },
-          xpAwards: [
-            { memberId, amount: FOLD_XP, statIncrements: { 'poker.folds': 1 }, reason: 'S\'est couché' },
-          ],
-        }
-      }
-
-      if (isBettingRoundComplete(nextState, memberIds)) {
-        const afterAdvance = advanceBettingRound(nextState, memberIds)
-        return {
-          session: { ...session, roundData: afterAdvance },
-          xpAwards: [
-            { memberId, amount: FOLD_XP, statIncrements: { 'poker.folds': 1 }, reason: 'S\'est couché' },
-          ],
-        }
-      }
-
-      const nextPlayer = findNextPlayer(nextState, memberIds, memberId)
-      return {
-        session: { ...session, roundData: { ...nextState, currentPlayer: nextPlayer } },
-        xpAwards: [
-          { memberId, amount: FOLD_XP, statIncrements: { 'poker.folds': 1 }, reason: 'S\'est couché' },
-        ],
-      }
-    }
-
-    // Action: all-in
-    if (act.type === 'all-in') {
-      const allInAmount = yourChips
-      if (allInAmount <= 0) return { session }
-
-      const newBet = yourBet + allInAmount
-      const newCurrentBets = { ...state.currentBets, [memberId]: newBet }
-      const newTotalBets = { ...state.totalBets, [memberId]: (state.totalBets[memberId] ?? 0) + allInAmount }
-      const newChipsMap = { ...state.chips, [memberId]: 0 }
-      const newAllIn = [...state.allInPlayers, memberId]
-
-      // If all-in is a raise, reset playersActed
-      let _newPlayersActed = [...state.playersActed, memberId]
-      if (newBet > maxBet) {
-        _newPlayersActed = [memberId]
-      }
-
-      const nextState: PokerRoundState = {
-        ...state,
-        currentBets: newCurrentBets,
-        totalBets: newTotalBets,
-        chips: newChipsMap,
-        allInPlayers: newAllIn,
-        playersActed: _newPlayersActed,
-        lastAction: { playerId: memberId, action: 'all-in', amount: allInAmount },
-      }
-
-      if (newBet > maxBet) {
-        nextState.lastRaiseAmount = newBet - maxBet
-      }
-
-      if (isBettingRoundComplete(nextState, memberIds)) {
-        const afterAdvance = advanceBettingRound(nextState, memberIds)
-        return { session: { ...session, roundData: afterAdvance } }
-      }
-
-      const nextPlayer = findNextPlayer(nextState, memberIds, memberId)
-      return { session: { ...session, roundData: { ...nextState, currentPlayer: nextPlayer } } }
-    }
-
     return { session }
   },
 
-  isRoundComplete(_group, session) {
+  handleAction(_group, session, memberId, action) {
     const state = getState(session)
-    return state.phase === 'ended' || state.phase === 'showdown'
+    if (!state || !state.seats.includes(memberId)) return { session }
+
+    // Le mode (assisté ou non) se choisit au départ, et peut se changer à tout moment.
+    if (action.type === 'choose-mode') {
+      const s = clone(state)
+      s.assisted[memberId] = !!(action.payload as { assisted?: boolean } | null)?.assisted
+      if (!s.modeChosen.includes(memberId)) s.modeChosen.push(memberId)
+      return { session: withState(session, s, s.phase === 'mode-selection' ? { phase: sessionPhase(s) } : {}) }
+    }
+
+    if (action.type === 'start') {
+      // Réservé à l'hôte ; ceux qui n'ont pas choisi jouent en mode normal.
+      if (state.phase !== 'mode-selection' || memberId !== session.hostMemberId) return { session }
+      return dealNext(session, state)
+    }
+
+    if (state.phase !== 'betting' || state.toAct !== memberId) return { session }
+    const s = clone(state)
+    const { ok, xp } = applyBet(s, memberId, action.type, action.payload)
+    if (!ok) return { session }
+    return {
+      session: withState(session, s, { phase: sessionPhase(s), ...(s.gameWinner ? { status: 'ended' as const, phase: 'ended' } : {}) }),
+      xpAwards: xp,
+    }
+  },
+
+  // Les fins de main sont traitées au moment de l'action qui les déclenche : rien à résoudre
+  // « après coup ». (Avant, cette résolution tardive redistribuait l'XP à chaque action reçue.)
+  isRoundComplete() {
+    return false
   },
 
   isAwaitingInput(_group, session) {
-    const state = getState(session)
-    return state.phase === 'betting' || (session.phase === 'mode-selection' && !state.modesChosen)
+    const s = getState(session)
+    return s?.phase === 'mode-selection' || s?.phase === 'betting'
   },
 
-  resolveRound(group, session) {
+  /** Hôte : lancer malgré les indécis, ou faire jouer un joueur absent (parole si possible, sinon il se couche). */
+  resolveRound(_group, session) {
     const state = getState(session)
-    const memberIds = group.members.map((m) => m.id)
-
-    // If in showdown, resolve
-    if (state.phase === 'showdown') {
-      const resolved = resolveShowdown(state, memberIds)
-      const xpAwards: XpAward[] = []
-
-      if (resolved.winner) {
-        xpAwards.push({
-          memberId: resolved.winner,
-          amount: WIN_XP,
-          statIncrements: { 'poker.wins': 1 },
-          reason: `A gagné la main (${resolved.winningHand})`,
-        })
-      }
-
-      return {
-        session: { ...session, phase: 'showdown', roundData: resolved },
-        xpAwards,
-      }
+    if (!state) return { session }
+    if (state.phase === 'mode-selection') return dealNext(session, state)
+    if (state.phase !== 'betting' || !state.toAct) return { session }
+    const s = clone(state)
+    const who = s.toAct!
+    const canCheck = (s.streetBets[who] ?? 0) >= maxBet(s)
+    const { xp } = applyBet(s, who, canCheck ? 'check' : 'fold', null)
+    return {
+      session: withState(session, s, { phase: sessionPhase(s), ...(s.gameWinner ? { status: 'ended' as const, phase: 'ended' } : {}) }),
+      xpAwards: xp,
     }
+  },
 
-    // If ended, just return
-    if (state.phase === 'ended') {
-      const xpAwards: XpAward[] = []
-      if (state.winner) {
-        xpAwards.push({
-          memberId: state.winner,
-          amount: HAND_XP,
-          statIncrements: { 'poker.handsPlayed': 1 },
-          reason: 'Main jouée',
-        })
-      }
-      return { session: { ...session, roundData: state }, xpAwards }
+  viewFor(group, session, memberId) {
+    const s = getState(session)
+    if (!s) return null
+    const me = memberId && s.seats.includes(memberId) ? memberId : null
+    const dealtIn = !!me && s.inHand.includes(me)
+    const yourCards = dealtIn ? s.hands[me!] ?? [] : []
+    const top = s.phase === 'betting' ? maxBet(s) : 0
+    const yourBet = me ? s.streetBets[me] ?? 0 : 0
+    const yourChips = me ? s.chips[me] ?? 0 : 0
+    const toCall = Math.max(0, top - yourBet)
+    const assisted = !!me && !!s.assisted[me]
+    const member = (id: string | null) => group.members.find((m) => m.id === id)
+    const cur = member(s.toAct)
+    const isYourTurn = s.phase === 'betting' && !!me && s.toAct === me
+    const inPlay = s.phase === 'betting' && dealtIn && !s.folded.includes(me!)
+    const pot = s.phase === 'betting' ? potTotal(s) : s.winners.reduce((a, w) => a + w.amount, 0)
+    const last = s.lastAction
+    const top1 = s.winners[0]
+
+    return {
+      yourCards,
+      communityCards: s.board,
+      pot,
+      currentBet: top,
+      yourChips,
+      yourBet,
+      toCall: Math.min(toCall, yourChips),
+      currentPlayer: cur ? { memberId: cur.id, pseudo: cur.pseudo, color: cur.color } : null,
+      phase: s.phase === 'mode-selection' ? 'dealing' : s.phase,
+      bettingRound: s.street,
+      foldedPlayers: s.folded,
+      allInPlayers: s.allIn,
+      seats: s.seats,
+      busted: s.handNumber > 0 ? s.seats.filter((id) => s.chips[id] <= 0 && !s.inHand.includes(id)) : [],
+      sittingOut: !!me && s.handNumber > 0 && !dealtIn,
+      dealer: s.dealer,
+      handNumber: s.handNumber,
+      handCounts: Object.fromEntries(s.seats.map((id) => [id, s.chips[id] ?? 0])),
+      bets: s.phase === 'betting' ? Object.fromEntries(s.inHand.map((id) => [id, s.streetBets[id] ?? 0])) : {},
+      winner: top1 ? { memberId: top1.memberId, handDescription: top1.handDescription } : null,
+      winners: s.winners,
+      revealedHands: s.revealed,
+      gameWinner: s.gameWinner,
+      assistedMode: assisted,
+      handStrength: assisted && inPlay && yourCards.length === 2 ? computeHandStrength(yourCards, s.board) : null,
+      suggestion: assisted && isYourTurn ? computeSuggestion(yourCards, s.board, toCall, yourChips, potTotal(s)) : null,
+      potOdds: assisted && isYourTurn ? computePotOdds(toCall, potTotal(s)) : null,
+      outs: assisted && inPlay && s.board.length >= 3 && s.board.length < 5 ? computeOuts(yourCards, s.board) : null,
+      isYourTurn,
+      canCheck: isYourTurn && toCall === 0,
+      // Relance minimale, plafonnée au tapis : au-delà, la seule relance possible est le tapis.
+      minRaise: Math.min(top + s.lastRaiseSize, yourBet + yourChips),
+      canRaise: isYourTurn && yourChips > toCall,
+      lastAction: last ? { playerId: last.playerId, playerName: member(last.playerId)?.pseudo ?? '?', action: last.action, amount: last.amount } : null,
+      modesChosen: s.modeChosen.length >= s.seats.length,
+      playersWhoChoseMode: s.modeChosen,
     }
-
-    return { session }
   },
 }
 
-// ---------------------------------------------------------------------------
-// Export helpers for testing / client use
-// ---------------------------------------------------------------------------
-
-export { buildClientState, computeHandStrength, computeOuts }
-export type { PokerRoundState, HandEval }
+export { computeHandStrength, computeOuts }
+export type { PokerState, HandEval }

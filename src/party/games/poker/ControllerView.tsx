@@ -33,7 +33,7 @@ export function PokerController() {
   const state = party.roundData as PokerClientState | null
 
   if (party.status === 'ended') {
-    return <FinalResults members={group.members} onExit={() => navigate('/lobby')} />
+    return <FinalResults state={state} members={group.members} onExit={() => navigate('/lobby')} />
   }
 
   if (!state) {
@@ -52,7 +52,9 @@ export function PokerController() {
         <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top justify-center">
           <div className="flex flex-col items-center gap-4 text-center">
             <span className="text-5xl">🃏</span>
-            <p className="text-chalk-soft text-sm">En attente des autres joueurs…</p>
+            <p className="text-chalk-soft text-sm">
+              {state.playersWhoChoseMode.length} / {group.members.length} ont choisi leur mode
+            </p>
             <div className="flex flex-wrap gap-2 justify-center mt-2">
               {group.members.map((m) => (
                 <div
@@ -68,6 +70,11 @@ export function PokerController() {
                 </div>
               ))}
             </div>
+            {isHost && (
+              <Button variant="secondary" onClick={() => hostAdvance()} className="mt-4">
+                Distribuer sans attendre
+              </Button>
+            )}
           </div>
         </div>
       )
@@ -101,53 +108,69 @@ export function PokerController() {
     )
   }
 
-  // Showdown / ended phase
-  if (state.phase === 'ended' && state.winner) {
-    const winnerMember = group.members.find((m) => m.id === state.winner?.memberId)
-    const isYou = state.winner.memberId === currentMember.id
+  // Fin de main : qui ramasse, avec quoi, et les mains montrées à l'abattage.
+  if (state.phase === 'ended' && state.winners.length > 0) {
+    const iWon = state.winners.find((w) => w.memberId === currentMember.id)
+    const revealed = Object.entries(state.revealedHands)
     return (
       <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
-        <div className="flex flex-col items-center gap-3 mb-6 mt-4">
-          <span className="text-5xl">{isYou ? '🏆' : '🃏'}</span>
-          <p className="text-xl font-bold text-center">
-            {isYou ? 'Tu gagnes la main !' : `${winnerMember?.pseudo} gagne la main`}
+        <div className="flex flex-col items-center gap-2 mb-5 mt-2 text-center">
+          <p className="kicker text-2xs">Main n° {state.handNumber}</p>
+          <p className="font-display text-2xl text-chalk">
+            {iWon ? `Tu ramasses ${iWon.amount}` : state.winners.length > 1 ? 'Pot partagé' : `${group.members.find((m) => m.id === state.winners[0].memberId)?.pseudo} ramasse`}
           </p>
-          <p className="text-chalk-soft text-sm text-center">{state.winner.handDescription}</p>
-          <p className="text-emerald-300 font-mono text-lg font-bold">+{state.pot} jetons</p>
+          {state.winners.map((w) => (
+            <p key={w.memberId} className="text-sm text-chalk-soft">
+              {group.members.find((m) => m.id === w.memberId)?.pseudo} · +{w.amount} · {w.handDescription}
+            </p>
+          ))}
         </div>
 
-        {/* Show winner's cards if you're the winner, or always in showdown */}
-        {isYou && state.yourCards.length > 0 && (
-          <div className="flex justify-center gap-2 mb-6">
-            {state.yourCards.map((card) => (
-              <CardVisual key={card.id} card={card} />
-            ))}
+        {state.communityCards.length > 0 && <CommunityCards cards={state.communityCards} />}
+
+        {revealed.length > 0 && (
+          <div className="flex flex-col gap-2 mb-5">
+            <p className="kicker text-2xs">Abattage</p>
+            {revealed.map(([id, r]) => {
+              const m = group.members.find((x) => x.id === id)
+              return (
+                <div key={id} className="flex items-center gap-2.5 rounded-card bg-felt-raised border border-line p-2.5">
+                  <Avatar pseudo={m?.pseudo ?? '?'} color={m?.color ?? '#888'} size={28} photoUrl={m?.photoUrl} />
+                  <span className="flex-1 text-sm text-chalk">{m?.pseudo}</span>
+                  <div className="flex gap-1">
+                    {r.cards.map((c) => <CardVisual key={c.id} card={c} size="sm" />)}
+                  </div>
+                  <span className="text-2xs text-chalk-soft w-20 text-right">{r.handDescription}</span>
+                </div>
+              )
+            })}
           </div>
         )}
 
-        {/* Chip counts */}
         <div className="flex flex-col gap-2 mb-6">
-          <p className="text-xs uppercase tracking-widest text-chalk-faint mb-1">Jetons</p>
-          {group.members.map((m) => (
-            <div
-              key={m.id}
-              className={`flex items-center gap-2.5 rounded-card p-2.5 ${
-                state.winner?.memberId === m.id ? 'bg-emerald-500/10 border border-emerald-400/20' : 'bg-felt-raised'
-              }`}
-            >
-              <Avatar pseudo={m.pseudo} color={m.color} size={28} />
-              <span className="flex-1 text-sm font-medium">{m.pseudo}</span>
-              <span className="font-mono text-sm text-chalk-soft">{state.handCounts[m.id] ?? 0}</span>
-            </div>
-          ))}
+          <p className="kicker text-2xs mb-1">Tapis</p>
+          {state.seats.map((id) => {
+            const m = group.members.find((x) => x.id === id)
+            if (!m) return null
+            const chips = state.handCounts[id] ?? 0
+            return (
+              <div key={id} className="flex items-center gap-2.5 rounded-card bg-felt-raised p-2.5">
+                <Avatar pseudo={m.pseudo} color={m.color} size={28} photoUrl={m.photoUrl} />
+                <span className="flex-1 text-sm font-medium">{m.pseudo}</span>
+                <span className={`font-mono text-sm ${chips === 0 ? 'text-blood' : 'text-chalk-soft'}`}>
+                  {chips === 0 ? 'éliminé·e' : chips}
+                </span>
+              </div>
+            )
+          })}
         </div>
 
         {isHost ? (
           <Button fullWidth onClick={() => hostAdvance()}>
-            Main suivante →
+            Main suivante
           </Button>
         ) : (
-          <p className="text-center text-chalk-faint text-sm">L'hôte lance la main suivante…</p>
+          <p className="text-center text-chalk-soft text-sm">L'hôte distribue la main suivante</p>
         )}
       </div>
     )
@@ -237,8 +260,8 @@ function BettingView({
 
   const isYourTurn = state.isYourTurn
   const isFolded = state.foldedPlayers.includes(currentMember.id)
-  const isAllIn = state.yourChips === 0
-  const toCall = Math.max(0, state.currentBet - state.yourBet)
+  const isAllIn = state.allInPlayers.includes(currentMember.id)
+  const toCall = state.toCall
 
   // Initialize raise amount when raise panel opens
   useEffect(() => {
@@ -247,7 +270,21 @@ function BettingView({
     }
   }, [isYourTurn, showRaise, raiseAmount, state.minRaise])
 
-  // If folded or all-in, show waiting view
+  // Couché, à tapis ou éliminé : on suit la main sans rien avoir à faire.
+  if (state.sittingOut) {
+    return (
+      <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
+        <PhaseIndicator state={state} />
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
+          <p className="font-display text-xl text-chalk">Plus de jetons</p>
+          <p className="text-chalk-soft text-sm">Tu regardes la table jusqu'à la fin de la partie.</p>
+        </div>
+        <CommunityCards cards={state.communityCards} />
+        <PotDisplay pot={state.pot} />
+      </div>
+    )
+  }
+
   if (isFolded || isAllIn) {
     return (
       <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
@@ -257,9 +294,9 @@ function BettingView({
           <p className="text-chalk-soft text-sm text-center">
             {isFolded ? 'Tu es couché pour cette main.' : 'Tu es à tapis !'}
           </p>
-          <p className="text-chalk-faint text-xs text-center">
-            En attente des autres joueurs…
-          </p>
+          {state.currentPlayer && (
+            <p className="text-chalk-soft text-xs text-center">{state.currentPlayer.pseudo} a la parole</p>
+          )}
         </div>
         <CommunityCards cards={state.communityCards} />
         <PotDisplay pot={state.pot} />
@@ -384,12 +421,13 @@ function BettingView({
                   </Button>
                 ) : (
                   <Button className="flex-1" onClick={() => onAction('call', {})}>
-                    📞 {ACTION_LABELS.call} {toCall}
+                    {toCall >= state.yourChips ? `Suivre à tapis (${toCall})` : `${ACTION_LABELS.call} ${toCall}`}
                   </Button>
                 )}
                 <Button
                   className="flex-1"
                   variant="secondary"
+                  disabled={!state.canRaise}
                   onClick={() => {
                     setShowRaise(true)
                     setRaiseAmount(state.minRaise)
@@ -606,18 +644,26 @@ function GlossaryModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function FinalResults({ members, onExit }: { members: Member[]; onExit: () => void }) {
-  const ranked = [...members].sort((a, b) => b.xp - a.xp)
+function FinalResults({ state, members, onExit }: { state: PokerClientState | null; members: Member[]; onExit: () => void }) {
+  const counts = state?.handCounts ?? {}
+  const ranked = (state?.seats ?? members.map((m) => m.id))
+    .map((id) => ({ member: members.find((m) => m.id === id), chips: counts[id] ?? 0 }))
+    .filter((r): r is { member: Member; chips: number } => !!r.member)
+    .sort((a, b) => b.chips - a.chips)
+  const champion = state?.gameWinner ? members.find((m) => m.id === state.gameWinner) : null
   return (
     <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
-      <h2 className="text-2xl font-extrabold text-center mb-6">Partie terminée !</h2>
+      <p className="kicker text-2xs text-center mb-2">Partie terminée</p>
+      <h2 className="font-display text-2xl text-center text-chalk mb-6">
+        {champion ? `${champion.pseudo} rafle la table` : 'Fin de la partie'}
+      </h2>
       <div className="flex flex-col gap-3 mb-6">
-        {ranked.map((m, i) => (
+        {ranked.map(({ member: m, chips }, i) => (
           <div key={m.id} className="flex items-center gap-3 rounded-card bg-felt-raised p-3">
-            <span className="text-lg font-bold w-6 text-center">{i + 1}</span>
-            <Avatar pseudo={m.pseudo} color={m.color} size={36} />
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
+            <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-emerald-300 font-mono text-sm">{m.xp} XP</span>
+            <span className="font-mono text-sm text-chalk-soft">{chips} jetons</span>
           </div>
         ))}
       </div>

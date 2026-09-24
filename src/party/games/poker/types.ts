@@ -109,6 +109,30 @@ export interface PokerClientState {
   modesChosen: boolean
   /** Liste des joueurs qui ont déjà choisi leur mode */
   playersWhoChoseMode: string[]
+  /** Montant réellement à payer pour suivre (plafonné à ton tapis) */
+  toCall: number
+  /** Tu peux relancer (il te reste plus que le montant à suivre) */
+  canRaise: boolean
+  /** Joueurs à tapis dans la main en cours */
+  allInPlayers: string[]
+  /** Ordre de table */
+  seats: string[]
+  /** Joueurs éliminés (plus de jetons) */
+  busted: string[]
+  /** Tu n'es pas servi (éliminé, ou arrivé en cours de partie) */
+  sittingOut: boolean
+  /** Donneur de la main */
+  dealer: string | null
+  /** Numéro de la main */
+  handNumber: number
+  /** Mises du tour en cours, par joueur */
+  bets: Record<string, number>
+  /** Gagnants de la dernière main (plusieurs en cas de partage ou de pots secondaires) */
+  winners: { memberId: string; amount: number; handDescription: string }[]
+  /** Mains montrées à l'abattage */
+  revealedHands: Record<string, { cards: PokerCard[]; handDescription: string }>
+  /** Vainqueur de la partie (tous les jetons) */
+  gameWinner: string | null
 }
 
 /** Configuration optionnelle pour démarrer la partie */
