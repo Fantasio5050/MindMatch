@@ -39,32 +39,6 @@ export function IntrusController() {
 
   if (!group || !myId) return null
 
-  // Si un jeu est en cours et que je n'y suis pas (joueur arrivé tard), afficher l'écran d'attente.
-  if (group.party.status === 'playing' && !group.party.participantIds.includes(myId)) {
-    const playing = group.members.filter((m) => group.party.participantIds.includes(m.id))
-    return (
-      <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center safe-top">
-        <p className="kicker text-2xs mb-2">En cours</p>
-        <h1 className="font-display text-2xl text-chalk mb-2">L'Intrus</h1>
-        <p className="text-chalk-soft text-sm max-w-xs mb-7">
-          Tu entres à la prochaine manche, automatiquement. Rien à faire.
-        </p>
-        {playing.length > 0 && (
-          <>
-            <p className="kicker text-2xs mb-3">
-              {playing.length} joueur{playing.length > 1 ? 's' : ''} à table
-            </p>
-            <div className="flex flex-wrap gap-x-4 gap-y-3 justify-center mb-8 max-w-xs">
-              {playing.map((m) => (
-                <Avatar key={m.id} pseudo={m.pseudo} color={m.color} size={32} photoUrl={m.photoUrl} />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    )
-  }
-
   const state = group.party.roundData as IntrusClientState | null
   if (!state) {
     return (
