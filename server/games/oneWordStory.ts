@@ -1,8 +1,26 @@
-import type { Group, PartySession } from '../../src/types'
+import type { PartySession } from '../../src/types'
 import type { GameModule, XpAward } from './types'
 
+/**
+ * Histoire à un mot — chacun son tour, un mot, une histoire collective.
+ *
+ * Réécrit : la vue client lisait `myTurn`, `currentTurn`, `timeLeft` qu'aucun code ne produisait
+ * (personne ne pouvait écrire), le client envoyait `skip-word` que le serveur ignorait (un joueur
+ * absent bloquait tout), et les hooks de la vue étaient appelés après un retour anticipé.
+ *
+ * ## Un seul passage par tour
+ * Chaque téléphone affiche le chrono et demande « passer » quand il expire. À cinq joueurs, ce
+ * sont cinq demandes qui arrivent en rafale : sans garde, elles auraient sauté cinq tours d'un
+ * coup. Chaque demande porte donc le numéro du tour qu'elle vise, et n'est acceptée que si ce
+ * tour est toujours le tour courant ET que son temps est réellement écoulé (l'hôte, lui, peut
+ * passer à tout moment).
+ */
+
 const DEFAULT_TOTAL_WORDS = 30
-const TURN_TIME_MS = 15_000 // 15 secondes par tour
+const TURN_TIME_MS = 15_000
+/** Tolérance d'horloge : le chrono du téléphone peut finir un peu avant celui du serveur. */
+const CLOCK_SLACK_MS = 1_000
+const MAX_WORD_LENGTH = 30
 const WORD_XP = 1
 
 interface TurnInfo {
@@ -12,34 +30,19 @@ interface TurnInfo {
 }
 
 interface OneWordStoryState {
-  /** Ordre des joueurs (mélangé au début) */
+  phase: 'intro' | 'writing' | 'ended'
   order: string[]
-  /** Index du joueur dont c'est le tour dans `order` */
-  turnIndex: number
-  /** Mots accumulés dans l'histoire */
+  /** Compteur de tours, monotone : c'est l'identité d'un tour (passés compris). */
+  turnNumber: number
   story: string[]
-  /** Nombre total de mots visés (paramétrable) */
-  totalWords: number
-  /** Timestamp limite du tour actuel (server-side pour le timeout) */
-  turnDeadline: number
-  /** Historique des tours pour l'affichage */
   history: TurnInfo[]
-  /** Si la partie est finie (tous les mots posés) */
-  completed: boolean
+  totalWords: number
+  turnDeadline: number
+  skipped: number
 }
 
-function getState(session: PartySession): OneWordStoryState {
-  return (
-    (session.roundData as OneWordStoryState | null) ?? {
-      order: [],
-      turnIndex: 0,
-      story: [],
-      totalWords: DEFAULT_TOTAL_WORDS,
-      turnDeadline: 0,
-      history: [],
-      completed: false,
-    }
-  )
+function getState(session: PartySession): OneWordStoryState | null {
+  return session.roundData as OneWordStoryState | null
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -51,20 +54,21 @@ function shuffle<T>(items: T[]): T[] {
   return arr
 }
 
-function advanceTurn(state: OneWordStoryState): OneWordStoryState {
-  // Passe au joueur suivant
-  const nextTurnIndex = (state.turnIndex + 1) % state.order.length
-  const turnDeadline = Date.now() + TURN_TIME_MS
+const currentId = (s: OneWordStoryState) => s.order[s.turnNumber % s.order.length]
 
-  return {
-    ...state,
-    turnIndex: nextTurnIndex,
-    turnDeadline,
-  }
+function nextTurn(s: OneWordStoryState): OneWordStoryState {
+  return { ...s, turnNumber: s.turnNumber + 1, turnDeadline: Date.now() + TURN_TIME_MS }
 }
 
-function isGameComplete(state: OneWordStoryState): boolean {
-  return state.story.length >= state.totalWords
+/** Garde un seul mot, sans espaces, borné en longueur. La ponctuation collée est gardée (« fin. »). */
+function cleanWord(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const w = raw.trim().split(/\s+/)[0]?.slice(0, MAX_WORD_LENGTH)
+  return w ? w : null
+}
+
+function ended(session: PartySession, s: OneWordStoryState): PartySession {
+  return { ...session, status: 'ended', phase: 'ended', roundData: { ...s, phase: 'ended' } }
 }
 
 export const oneWordStory: GameModule = {
@@ -73,250 +77,100 @@ export const oneWordStory: GameModule = {
   icon: '📖',
   minPlayers: 3,
 
-  canStart(group: Group): string | null {
-    if (group.members.length < 3) {
-      return 'Il faut au moins 3 joueurs pour jouer à "Histoire à un mot".'
-    }
-    return null
-  },
-
-  initRound(_group, session, config): { session: PartySession; xpAward?: XpAward[] } {
+  initRound(_group, session, config) {
     const state = getState(session)
-    const isFirstRound = session.round === 0
-
-    // Configuration optionnelle (ex: nombre de mots personnalisé)
-    const cfg = config as { totalWords?: number } | undefined
-    const totalWords = isFirstRound && cfg?.totalWords ? Math.max(10, Math.min(100, cfg.totalWords)) : state.totalWords
-
-    if (!isFirstRound && session.phase === 'ended') {
-      // Partie déjà finie
-      return { session: { ...session, status: 'ended', phase: 'ended' } }
-    }
-
-    if (!isFirstRound && isGameComplete(state)) {
-      // L'histoire est complète, on termine
-      return { session: { ...session, status: 'ended', phase: 'ended', roundData: { ...state, completed: true } } }
-    }
-
-    if (isFirstRound) {
-      // Première initialisation : mélanger l'ordre des joueurs
-      const order = shuffle(session.participantIds)
-      const turnDeadline = Date.now() + TURN_TIME_MS
-
-      const newState: OneWordStoryState = {
-        order,
-        turnIndex: 0,
+    if (session.round === 0 || !state) {
+      const cfg = config as { totalWords?: number } | undefined
+      const totalWords = cfg?.totalWords ? Math.max(10, Math.min(100, Math.floor(cfg.totalWords))) : DEFAULT_TOTAL_WORDS
+      const s: OneWordStoryState = {
+        phase: 'intro',
+        order: shuffle(session.participantIds),
+        turnNumber: 0,
         story: [],
-        totalWords,
-        turnDeadline,
         history: [],
-        completed: false,
+        totalWords,
+        turnDeadline: 0,
+        skipped: 0,
       }
-
-      return {
-        session: {
-          ...session,
-          status: 'playing',
-          phase: 'writing',
-          round: 1,
-          roundData: newState,
-        },
-      }
+      return { session: { ...session, status: 'playing', phase: 'intro', round: 1, roundData: s } }
     }
-
-    // Tours suivants : avancer au joueur suivant si le tour précédent n'a pas fini la partie
-    if (session.phase === 'writing' || session.phase === 'turn') {
-      // Le joueur actuel a joué (ou timeout), on passe au suivant
-      const nextState = advanceTurn(state)
-      const nextRound = session.round + 1
-
-      // Vérifier si la partie est finie après ce tour
-      if (isGameComplete(nextState)) {
-        return {
-          session: {
-            ...session,
-            status: 'ended',
-            phase: 'ended',
-            round: nextRound,
-            roundData: { ...nextState, completed: true },
-          },
-        }
-      }
-
-      return {
-        session: {
-          ...session,
-          phase: 'writing',
-          round: nextRound,
-          roundData: nextState,
-        },
-      }
+    if (state.phase === 'intro') {
+      const s: OneWordStoryState = { ...state, phase: 'writing', turnDeadline: Date.now() + TURN_TIME_MS }
+      return { session: { ...session, phase: 'writing', roundData: s } }
     }
-
+    if (state.phase === 'ended') return { session: ended(session, state) }
     return { session }
   },
 
   handleAction(_group, session, memberId, action) {
     const state = getState(session)
+    if (!state || state.phase !== 'writing') return { session }
 
-    // Seule l'action 'submit-word' en phase 'writing' est gérée ici
-    if (session.phase !== 'writing' || action.type !== 'submit-word') {
-      return { session }
-    }
-
-    // Vérifier que c'est bien le tour de ce joueur
-    const currentPlayerId = state.order[state.turnIndex]
-    if (currentPlayerId !== memberId) {
-      return { session }
-    }
-
-    // Vérifier que le timer n'a pas expiré (côté serveur pour la sécurité)
-    if (Date.now() > state.turnDeadline) {
-      // Timeout : on passe au joueur suivant sans mot
-      const nextState = advanceTurn(state)
-      const nextRound = session.round + 1
-
-      if (isGameComplete(nextState)) {
-        return {
-          session: {
-            ...session,
-            status: 'ended',
-            phase: 'ended',
-            round: nextRound,
-            roundData: { ...nextState, completed: true },
-          },
-        }
+    if (action.type === 'submit-word') {
+      if (currentId(state) !== memberId) return { session }
+      const word = cleanWord((action.payload as { word?: unknown } | null)?.word)
+      if (!word) return { session }
+      const story = [...state.story, word]
+      const s: OneWordStoryState = {
+        ...state,
+        story,
+        history: [...state.history, { memberId, word, timestamp: Date.now() }],
       }
-
-      return {
-        session: {
-          ...session,
-          round: nextRound,
-          roundData: nextState,
-        },
-      }
+      const xpAwards: XpAward[] = [
+        { memberId, amount: WORD_XP, statIncrements: { 'oneWordStory.wordsContributed': 1 }, reason: 'A ajouté un mot à l’histoire' },
+      ]
+      if (story.length >= s.totalWords) return { session: ended(session, s), xpAwards }
+      return { session: { ...session, round: session.round + 1, roundData: nextTurn(s) }, xpAwards }
     }
 
-    const payload = action.payload as { word?: string } | null
-    const word = payload?.word?.trim()
-
-    // Valider le mot : 1 seul mot, pas vide, pas trop long
-    if (!word) {
-      return { session }
+    if (action.type === 'skip-word') {
+      const turn = (action.payload as { turn?: unknown } | null)?.turn
+      if (turn !== state.turnNumber) return { session } // demande en retard : le tour a déjà changé
+      const isHost = memberId === session.hostMemberId
+      if (!isHost && Date.now() < state.turnDeadline - CLOCK_SLACK_MS) return { session }
+      return { session: { ...session, round: session.round + 1, roundData: nextTurn({ ...state, skipped: state.skipped + 1 }) } }
     }
 
-    // Nettoyer : un seul mot (pas d'espaces), max 30 caractères
-    const cleanWord = word.split(/\s+/)[0].slice(0, 30)
-    if (!cleanWord) {
-      return { session }
+    // L'hôte peut clore l'histoire quand elle a trouvé sa chute, sans attendre le compte.
+    if (action.type === 'finish' && memberId === session.hostMemberId && state.story.length > 0) {
+      return { session: ended(session, state) }
     }
 
-    // Ajouter le mot à l'histoire
-    const newStory = [...state.story, cleanWord]
-    const historyEntry: TurnInfo = {
-      memberId,
-      word: cleanWord,
-      timestamp: Date.now(),
-    }
-
-    const nextState: OneWordStoryState = {
-      ...state,
-      story: newStory,
-      history: [...state.history, historyEntry],
-    }
-
-    // XP pour participation
-    const xpAwards: XpAward[] = [
-      {
-        memberId,
-        amount: WORD_XP,
-        statIncrements: { 'oneWordStory.wordsContributed': 1 },
-        reason: 'A contribué un mot à l\'histoire',
-      },
-    ]
-
-    // La résolution du tour (passage au joueur suivant ou fin) se fait dans initRound
-    // via isRoundComplete / resolveRound. Ici on met juste à jour l'état.
-    return {
-      session: {
-        ...session,
-        roundData: nextState,
-      },
-      xpAwards,
-    }
+    return { session }
   },
 
-  isRoundComplete(_group, session) {
-    const state = getState(session)
-    if (session.phase !== 'writing') return false
-
-    // Le tour est complet si :
-    // 1. Le joueur actuel a soumis son mot (géré par handleAction qui met à jour l'histoire)
-    // 2. OU le timer a expiré (vérifié côté serveur dans handleAction ou ici)
-    // Pour simplifier : on considère le tour complet dès qu'on a un nouveau mot dans l'histoire
-    // par rapport au tour précédent, OU si timeout.
-    // Mais comme handleAction ne fait pas avancer le tour, on laisse initRound le faire
-    // au prochain appel. Ici on dit "true" si le joueur actuel a joué (dernier mot = son tour)
-    // OU si le timer est dépassé.
-    const currentPlayerId = state.order[state.turnIndex]
-    const lastTurn = state.history[state.history.length - 1]
-    const hasPlayed = lastTurn?.memberId === currentPlayerId
-    const isTimeout = Date.now() > state.turnDeadline
-
-    return hasPlayed || isTimeout
+  isRoundComplete() {
+    return false
   },
 
   isAwaitingInput(_group, session) {
-    return session.phase === 'writing'
+    return getState(session)?.phase === 'writing'
   },
 
-  resolveRound(_group: Group, session: PartySession): { session: PartySession; xpAwards?: XpAward[] } {
+  /** Hôte pendant l'écriture : passer le joueur courant. */
+  resolveRound(_group, session) {
     const state = getState(session)
+    if (!state || state.phase !== 'writing') return { session }
+    return { session: { ...session, round: session.round + 1, roundData: nextTurn({ ...state, skipped: state.skipped + 1 }) } }
+  },
 
-    // Si le tour n'est pas complet, ne rien faire
-    if (!this.isRoundComplete(_group, session)) {
-      return { session }
-    }
-
-    // Vérifier si timeout (joueur n'a pas joué)
-    const isTimeout = Date.now() > state.turnDeadline
-    const currentPlayerId = state.order[state.turnIndex]
-    const lastTurn = state.history[state.history.length - 1]
-    const hasPlayed = lastTurn?.memberId === currentPlayerId
-
-    // Si timeout et pas joué, on ajoute un marqueur "skip" (optionnel, pour l'affichage)
-    // Mais on ne met pas de mot, on passe juste au suivant
-    let nextState = state
-
-    if (isTimeout && !hasPlayed) {
-      // Marquer le timeout dans l'historique (optionnel - pour debug/affichage)
-      // On n'ajoute pas de mot, on passe juste au tour suivant
-    }
-
-    // Avancer au tour suivant
-    nextState = advanceTurn(nextState)
-    const nextRound = session.round + 1
-
-    // Vérifier fin de partie
-    if (isGameComplete(nextState)) {
-      return {
-        session: {
-          ...session,
-          status: 'ended',
-          phase: 'ended',
-          round: nextRound,
-          roundData: { ...nextState, completed: true },
-        },
-      }
-    }
-
+  viewFor(group, session, memberId) {
+    const s = getState(session)
+    if (!s) return null
+    const cur = s.phase === 'writing' ? currentId(s) : null
+    const m = cur ? group.members.find((x) => x.id === cur) : null
     return {
-      session: {
-        ...session,
-        phase: 'writing',
-        round: nextRound,
-        roundData: nextState,
-      },
+      phase: s.phase,
+      story: s.story,
+      history: s.history,
+      totalWords: s.totalWords,
+      turnIndex: s.turnNumber,
+      currentTurn: m ? { memberId: m.id, pseudo: m.pseudo, color: m.color } : null,
+      myTurn: !!memberId && cur === memberId,
+      // Temps restant au moment de l'envoi : relatif, pour ne pas dépendre de l'heure du téléphone.
+      timeLeft: s.phase === 'writing' ? Math.max(0, s.turnDeadline - Date.now()) : 0,
+      order: s.order,
+      completed: s.phase === 'ended',
     }
   },
 }

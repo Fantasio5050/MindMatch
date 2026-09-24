@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
+import { useCountdown } from './useCountdown'
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'
@@ -11,7 +12,6 @@ export function OneWordStoryScreen() {
   const { play } = useSound()
   const lastPhase = useRef<string | null>(null)
 
-  const [lastWordIndex, setLastWordIndex] = useState(-1)
   const phase = group?.party.phase ?? null
   const status = group?.party.status ?? null
 
@@ -25,17 +25,14 @@ export function OneWordStoryScreen() {
     lastPhase.current = phase
   }, [phase, play])
 
-  // Détecter l'ajout d'un nouveau mot pour l'animation
+  // Un son à chaque mot posé. La longueur de l'histoire suffit comme signal ; l'ancienne
+  // version comparait avec une valeur d'état lue hors de ses dépendances.
+  const wordCount = (group?.party.roundData as OneWordStoryClientState | null)?.story?.length ?? 0
+  const lastCount = useRef<number | null>(null)
   useEffect(() => {
-    if (group?.party.roundData) {
-      const state = group.party.roundData as OneWordStoryClientState
-      if (state.story.length > lastWordIndex && lastWordIndex >= 0) {
-        // Nouveau mot ajouté - déclencher une animation
-        play('vote') // ou un son spécifique
-      }
-      setLastWordIndex(state.story.length)
-    }
-  }, [group?.party.roundData, play])
+    if (lastCount.current !== null && wordCount > lastCount.current) play('vote')
+    lastCount.current = wordCount
+  }, [wordCount, play])
 
   if (!group) {
     return (
@@ -88,7 +85,7 @@ function WritingScreen({ state, members }: { state: OneWordStoryClientState; mem
     ? members.find((m) => m.id === state.currentTurn!.memberId)
     : null
 
-  const progress = ((state.turnIndex + 1) / state.totalWords) * 100
+  const progress = (state.story.length / state.totalWords) * 100
 
   return (
     <motion.div
@@ -99,7 +96,7 @@ function WritingScreen({ state, members }: { state: OneWordStoryClientState; mem
       {/* Header avec progression */}
       <div className="mb-8">
         <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">
-          Mot {Math.min(state.turnIndex + 1, state.totalWords)} / {state.totalWords}
+          Mot {Math.min(state.story.length + 1, state.totalWords)} / {state.totalWords}
         </p>
         <div className="h-3 w-full max-w-2xl mx-auto rounded-full bg-felt-raised overflow-hidden">
           <motion.div
@@ -189,8 +186,8 @@ function WritingScreen({ state, members }: { state: OneWordStoryClientState; mem
       </AnimatePresence>
 
       {/* Timer visuel pour le tour actuel */}
-      {state.phase === 'writing' && state.timeLeft > 0 && currentPlayer && (
-        <TimerRing timeLeft={state.timeLeft} totalTime={15_000} />
+      {state.phase === 'writing' && currentPlayer && (
+        <TimerRing timeLeft={state.timeLeft} turnKey={state.turnIndex} totalTime={15_000} />
       )}
 
       <p className="text-chalk-faint text-lg mt-8">Les joueurs écrivent sur leur téléphone 📱</p>
@@ -198,7 +195,9 @@ function WritingScreen({ state, members }: { state: OneWordStoryClientState; mem
   )
 }
 
-function TimerRing({ timeLeft, totalTime }: { timeLeft: number; totalTime: number }) {
+function TimerRing({ timeLeft: serverLeft, turnKey, totalTime }: { timeLeft: number; turnKey: number; totalTime: number }) {
+  // Décompte local : l'instantané du serveur seul laissait le chrono figé entre deux envois.
+  const timeLeft = useCountdown(serverLeft, turnKey, true)
   const radius = 60
   const circumference = 2 * Math.PI * radius
   const progress = Math.max(0, timeLeft / totalTime)

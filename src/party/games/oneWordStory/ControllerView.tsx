@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { usePartyStore } from '../../../store/usePartyStore'
@@ -9,6 +9,7 @@ import { Avatar } from '../../../components/Avatar'
 import type { OneWordStoryClientState } from './types'
 import type { Member } from '../../../types'
 import { WaitState } from '../../primitives'
+import { useCountdown } from './useCountdown'
 
 const TURN_TIME_MS = 15_000
 const MAX_WORD_LENGTH = 30
@@ -23,27 +24,34 @@ export function OneWordStoryController() {
   const { play } = useSound()
   const lastPhase = useRef<string | null>(null)
 
+  const phase = group?.party.phase ?? null
+  const state = (group?.party.roundData as OneWordStoryClientState | null) ?? null
+  const myTurn = !!state?.myTurn
+
+  useEffect(() => {
+    if (phase === 'ended' && lastPhase.current !== 'ended') play('win')
+    lastPhase.current = phase
+  }, [phase, play])
+
+  // Un son quand la main passe à ce joueur.
+  useEffect(() => {
+    if (myTurn) play('reveal')
+  }, [myTurn, state?.turnIndex, play])
+
+  // Passage de tour : la demande porte le numéro du tour visé, le serveur ignore les doublons.
+  const turn = state?.turnIndex ?? -1
+  const skip = useCallback(() => sendAction('skip-word', { turn }), [sendAction, turn])
+
   if (!group || !currentMember) return null
   const { party } = group
-  const state = party.roundData as OneWordStoryClientState | null
 
   if (!state) {
     return (
       <div className="min-h-svh flex items-center justify-center px-6">
-        <p className="text-chalk-soft text-sm">Chargement de l'histoire…</p>
+        <p className="text-chalk-soft text-sm">L'histoire se met en place…</p>
       </div>
     )
   }
-
-  useEffect(() => {
-    if (party.phase === 'ended' && lastPhase.current !== 'ended') {
-      play('win')
-    }
-    if (party.phase === 'writing' && lastPhase.current !== 'writing' && state.myTurn) {
-      play('reveal')
-    }
-    lastPhase.current = party.phase
-  }, [party.phase, state?.myTurn, play])
 
   if (party.status === 'ended') {
     return <FinalStory state={state} members={group.members} onExit={() => navigate('/lobby')} />
@@ -60,7 +68,8 @@ export function OneWordStoryController() {
         members={group.members}
         isHost={isHost}
         onSubmit={(word) => sendAction('submit-word', { word })}
-        onSkip={() => sendAction('skip-word', {})}
+        onSkip={skip}
+        onFinish={() => sendAction('finish', {})}
       />
     )
   }
@@ -100,45 +109,28 @@ function WritingView({
   isHost,
   onSubmit,
   onSkip,
+  onFinish,
 }: {
   state: OneWordStoryClientState
   members: Member[]
   isHost: boolean
   onSubmit: (word: string) => void
   onSkip: () => void
+  onFinish: () => void
 }) {
   const [word, setWord] = useState('')
-  const [timeLeft, setTimeLeft] = useState(state.timeLeft)
-  const timerRef = useRef<number | null>(null)
-
-  // Timer local pour l'affichage
-  useEffect(() => {
-    setTimeLeft(state.timeLeft)
-    if (timerRef.current) clearInterval(timerRef.current)
-
-    if (state.phase === 'writing' && state.timeLeft > 0) {
-      timerRef.current = window.setInterval(() => {
-        setTimeLeft((prev) => {
-          const next = prev - 100
-          if (next <= 0) {
-            if (timerRef.current) clearInterval(timerRef.current)
-            // Timer expiré, on skip automatiquement
-            onSkip()
-            return 0
-          }
-          return next
-        })
-      }, 100)
-    }
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-  }, [state.timeLeft, state.phase, state.turnIndex, onSkip])
+  // Seuls le joueur concerné et l'hôte déclenchent le passage automatique : si le téléphone du
+  // joueur est en veille, celui de l'hôte prend le relais. Les autres affichent juste le chrono.
+  const timeLeft = useCountdown(
+    state.timeLeft,
+    state.turnIndex,
+    state.phase === 'writing',
+    state.myTurn || isHost ? onSkip : undefined,
+  )
 
   const currentPlayer = state.currentTurn
   const isMyTurn = state.myTurn
-  const progress = ((state.turnIndex + 1) / state.totalWords) * 100
+  const progress = (state.story.length / state.totalWords) * 100
 
   const handleSubmit = () => {
     const cleanWord = word.trim().split(/\s+/)[0].slice(0, MAX_WORD_LENGTH)
@@ -170,7 +162,7 @@ function WritingView({
         {/* Progress bar */}
         <div className="mb-6">
           <div className="flex items-center justify-between text-xs text-chalk-faint mb-2">
-            <span>Mot {Math.min(state.turnIndex + 1, state.totalWords)} / {state.totalWords}</span>
+            <span>Mot {Math.min(state.story.length + 1, state.totalWords)} / {state.totalWords}</span>
             <span className="tabular-nums">{state.story.length} mots écrits</span>
           </div>
           <div className="h-2 w-full rounded-full bg-felt-raised overflow-hidden">
@@ -226,16 +218,23 @@ function WritingView({
         </div>
 
         <WaitState
-          title="En attente du mot…"
+          title={`${currentPlayer?.pseudo ?? 'Quelqu’un'} cherche son mot`}
           actedIds={state.story.length > 0 ? [currentPlayer?.memberId].filter(Boolean) as string[] : []}
           noun="mots posés"
           verb="a joué"
         />
 
         {isHost && (
-          <Button fullWidth variant="ghost" onClick={onSkip} className="mt-4">
-            Passer ce tour (hôte)
-          </Button>
+          <div className="flex gap-2 mt-4">
+            <Button fullWidth variant="ghost" onClick={onSkip}>
+              Passer ce tour
+            </Button>
+            {state.story.length > 0 && (
+              <Button fullWidth variant="ghost" onClick={onFinish}>
+                Clore l'histoire
+              </Button>
+            )}
+          </div>
         )}
       </div>
     )
@@ -247,7 +246,7 @@ function WritingView({
       {/* Progress bar */}
       <div className="mb-6">
         <div className="flex items-center justify-between text-xs text-chalk-faint mb-2">
-          <span>Votre tour — Mot {Math.min(state.turnIndex + 1, state.totalWords)} / {state.totalWords}</span>
+          <span>Votre tour — Mot {Math.min(state.story.length + 1, state.totalWords)} / {state.totalWords}</span>
           <span className="tabular-nums">{state.story.length} mots écrits</span>
         </div>
         <div className="h-2 w-full rounded-full bg-felt-raised overflow-hidden">
