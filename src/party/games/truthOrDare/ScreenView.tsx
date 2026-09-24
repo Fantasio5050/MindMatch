@@ -21,7 +21,7 @@ export function TruthOrDareScreen() {
 
   return (
     <div className="tv-frame">
-      {party.status === 'ended' && <FinalPodium members={members} />}
+      {party.status === 'ended' && <FinalPodium members={members} state={state} />}
 
       {party.status !== 'ended' && party.phase === 'choosing' && state && (
         <ChoosingScreen state={state} members={members} />
@@ -90,9 +90,9 @@ function ChoosingScreen({ state, members }: { state: TruthOrDareClientState; mem
 
 function RevealedScreen({ state, members }: { state: TruthOrDareClientState; members: Member[] }) {
   const current = members.find((m) => m.id === state.currentMemberId)
-  const voteCount = Object.keys(state.votes).length
-  const approveCount = Object.values(state.votes).filter(Boolean).length
-  const totalVoters = members.length - 1
+  const voteCount = state.votedIds.length
+  const totalVoters = state.expectedVoters.length
+  const partner = state.partnerId ? members.find((m) => m.id === state.partnerId) : null
 
   return (
     <AnimatePresence mode="wait">
@@ -108,7 +108,7 @@ function RevealedScreen({ state, members }: { state: TruthOrDareClientState; mem
 
         <div className="flex flex-col items-center gap-2 mb-6">
           <Avatar pseudo={current?.pseudo ?? '?'} color={current?.color ?? '#fff'} size={64} photoUrl={current?.photoUrl} />
-          <p className="text-2xl font-bold">{current?.pseudo}</p>
+          <p className="text-2xl font-bold">{current?.pseudo}{partner ? ` & ${partner.pseudo}` : ''}</p>
           {state.currentCard && (
             <span className={`inline-block text-lg font-bold uppercase tracking-wider rounded-full px-4 py-1.5 ${
               state.currentCard.type === 'truth' ? 'text-sky-300/80 bg-sky-500/10' : 'text-fuchsia-300/80 bg-fuchsia-500/10'
@@ -124,7 +124,7 @@ function RevealedScreen({ state, members }: { state: TruthOrDareClientState; mem
         <div className="max-w-md mx-auto">
           <div className="flex justify-between text-sm text-chalk-faint mb-2">
             <span>Vote du groupe</span>
-            <span>{voteCount} / {totalVoters} · {approveCount} ✅</span>
+            <span>{voteCount} / {totalVoters} ont voté</span>
           </div>
           <div className="h-3 rounded-full bg-felt-raised overflow-hidden">
             <motion.div
@@ -165,9 +165,12 @@ function ResultScreen({ state, members }: { state: TruthOrDareClientState; membe
               </span>
             </div>
             <p className="text-2xl font-semibold text-chalk-soft mb-6">{lastEntry.cardText}</p>
-            <p className={`text-5xl font-extrabold ${lastEntry.approved ? 'text-emerald-300' : 'text-pink-300'}`}>
-              {lastEntry.approved ? '✅ Validé' : '👎 Refusé'}
+            <p className={`text-5xl font-extrabold ${lastEntry.approved ? 'text-jade' : 'text-blood'}`}>
+              {lastEntry.refused ? 'Gage !' : lastEntry.approved ? 'Validé' : 'Pas validé'}
             </p>
+            {!lastEntry.refused && state.approveCount !== null && (
+              <p className="text-xl text-chalk-soft mt-3">{state.approveCount} voix pour sur {state.votedIds.length}</p>
+            )}
           </>
         )}
       </motion.div>
@@ -175,17 +178,21 @@ function ResultScreen({ state, members }: { state: TruthOrDareClientState; membe
   )
 }
 
-function FinalPodium({ members }: { members: Member[] }) {
-  const ranked = [...members].sort((a, b) => b.xp - a.xp)
+function FinalPodium({ members, state }: { members: Member[]; state: TruthOrDareClientState | null }) {
+  const history = state?.history ?? []
+  const score = (id: string) => history.filter((h) => h.approved && (h.memberId === id || h.partnerId === id)).length
+  const ranked = members
+    .filter((m) => (state?.players ?? members.map((x) => x.id)).includes(m.id))
+    .sort((a, b) => score(b.id) - score(a.id))
   return (
     <div className="text-center max-w-4xl">
-      <p className="text-chalk-faint text-2xl uppercase tracking-widest mb-8">Classement final</p>
+      <p className="kicker text-tv-xs mb-8">Les plus courageux</p>
       {ranked.map((m, i) => (
-        <div key={m.id} className="flex items-center justify-center gap-3 mb-3">
-          <span className="text-2xl font-bold w-8">{i + 1}</span>
-          <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
-          <span className="text-xl font-bold">{m.pseudo}</span>
-          <span className="text-emerald-300 font-mono">{m.xp} XP</span>
+        <div key={m.id} className="flex items-center justify-center gap-4 mb-3">
+          <span className="text-tv-sm font-bold w-8 text-chalk-soft">{i + 1}</span>
+          <Avatar pseudo={m.pseudo} color={m.color} size="var(--tv-avatar-focus)" photoUrl={m.photoUrl} />
+          <span className="text-tv-base font-bold text-chalk w-56 text-left">{m.pseudo}</span>
+          <span className="text-tv-sm font-mono text-chalk-soft">{score(m.id)} validé{score(m.id) > 1 ? 's' : ''}</span>
         </div>
       ))}
     </div>

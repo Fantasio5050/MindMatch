@@ -34,7 +34,7 @@ export function TruthOrDareController() {
   const { party } = group
 
   if (party.status === 'ended') {
-    return <FinalResults members={group.members} onExit={() => navigate('/lobby')} />
+    return <FinalResults members={group.members} state={state} onExit={() => navigate('/lobby')} />
   }
 
   if (!state) {
@@ -78,9 +78,10 @@ export function TruthOrDareController() {
 
   // Phase: revealed (card is shown, player does the dare/truth, group votes)
   if (party.phase === 'revealed' && state.currentCard) {
-    const myVote = state.votes[currentMember.id] ?? null
-    const voteCount = Object.keys(state.votes).length
-    const approveCount = Object.values(state.votes).filter(Boolean).length
+    const myVote = state.yourVote
+    const voteCount = state.votedIds.length
+    const partner = state.partnerId ? group.members.find((m) => m.id === state.partnerId) : null
+    const isPartner = state.partnerId === currentMember.id
 
     return (
       <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
@@ -90,7 +91,10 @@ export function TruthOrDareController() {
 
         <div className="flex flex-col items-center gap-2 mb-4">
           <Avatar pseudo={currentPlayer?.pseudo ?? '?'} color={currentPlayer?.color ?? '#fff'} size={48} />
-          <p className="font-semibold text-sm">{isYou ? "À toi de jouer !" : `${currentPlayer?.pseudo}`}</p>
+          <p className="font-semibold text-sm">
+            {isYou ? 'À toi de jouer' : currentPlayer?.pseudo}
+            {partner ? ` avec ${isPartner ? 'toi' : partner.pseudo}` : ''}
+          </p>
           {state.currentCard && (
             <span className={`inline-block text-xs font-bold uppercase tracking-wider rounded-full px-3 py-1 ${
               state.currentCard.type === 'truth' ? 'text-sky-300/80 bg-sky-500/10' : 'text-fuchsia-300/80 bg-fuchsia-500/10'
@@ -104,21 +108,25 @@ export function TruthOrDareController() {
           <p className="text-lg font-bold leading-snug">{state.currentCard?.text ?? 'Chargement de la carte…'}</p>
         </Card>
 
-        {isYou ? (
-          // Player actions: complete or refuse
+        {isYou || isPartner ? (
+          // Le joueur s'exécute ; c'est le groupe qui valide. Il peut toujours refuser.
           <div className="flex flex-col gap-3">
-            <Button fullWidth onClick={() => sendAction('complete', {})}>
-              ✅ J'ai fait / répondu
-            </Button>
-            <Button fullWidth variant="secondary" onClick={() => sendAction('refuse', {})}>
-              🙈 Je refuse (gage)
-            </Button>
+            <p className="text-center text-sm text-chalk-soft">
+              Exécute-toi : les autres valident · {voteCount} / {state.expectedVoters.length} ont voté
+            </p>
+            {isYou && (
+              <Button fullWidth variant="secondary" onClick={() => sendAction('refuse', {})}>
+                Je refuse (gage)
+              </Button>
+            )}
           </div>
+        ) : !state.canVote ? (
+          <p className="text-center text-chalk-soft text-sm">Tu regardes ce tour.</p>
         ) : (
           // Group votes: did they do it / answer honestly?
           <div className="flex flex-col gap-3">
             <p className="text-center text-chalk-faint text-xs">
-              Vote du groupe · {voteCount} vote{voteCount > 1 ? 's' : ''} · {approveCount} ✅
+              Vote du groupe · {voteCount} / {state.expectedVoters.length}
             </p>
             {myVote === null ? (
               <div className="flex gap-3">
@@ -126,12 +134,12 @@ export function TruthOrDareController() {
                   👍 Validé
                 </Button>
                 <Button className="flex-1" variant="secondary" onClick={() => sendAction('vote', { approved: false })}>
-                  👎 Menteur·se
+                  👎 Pas convaincu·e
                 </Button>
               </div>
             ) : (
               <p className="text-center text-chalk-soft text-sm">
-                Tu as voté {myVote ? '✅' : '👎'} — en attente de {currentPlayer?.pseudo}…
+                Tu as voté « {myVote ? 'validé' : 'pas convaincu'} » · verdict quand tout le monde a voté
               </p>
             )}
           </div>
@@ -154,9 +162,14 @@ export function TruthOrDareController() {
               {currentPlayer?.pseudo} a choisi {CHOICE_ICON[lastEntry.choice]} {CHOICE_LABEL[lastEntry.choice]}
             </p>
             <p className="text-base font-semibold mb-3">{lastEntry.cardText}</p>
-            <p className={`text-lg font-bold ${lastEntry.approved ? 'text-emerald-300' : 'text-pink-300'}`}>
-              {lastEntry.approved ? '✅ Validé par le groupe' : '👎 Refusé / Rejeté'}
+            <p className={`text-lg font-bold ${lastEntry.approved ? 'text-jade' : 'text-blood'}`}>
+              {lastEntry.refused ? 'A refusé : gage' : lastEntry.approved ? 'Validé par le groupe' : 'Pas validé par le groupe'}
             </p>
+            {!lastEntry.refused && state.approveCount !== null && (
+              <p className="text-xs text-chalk-faint mt-1">
+                {state.approveCount} / {state.votedIds.length} voix pour
+              </p>
+            )}
           </Card>
         )}
         {isHost ? (
@@ -164,7 +177,7 @@ export function TruthOrDareController() {
             {isLastRound ? 'Voir les résultats finaux' : 'Tour suivant →'}
           </Button>
         ) : (
-          <p className="text-center text-chalk-faint text-sm">L'hôte lance le tour suivant…</p>
+          <p className="text-center text-chalk-soft text-sm">L'hôte lance le tour suivant</p>
         )}
       </div>
     )
@@ -186,6 +199,7 @@ function ChoosingView({
 }) {
   const canChooseTruth = state.forcedChoice === null || state.forcedChoice === 'truth'
   const canChooseDare = state.forcedChoice === null || state.forcedChoice === 'dare'
+  const canChooseDouble = canChooseDare && state.players.length >= 3
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-6">
@@ -223,22 +237,38 @@ function ChoosingView({
           <span className="font-bold text-fuchsia-200">Action</span>
         </button>
       </div>
+      <button
+        disabled={!canChooseDouble}
+        onClick={() => onChoose('double-dare')}
+        className={`w-full max-w-sm rounded-2xl border p-4 flex items-center justify-center gap-3 transition-all ${
+          canChooseDouble ? 'border-brass/40 bg-brass/10 active:scale-95' : 'border-line bg-felt-sunken opacity-40'
+        }`}
+      >
+        <span className="text-2xl">🤝</span>
+        <span className="font-bold text-brass">Double Action</span>
+        <span className="text-xs text-chalk-soft">avec un·e partenaire tiré·e au sort</span>
+      </button>
     </div>
   )
 }
 
-function FinalResults({ members, onExit }: { members: Member[]; onExit: () => void }) {
-  const ranked = [...members].sort((a, b) => b.xp - a.xp)
+function FinalResults({ members, state, onExit }: { members: Member[]; state: TruthOrDareClientState | null; onExit: () => void }) {
+  // Classement de CETTE partie : défis validés, pas l'XP cumulée depuis toujours.
+  const history = state?.history ?? []
+  const score = (id: string) => history.filter((h) => h.approved && (h.memberId === id || h.partnerId === id)).length
+  const players = members.filter((m) => (state?.players ?? members.map((x) => x.id)).includes(m.id))
+  const ranked = [...players].sort((a, b) => score(b.id) - score(a.id))
   return (
     <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
-      <h2 className="text-2xl font-extrabold text-center mb-6">Partie terminée !</h2>
+      <p className="kicker text-2xs text-center mb-2">Partie terminée</p>
+      <h2 className="font-display text-2xl text-center text-chalk mb-6">Les plus courageux</h2>
       <div className="flex flex-col gap-3 mb-6">
         {ranked.map((m, i) => (
           <div key={m.id} className="flex items-center gap-3 rounded-card bg-felt-raised p-3">
-            <span className="text-lg font-bold w-6 text-center">{i + 1}</span>
-            <Avatar pseudo={m.pseudo} color={m.color} size={36} />
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
+            <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-emerald-300 font-mono text-sm">{m.xp} XP</span>
+            <span className="font-mono text-sm text-chalk-soft">{score(m.id)} validé{score(m.id) > 1 ? 's' : ''}</span>
           </div>
         ))}
       </div>
