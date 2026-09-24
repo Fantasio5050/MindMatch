@@ -43,4 +43,18 @@ export interface GameModule {
   isAwaitingInput(group: Group, session: PartySession): boolean
   /** Tallies the round, computes XP/score awards, and moves the phase to reveal. */
   resolveRound(group: Group, session: PartySession): RoundResult
+  /**
+   * Ce que VOIT un joueur (ou la TV, `memberId === null`) de l'état du jeu.
+   *
+   * Sans ce hook, `roundData` part tel quel, filtré seulement par les conventions génériques de
+   * `sanitizeParty` (`votes`, `hands`, `secrets`…). Ça suffit aux jeux dont le secret tient dans
+   * une de ces clés ; pas aux jeux à information cachée riche (rôles du Loup-Garou, main et
+   * pioche d'UNO, cartes fermées du Poker) ni à ceux dont l'écran dépend de QUI regarde
+   * (« c'est ton tour », « ta contrainte »).
+   *
+   * Avec ce hook, la vue retournée REMPLACE `roundData` pour ce destinataire : tout ce qu'elle
+   * ne contient pas ne quitte jamais le serveur. C'est une liste blanche, pas une liste noire —
+   * un champ secret ajouté plus tard à l'état reste privé par défaut.
+   */
+  viewFor?(group: Group, session: PartySession, memberId: string | null): unknown
 }

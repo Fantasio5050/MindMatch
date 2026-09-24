@@ -23,7 +23,7 @@ export function UnoController() {
   const sendAction = usePartyStore((s) => s.sendAction)
   const hostAdvance = usePartyStore((s) => s.hostAdvance)
   const { play } = useSound()
-  const lastPhase = useRef<string | null>(null)
+  const lastSeq = useRef<number>(0)
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
   const [chosenColor, setChosenColor] = useState<'red' | 'yellow' | 'green' | 'blue' | null>(null)
   const [showColorPicker, setShowColorPicker] = useState(false)
@@ -31,13 +31,13 @@ export function UnoController() {
   const state = (group?.party.roundData as unknown as UnoClientState | null) ?? null
 
   useEffect(() => {
-    const phase = state?.phase
-    if (phase && phase !== lastPhase.current) {
-      if (phase === 'ended') play('win')
-      if (state?.lastEvent?.type === 'play') play('vote')
-      lastPhase.current = phase
-    }
-  }, [state?.phase, state?.lastEvent, play])
+    const evt = state?.lastEvent
+    if (!evt || evt.seq === lastSeq.current) return
+    lastSeq.current = evt.seq
+    if (evt.type === 'win') play('win')
+    else if (evt.type === 'play') play('vote')
+    else if (evt.type === 'uno' || evt.type === 'penalty') play('reveal')
+  }, [state?.lastEvent, play])
 
   if (!group || !currentMember) return null
   const { party } = group
@@ -45,7 +45,14 @@ export function UnoController() {
   if (party.status === 'ended' || state?.phase === 'ended') {
     const winner = state?.winner
     const winnerMember = winner ? group.members.find((m) => m.id === winner) : null
-    return <FinalView winnerName={winnerMember?.pseudo ?? '???'} winnerColor={winnerMember?.color ?? '#fff'} members={group.members} onExit={() => navigate('/lobby')} />
+    return (
+      <FinalView
+        winner={winnerMember ?? null}
+        ranking={state?.ranking ?? []}
+        members={group.members}
+        onExit={() => navigate('/lobby')}
+      />
+    )
   }
 
   if (!state) {
@@ -57,14 +64,16 @@ export function UnoController() {
   }
 
   // Intro: host starts
-  if (party.phase === 'intro' || (!state.topCard && !state.myTurn)) {
+  if (party.phase === 'intro') {
     return (
       <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top justify-center">
         <span className="text-6xl mb-4 block text-center">🃏</span>
         <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">UNO</h1>
         <div className="flex flex-col gap-2.5 text-sm text-chalk-muted mb-8 max-w-xs mx-auto text-center">
           <p>Pose une carte qui match la <b>couleur</b> ou la <b>valeur</b> de la défausse.</p>
-          <p>Quand il te reste <b>1 carte</b>, appuie vite sur <b>UNO !</b></p>
+          <p>Avant de poser ton avant-dernière carte, appuie sur <b>UNO !</b></p>
+          <p>Oublié ? Les autres peuvent crier <b>Contre-UNO</b> : tu pioches 2 cartes.</p>
+          <p>Si tu pioches, tu ne peux poser <b>que la carte piochée</b>.</p>
           <p>Premier à vider sa main <b>gagne</b> 🎉</p>
           <p>🎨 Joker = change la couleur · +4 Joker = couleur + 4 cartes au suivant</p>
         </div>
@@ -99,9 +108,11 @@ export function UnoController() {
   }
 
   const handleDraw = () => {
-    sendAction('draw-card', {})
+    sendAction(state.hasDrawn ? 'pass' : 'draw-card', {})
     setSelectedCardId(null)
   }
+
+  const exposedMember = state.exposed ? group.members.find((m) => m.id === state.exposed) : null
 
   const handleCallUno = () => {
     sendAction('call-uno', {})
@@ -155,7 +166,8 @@ export function UnoController() {
           const member = group.members.find((m) => m.id === pid)
           if (!member) return null
           const isCurrent = state.currentPlayer?.memberId === pid
-          const calledUno = count === 1
+          const calledUno = state.unoSafeIds.includes(pid) && count <= 2
+          const isExposed = state.exposed === pid
           return (
             <div
               key={pid}
@@ -167,8 +179,8 @@ export function UnoController() {
             >
               <Avatar pseudo={member.pseudo} color={member.color} size={20} />
               <span className="text-xs font-medium text-chalk-soft">{member.pseudo}</span>
-              <span className={`text-xs font-bold ${calledUno ? 'text-amber-300' : 'text-chalk-faint'}`}>
-                {calledUno ? 'UNO!' : `${count}🂠`}
+              <span className={`text-xs font-bold ${isExposed ? 'text-blood' : calledUno ? 'text-amber-300' : 'text-chalk-faint'}`}>
+                {count} carte{count > 1 ? 's' : ''}{calledUno ? ' · UNO' : ''}
               </span>
             </div>
           )
@@ -195,6 +207,26 @@ export function UnoController() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {state.canCatch && exposedMember && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="mb-3"
+          >
+            <Button
+              fullWidth
+              variant="danger"
+              onClick={() => sendAction('catch-uno', { targetId: exposedMember.id })}
+              className="font-extrabold text-lg"
+            >
+              Contre-UNO ! {exposedMember.pseudo} n'a rien dit
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ─── Main du joueur (scrollable horizontal) ─── */}
       <div className="flex-1 flex flex-col justify-end">
         <p className="text-xs text-chalk-faint uppercase tracking-wider mb-2 text-center">
@@ -205,7 +237,7 @@ export function UnoController() {
             <p className="text-chalk-faint text-sm w-full text-center py-8">Main vide…</p>
           ) : (
             state.hand.map((card, index) => {
-              const playable = state.myTurn && canPlayCardClient(card, state.topCard, state.currentColor)
+              const playable = state.playableIds.includes(card.id)
               const isSelected = selectedCardId === card.id
               return (
                 <motion.div
@@ -236,19 +268,21 @@ export function UnoController() {
               variant="secondary"
               onClick={handleDraw}
             >
-              🃏 Piocher une carte
+              {state.hasDrawn ? 'Garder la carte et passer' : 'Piocher une carte'}
             </Button>
-            {!state.canPlay && (
-              <p className="text-center text-xs text-chalk-faint mt-2">
-                Aucune carte jouable — pioche !
-              </p>
-            )}
+            <p className="text-center text-xs text-chalk-faint mt-2">
+              {state.hasDrawn
+                ? 'La carte piochée passe : pose-la ou garde-la.'
+                : state.canPlay
+                  ? 'Touche une carte en surbrillance pour la poser.'
+                  : 'Aucune carte ne passe — pioche.'}
+            </p>
           </div>
         )}
 
         {!state.myTurn && state.phase === 'playing' && (
-          <p className="text-center text-chalk-faint text-sm mt-3">
-            En attente de {state.currentPlayer?.pseudo}…
+          <p className="text-center text-chalk-soft text-sm mt-3">
+            {state.currentPlayer?.pseudo} a la main
           </p>
         )}
       </div>
@@ -299,18 +333,6 @@ export function UnoController() {
 }
 
 // ─── Sous-composants ─────────────────────────────────────
-
-function canPlayCardClient(
-  card: UnoCard,
-  topCard: UnoCard | null,
-  currentColor: string,
-): boolean {
-  if (!topCard) return false
-  if (card.color === 'wild') return true
-  if (card.color === currentColor) return true
-  if (card.value === topCard.value) return true
-  return false
-}
 
 function CardTile({
   card,
@@ -375,17 +397,16 @@ function CardBadge({ card, currentColor: _currentColor }: { card: UnoCard; curre
 }
 
 function FinalView({
-  winnerName,
-  winnerColor,
+  winner,
+  ranking,
   members,
   onExit,
 }: {
-  winnerName: string
-  winnerColor: string
+  winner: Member | null
+  ranking: { memberId: string; cardsLeft: number }[]
   members: Member[]
   onExit: () => void
 }) {
-  const ranked = [...members].sort((a, b) => b.xp - a.xp)
   return (
     <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       <motion.div
@@ -393,24 +414,30 @@ function FinalView({
         animate={{ opacity: 1, scale: 1 }}
         className="text-center mb-6"
       >
-        <span className="text-6xl block mb-3">🎉</span>
-        <h2 className="text-2xl font-extrabold shimmer-text mb-2">Victoire !</h2>
-        <div className="flex items-center justify-center gap-2">
-          <Avatar pseudo={winnerName} color={winnerColor} size={48} />
-          <span className="text-xl font-bold">{winnerName}</span>
-        </div>
-        <p className="text-chalk-soft text-sm mt-2">a gagné la partie d'UNO !</p>
+        <p className="kicker text-2xs mb-3">Main vidée</p>
+        {winner && (
+          <div className="flex flex-col items-center gap-2">
+            <Avatar pseudo={winner.pseudo} color={winner.color} size={64} photoUrl={winner.photoUrl} />
+            <span className="font-display text-2xl text-chalk">{winner.pseudo} gagne</span>
+          </div>
+        )}
       </motion.div>
 
-      <div className="flex flex-col gap-3 mb-6">
-        {ranked.map((m, i) => (
-          <div key={m.id} className="flex items-center gap-3 rounded-card bg-felt-raised p-3">
-            <span className="text-lg font-bold w-6 text-center">{i + 1}</span>
-            <Avatar pseudo={m.pseudo} color={m.color} size={36} />
-            <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-emerald-300 font-mono text-sm">{m.xp} XP</span>
-          </div>
-        ))}
+      <div className="flex flex-col gap-2.5 mb-6">
+        {ranking.map((r, i) => {
+          const m = members.find((x) => x.id === r.memberId)
+          if (!m) return null
+          return (
+            <div key={m.id} className="flex items-center gap-3 rounded-card bg-felt-raised border border-line p-3">
+              <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
+              <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
+              <span className="flex-1 font-semibold text-chalk">{m.pseudo}</span>
+              <span className="text-sm text-chalk-soft">
+                {r.cardsLeft === 0 ? 'Vainqueur' : `${r.cardsLeft} carte${r.cardsLeft > 1 ? 's' : ''}`}
+              </span>
+            </div>
+          )
+        })}
       </div>
       <Button fullWidth onClick={onExit}>Retour au salon</Button>
     </div>

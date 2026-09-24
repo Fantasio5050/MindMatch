@@ -3,6 +3,7 @@ import type { StoredGroup, StoredMember } from './types'
 import type { Group, Member, PartySession } from '../src/types'
 import { computeScores, getArchetypeId } from '../src/lib/scoring'
 import { questions } from '../src/data/questions'
+import { getGame } from './games/registry'
 
 const MEMBER_COLORS = ['#f472b6', '#60a5fa', '#fb923c', '#34d399', '#a78bfa', '#fbbf24', '#38bdf8', '#f87171']
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -67,9 +68,17 @@ export function sanitizeMember(member: StoredMember, isSelf: boolean): Member {
  *    game module is responsible for moving values out of `secrets` into a public field once they
  *    become safe to reveal.
  */
-function sanitizeParty(party: PartySession, requestingMemberId: string | null): PartySession {
+function sanitizeParty(group: StoredGroup, requestingMemberId: string | null): PartySession {
+  const party = group.party
   let roundData = party.roundData
   if (!roundData || typeof roundData !== 'object') return party
+
+  // Un jeu qui construit sa propre vue par destinataire prend la main : sa vue REMPLACE l'état
+  // brut, les conventions génériques ci-dessous ne s'appliquent pas (voir `GameModule.viewFor`).
+  const game = party.currentGameId ? getGame(party.currentGameId) : null
+  if (game?.viewFor) {
+    return { ...party, roundData: game.viewFor(group, party, requestingMemberId) }
+  }
 
   if ('votes' in roundData) {
     const { votes, ...rest } = roundData as { votes: Record<string, string> } & Record<string, unknown>
@@ -161,7 +170,7 @@ export function sanitizeGroup(group: StoredGroup, requestingMemberId: string | n
   return {
     ...group,
     members: group.members.map((m) => sanitizeMember(m, m.id === requestingMemberId)),
-    party: sanitizeParty(group.party, requestingMemberId),
+    party: sanitizeParty(group, requestingMemberId),
   }
 }
 

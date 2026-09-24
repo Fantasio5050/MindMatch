@@ -40,8 +40,28 @@ export interface UnoClientState {
   unoCalled: boolean
   /** Nombre de cartes dans la pioche */
   deckCount: number
-  /** Dernier événement (pour animations) */
-  lastEvent: { type: 'play' | 'draw' | 'uno' | 'penalty' | 'win'; memberId: string; cardId?: string } | null
+  /** Dernier événement (pour animations). `seq` change à chaque événement, même identique. */
+  lastEvent: {
+    seq: number
+    type: 'play' | 'draw' | 'uno' | 'penalty' | 'skip' | 'win'
+    memberId: string
+    cardId?: string
+    byId?: string
+  } | null
+  /** Ordre de jeu autour de la table */
+  order: string[]
+  /** Cartes que tu peux poser maintenant (le serveur fait foi : après une pioche, seule la carte piochée) */
+  playableIds: string[]
+  /** Tu as déjà pioché ce tour : tu poses la carte piochée ou tu passes */
+  hasDrawn: boolean
+  /** Joueurs qui ont annoncé UNO pour leur main actuelle */
+  unoSafeIds: string[]
+  /** Joueur à une carte qui n'a pas annoncé — attrapable */
+  exposed: string | null
+  /** Tu peux crier « Contre-UNO ! » sur le joueur exposé */
+  canCatch: boolean
+  /** Classement final (cartes restantes), fin de partie seulement */
+  ranking: { memberId: string; cardsLeft: number }[] | null
 }
 
 /** Libellés des couleurs */
