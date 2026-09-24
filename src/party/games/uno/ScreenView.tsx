@@ -186,7 +186,7 @@ function PlayingScreen({ state, members }: { state: UnoClientState; members: Mem
                     animate={{ scale: 1 }}
                     className="text-sm font-bold text-chalk-soft"
                   >
-                    {count} 🂠
+                    {count} carte{count > 1 ? 's' : ''}
                   </motion.span>
                 )}
               </AnimatePresence>

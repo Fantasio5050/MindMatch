@@ -119,6 +119,16 @@ export function TruthOrDareController() {
                 Je refuse (gage)
               </Button>
             )}
+            {state.canDeclinePartner && (
+              <>
+                <Button fullWidth variant="secondary" onClick={() => sendAction('partner-decline', {})}>
+                  Je ne suis pas partant·e
+                </Button>
+                <p className="text-center text-2xs text-chalk-faint">
+                  Tu as été tiré·e au sort : tu peux te retirer sans gage, quelqu'un d'autre sera tiré.
+                </p>
+              </>
+            )}
           </div>
         ) : !state.canVote ? (
           <p className="text-center text-chalk-soft text-sm">Tu regardes ce tour.</p>

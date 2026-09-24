@@ -25,6 +25,10 @@ export interface TruthOrDareClientState {
   currentMemberId: string | null
   /** Partenaire désigné en Double Action */
   partnerId: string | null
+  /** Partenaires qui se sont retirés de ce défi */
+  declinedCount: number
+  /** Tu es le partenaire désigné : tu peux te retirer, sans gage */
+  canDeclinePartner: boolean
   currentChoice: TruthOrDareType | null
   forcedChoice: TruthOrDareType | null
   totalRounds: number

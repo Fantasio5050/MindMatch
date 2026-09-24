@@ -117,7 +117,7 @@ export const ROLES: Record<RoleId, Role> = {
   'cupidon': {
     id: 'cupidon',
     name: 'Cupidon',
-    camp: 'neutre',
+    camp: 'village', // règle officielle : Cupidon est un villageois (seul le couple mixte joue pour lui-même)
     description: 'Vous liez deux joueurs qui tombent amoureux. Si l\'un meurt, l\'autre meurt de chagrin.',
     nightAction: {
       step: 'cupidon',
@@ -155,13 +155,15 @@ export const ROLES: Record<RoleId, Role> = {
   },
 };
 
+// La petite fille espionne PENDANT le réveil des loups : son étape suit immédiatement la leur,
+// avant la sorcière (règle officielle).
 export const NIGHT_ORDER: NightStep[] = [
   'cupidon',
   'voyante',
   'salvateur',
   'loups',
-  'sorciere',
   'petite-fille',
+  'sorciere',
 ];
 
 export const DEFAULT_ROLE_COUNTS: Record<RoleId, number> = {

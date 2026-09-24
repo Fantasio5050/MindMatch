@@ -21,6 +21,11 @@ import {
  *  - un joueur absent bloquait la table : l'hôte n'avait aucun recours ;
  *  - le pack 18+ n'était pas verrouillé côté serveur.
  *
+ * Consentement : en Double Action, le partenaire est tiré au sort — et certaines cartes du pack
+ * 18+ impliquent un contact physique. Il peut donc se retirer, SANS gage : un autre partenaire
+ * est tiré parmi ceux qui n'ont pas refusé ; si personne ne veut, le défi devient une action en
+ * solo. Seul le joueur qui a choisi la carte porte le risque du gage.
+ *
  * Déroulé : le joueur choisit → la carte s'affiche → il s'exécute (ou refuse) → les AUTRES
  * valident ou non ; le verdict tombe quand tous ont voté, ou quand l'hôte clôt.
  */
@@ -64,6 +69,8 @@ interface TruthOrDareState {
   currentCard: TruthOrDareCard | null
   currentChoice: TruthOrDareType | null
   partnerId: string | null
+  /** Partenaires qui ont décliné ce défi (ils ne seront pas retirés au sort). */
+  declinedPartners: string[]
   forcedChoice: TruthOrDareType | null
   /** Votes privés : qui a voté est public, ce qu'il a voté ne l'est pas avant le verdict. */
   ballots: Record<string, boolean>
@@ -115,6 +122,7 @@ function startTurn(s: TruthOrDareState, turnIndex: number): TruthOrDareState {
     currentCard: null,
     currentChoice: null,
     partnerId: null,
+    declinedPartners: [],
     forcedChoice: forcedFor(s, current),
     ballots: {},
   }
@@ -187,6 +195,7 @@ export const truthOrDare: GameModule = {
         currentCard: null,
         currentChoice: null,
         partnerId: null,
+        declinedPartners: [],
         forcedChoice: null,
         ballots: {},
         playerStates: {},
@@ -244,6 +253,30 @@ export const truthOrDare: GameModule = {
       return { session: withPhase(session, s) }
     }
 
+    // Le partenaire se retire, sans gage.
+    if (action.type === 'partner-decline' && state.phase === 'revealed' && memberId === state.partnerId) {
+      const declinedPartners = [...state.declinedPartners, memberId]
+      const candidates = state.players.filter((id) => id !== state.currentMemberId && !declinedPartners.includes(id))
+      if (candidates.length > 0) {
+        const partnerId = candidates[Math.floor(Math.random() * candidates.length)]
+        return { session: withPhase(session, { ...state, partnerId, declinedPartners, ballots: {} }) }
+      }
+      // Personne n'est partant : le défi redevient une action en solo.
+      const card = pickCard(state.pack, 'dare', state.usedIds)
+      if (!card) return { session }
+      return {
+        session: withPhase(session, {
+          ...state,
+          partnerId: null,
+          declinedPartners,
+          currentChoice: 'dare',
+          currentCard: card,
+          usedIds: [...state.usedIds, card.id],
+          ballots: {},
+        }),
+      }
+    }
+
     if (action.type === 'refuse' && state.phase === 'revealed' && memberId === state.currentMemberId) {
       const { state: done, xp } = conclude(state, true)
       return { session: withPhase(session, done), xpAwards: xp }
@@ -294,6 +327,8 @@ export const truthOrDare: GameModule = {
       players: s.players,
       currentMemberId: s.currentMemberId,
       partnerId: s.partnerId,
+      declinedCount: s.declinedPartners.length,
+      canDeclinePartner: s.phase === 'revealed' && !!memberId && memberId === s.partnerId,
       currentChoice: s.currentChoice,
       currentCard: s.currentCard ? { id: s.currentCard.id, type: s.currentCard.type, text: s.currentCard.text } : null,
       forcedChoice: s.forcedChoice,
