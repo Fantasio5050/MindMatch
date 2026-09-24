@@ -122,10 +122,18 @@ export function SpotifyDeck({ code }: { code: string }) {
   const [position, setPosition] = useState(0)
   const [duration, setDuration] = useState(0)
   const [seeking, setSeeking] = useState(false)
+  // Le listener du SDK est enregistré une seule fois : il lisait une valeur figée de `seeking`.
+  const seekingRef = useRef(false)
+  seekingRef.current = seeking
 
   const playerRef = useRef<SpotifyPlayer | null>(null)
   const deviceIdRef = useRef<string | null>(null)
+  // Deux volumes distincts : `targetVolumeRef` est celui que l'utilisateur a choisi (réglages),
+  // `volumeRef` celui qu'on envoie au lecteur à l'instant T. Les fondus font varier le second et
+  // reviennent TOUJOURS au premier — confondre les deux faisait remonter chaque morceau à 100 %
+  // quel que soit le réglage, et laissait le volume bloqué à mi-fondu après un « suivant ».
   const volumeRef = useRef(readVolume())
+  const targetVolumeRef = useRef(readVolume())
   const fadeTimerRef = useRef<number | null>(null)
   const fadeOutTimerRef = useRef<number | null>(null)
   const loadedRef = useRef<string | null>(null)
@@ -157,6 +165,7 @@ export function SpotifyDeck({ code }: { code: string }) {
     stopFadeOut()
     const clamped = Math.max(0, Math.min(100, Math.round(value)))
     volumeRef.current = clamped
+    targetVolumeRef.current = clamped
     setVolumeUi(clamped)
     try { window.localStorage.setItem(VOLUME_STORE_KEY, String(clamped)) } catch { /* stockage indispo */ }
     try { await playerRef.current?.setVolume(clamped / 100) } catch { /* pas prêt */ }
@@ -181,13 +190,13 @@ export function SpotifyDeck({ code }: { code: string }) {
     stopVolumeFade()
     const profile = transitionRef.current
     if (!playerRef.current || durationSec <= 0 || profile === 'cut') {
-      void applyVolume(volumeRef.current > 0 ? volumeRef.current : 100)
+      void applyVolume(targetVolumeRef.current)
       return
     }
     const durationMs = durationSec * 1000
     const startAt = Date.now()
     const startVol = volumeRef.current
-    const endVol = 100
+    const endVol = targetVolumeRef.current
     const tickMs = 50
     fadeTimerRef.current = window.setInterval(() => {
       const elapsed = Date.now() - startAt
@@ -215,6 +224,13 @@ export function SpotifyDeck({ code }: { code: string }) {
     const startAt = Date.now()
     const tickMs = FADEOUT_TICK_MS
     fadeOutTimerRef.current = window.setInterval(() => {
+      // Pause pendant le fondu de sortie : on abandonne le fondu. Sans ça il allait à son terme et
+      // déclenchait le passage au morceau suivant alors que la salle avait mis en pause.
+      if (!usePartyStore.getState().group?.music?.isPlaying) {
+        stopFadeOut()
+        void applyVolume(targetVolumeRef.current)
+        return
+      }
       const elapsed = Date.now() - startAt
       const rawProgress = Math.min(elapsed / durationMs, 1)
       // Fade-out : ease inversé (highpass → s'ouvre, lowpass → se ferme)
@@ -253,12 +269,12 @@ export function SpotifyDeck({ code }: { code: string }) {
       const player = new Spotify.Player({
         name: 'MindMatch Platine',
         getOAuthToken: (cb) => { getSpotifyToken().then((t) => { if (t) cb(t) }) },
-        volume: volumeRef.current / 100,
+        volume: targetVolumeRef.current / 100,
       })
       playerRef.current = player
       player.addListener('ready', (arg) => {
         deviceIdRef.current = (arg as SpotifyReadyEvent).device_id
-        void applyVolume(volumeRef.current)
+        void applyVolume(targetVolumeRef.current)
         setReady(true)
       })
       player.addListener('authentication_error', () => { disconnectSpotify(); setConnected(false); setFatal('Connexion Spotify expirée — reconnecte-toi.') })
@@ -269,7 +285,7 @@ export function SpotifyDeck({ code }: { code: string }) {
         isPlayingRef.current = !s.paused
         positionRef.current = s.position
         durationRef.current = s.duration
-        if (!seeking) {
+        if (!seekingRef.current) {
           setPosition(s.position)
           setDuration(s.duration)
         }
@@ -307,13 +323,13 @@ export function SpotifyDeck({ code }: { code: string }) {
           if (isPlaying) applyFadeIn(fadeInSec)
         }, 120)
       } else {
-        void applyVolume(volumeRef.current)
+        void applyVolume(targetVolumeRef.current)
         void playSpotifyTrack(deviceIdRef.current!, current.sourceId)
       }
       if (!isPlaying) window.setTimeout(() => playerRef.current?.pause().catch(() => {}), 500)
     } else if (isPlaying) {
       stopFadeOut()
-      void applyVolume(volumeRef.current > 0 ? volumeRef.current : 100)
+      void applyVolume(targetVolumeRef.current)
       playerRef.current?.resume().catch(() => {})
     } else {
       playerRef.current?.pause().catch(() => {})
@@ -404,7 +420,7 @@ export function SpotifyDeck({ code }: { code: string }) {
   const handleSkip = () => {
     stopFadeOut()
     stopVolumeFade()
-    void applyVolume(volumeRef.current)
+    void applyVolume(targetVolumeRef.current)
     musicAction('hostSkip')
   }
 
