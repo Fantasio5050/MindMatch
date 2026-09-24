@@ -6,16 +6,29 @@ export type TimesUpRound = 1 | 2 | 3
 export interface TimesUpClientState {
   phase: TimesUpPhase
   round: TimesUpRound
+  /** La carte à faire deviner — présente SEULEMENT sur le téléphone de celui qui décrit */
   currentCard: TimesUpCard | null
+  /** Joueur désigné (tour lancé ou non) */
   currentDescriber: { memberId: string; pseudo: string; color: string } | null
-  scores: Record<string, number>
+  isYourTurn: boolean
+  /** Le chrono tourne */
+  turnActive: boolean
+  /** Identité du tour (jointe aux « temps écoulé » pour ignorer les doublons) */
+  turnSeq: number
+  /** Pause entre deux manches */
+  betweenRounds: boolean
+  /** Temps restant, en millisecondes */
+  timeLeft: number
+  turnTotal: number
   cardsRemaining: number
   totalCards: number
-  timeLeft: number
-  isYourTurn: boolean
+  foundCount: number
+  /** Cartes trouvées pendant ce tour (déjà devinées : publiques) */
+  foundThisTurn: string[]
+  passedThisTurn: number
   lastFound: string | null
-  foundCards: TimesUpCard[]
-  passedCards: TimesUpCard[]
+  scores: Record<string, number>
+  turnOrder: string[]
   roundResults: { round: TimesUpRound; found: TimesUpCard[]; missed: TimesUpCard[] }[]
 }
 

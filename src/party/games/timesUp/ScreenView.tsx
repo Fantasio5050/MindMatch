@@ -1,123 +1,105 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePartyStore } from '../../../store/usePartyStore'
 import { Avatar } from '../../../components/Avatar'
-import { ROUND_LABELS } from './types'
+import { useCountdown } from '../../useCountdown'
+import { ROUND_LABELS, ROUND_DESCS } from './types'
 import type { TimesUpClientState } from './types'
 import type { Member } from '../../../types'
 
+/**
+ * La TV de Time's Up ne montre JAMAIS la carte à faire deviner : c'est l'écran que regardent ceux
+ * qui devinent. Elle montre qui fait deviner, le chrono, et les cartes trouvées au fil du tour —
+ * ce qui a déjà été deviné, donc plus rien à cacher.
+ */
 export function TimesUpScreen() {
   const group = usePartyStore((s) => s.group)
+  const state = (group?.party.roundData as TimesUpClientState | null) ?? null
+  const timeLeft = useCountdown(state?.timeLeft ?? 0, state?.turnSeq ?? -1, !!state?.turnActive)
 
   if (!group) {
     return <div className="min-h-svh flex items-center justify-center"><p className="text-chalk-faint text-xl">Connexion à la salle…</p></div>
   }
-
-  const { party, members } = group
-  const state = party.roundData as TimesUpClientState | null
-
+  const { members } = group
   if (!state) {
-    return <div className="tv-frame flex items-center justify-center"><p className="text-chalk-faint text-2xl">Préparation…</p></div>
+    return <div className="tv-frame"><p className="text-chalk-faint text-2xl">Les cartes se mélangent…</p></div>
   }
-
   if (state.phase === 'ended') {
-    return <FinalPodium members={members} scores={state.scores} />
+    return <FinalPodium members={members} state={state} />
   }
 
-  const describer = members.find(m => m.id === state.currentDescriber?.memberId)
+  const describer = members.find((m) => m.id === state.currentDescriber?.memberId)
+  const seconds = Math.ceil(timeLeft / 1000)
+  const progress = state.totalCards > 0 ? state.foundCount / state.totalCards : 0
 
-  // Intro / between rounds
-  if (!state.currentDescriber) {
+  if (state.betweenRounds) {
+    const next = (state.round + 1) as 1 | 2 | 3
     return (
-      <div className="tv-frame flex flex-col items-center justify-center gap-6">
-        <span className="text-7xl">⏰</span>
-        <p className="text-4xl font-extrabold shimmer-text">Time's Up</p>
-        <p className="text-2xl text-chalk-soft">{ROUND_LABELS[state.round]}</p>
-        <p className="text-lg text-chalk-faint">{state.totalCards || state.cardsRemaining} cartes à deviner</p>
+      <div className="tv-frame text-center gap-6">
+        <p className="kicker text-tv-xs">Manche {state.round} bouclée</p>
+        <p className="font-stage text-tv-2xl text-chalk">{ROUND_LABELS[next]}</p>
+        <p className="text-tv-base text-chalk-soft max-w-3xl">{ROUND_DESCS[next]}</p>
       </div>
     )
   }
 
-  // Active turn
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={`${state.round}-${state.currentDescriber?.memberId}-${state.currentCard?.id}`}
-        initial={{ opacity: 0, scale: 0.94 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="tv-frame flex flex-col items-center justify-center gap-6"
-      >
-        <p className="text-chalk-faint text-xl uppercase tracking-widest">{ROUND_LABELS[state.round]}</p>
+    <div className="tv-frame text-center gap-6">
+      <p className="kicker text-tv-xs">{ROUND_LABELS[state.round]}</p>
 
-        <div className="flex flex-col items-center gap-3">
-          <Avatar pseudo={describer?.pseudo ?? '?'} color={describer?.color ?? '#fff'} size={80} photoUrl={describer?.photoUrl} />
-          <p className="text-3xl font-extrabold shimmer-text">{describer?.pseudo}</p>
-        </div>
+      <div className="flex flex-col items-center gap-3">
+        <Avatar pseudo={describer?.pseudo ?? '?'} color={describer?.color ?? '#888'} size="var(--tv-avatar-stage)" photoUrl={describer?.photoUrl} />
+        <p className="font-stage text-tv-2xl text-chalk">
+          {state.turnActive ? `${describer?.pseudo} ${state.round === 3 ? 'mime' : 'fait deviner'}` : `Au tour de ${describer?.pseudo}`}
+        </p>
+        {!state.turnActive && <p className="text-tv-base text-chalk-soft">{ROUND_DESCS[state.round]}</p>}
+      </div>
 
-        {state.currentCard && (
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-8 py-6"
-          >
-            <p className="text-4xl font-extrabold">{state.currentCard.text}</p>
-          </motion.div>
-        )}
+      {state.turnActive && (
+        <p className={`font-mono font-bold text-tv-3xl ${seconds <= 5 ? 'text-blood' : 'text-brass'}`}>{seconds}</p>
+      )}
 
-        {/* Timer ring */}
-        <div className="relative w-24 h-24 mt-4">
-          <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="6" className="text-felt-raised" />
-            <motion.circle
-              cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="6"
-              className={state.timeLeft <= 5 ? 'text-red-400' : 'text-amber-400'}
-              strokeDasharray={283}
-              animate={{ strokeDashoffset: 283 - (283 * state.timeLeft) / 30 }}
-              transition={{ duration: 1, ease: 'linear' }}
-            />
-          </svg>
-          <span className={`absolute inset-0 flex items-center justify-center text-2xl font-mono font-bold ${state.timeLeft <= 5 ? 'text-red-400' : 'text-amber-300'}`}>
-            {state.timeLeft}s
-          </span>
-        </div>
-
-        {/* Found this turn */}
-        {state.lastFound && (
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-lg text-emerald-300"
-          >
-            ✅ {state.lastFound}
-          </motion.p>
-        )}
-
-        {/* Round progress */}
-        <div className="flex gap-2 mt-4">
-          {Array.from({ length: state.totalCards }).map((_, i) => (
-            <div
-              key={i}
-              className={`w-3 h-3 rounded-full ${i < (state.foundCards?.length ?? 0) ? 'bg-emerald-400' : 'bg-felt-raised'}`}
-            />
+      <div className="flex flex-wrap justify-center gap-3 max-w-5xl min-h-[3rem]">
+        <AnimatePresence>
+          {state.foundThisTurn.map((t) => (
+            <motion.span
+              key={t}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-tv-sm text-jade bg-jade/10 border border-jade/30 rounded-chip px-4 py-1.5"
+            >
+              {t}
+            </motion.span>
           ))}
+        </AnimatePresence>
+      </div>
+
+      <div className="w-full max-w-3xl">
+        <div className="h-3 rounded-chip bg-felt-raised overflow-hidden">
+          <motion.div className="h-full bg-jade" animate={{ width: `${progress * 100}%` }} />
         </div>
-      </motion.div>
-    </AnimatePresence>
+        <p className="text-tv-xs text-chalk-soft mt-2">
+          {state.foundCount} / {state.totalCards} cartes trouvées dans cette manche
+        </p>
+      </div>
+    </div>
   )
 }
 
-function FinalPodium({ members, scores }: { members: Member[]; scores: Record<string, number> }) {
-  const ranked = [...members].sort((a, b) => (scores[b.id] ?? 0) - (scores[a.id] ?? 0))
+function FinalPodium({ members, state }: { members: Member[]; state: TimesUpClientState }) {
+  const ranked = members
+    .filter((m) => state.turnOrder.includes(m.id))
+    .sort((a, b) => (state.scores[b.id] ?? 0) - (state.scores[a.id] ?? 0))
   return (
-    <div className="tv-frame flex flex-col items-center justify-center gap-8">
-      <span className="text-7xl">🏆</span>
-      <p className="text-4xl font-extrabold shimmer-text">Classement final</p>
+    <div className="tv-frame gap-8">
+      <p className="kicker text-tv-xs">Trois manches jouées</p>
+      <p className="font-stage text-tv-2xl text-chalk">Qui a le mieux fait deviner</p>
       <div className="flex flex-col gap-4">
         {ranked.map((m, i) => (
           <div key={m.id} className="flex items-center gap-4">
-            <span className="text-3xl font-bold w-10 text-center">{i + 1}</span>
-            <Avatar pseudo={m.pseudo} color={m.color} size={56} photoUrl={m.photoUrl} />
-            <span className="text-2xl font-bold">{m.pseudo}</span>
-            <span className="text-xl text-emerald-300 font-mono">{scores[m.id] ?? 0} cartes</span>
+            <span className="text-tv-base font-bold w-10 text-center text-chalk-soft">{i + 1}</span>
+            <Avatar pseudo={m.pseudo} color={m.color} size="var(--tv-avatar-focus)" photoUrl={m.photoUrl} />
+            <span className="text-tv-base font-bold text-chalk w-64">{m.pseudo}</span>
+            <span className="text-tv-sm font-mono text-chalk-soft">{state.scores[m.id] ?? 0} cartes</span>
           </div>
         ))}
       </div>

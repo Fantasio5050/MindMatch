@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useCountdown } from './useCountdown'
+import { useCountdown } from '../../useCountdown'
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'

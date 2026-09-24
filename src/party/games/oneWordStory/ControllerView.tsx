@@ -9,7 +9,7 @@ import { Avatar } from '../../../components/Avatar'
 import type { OneWordStoryClientState } from './types'
 import type { Member } from '../../../types'
 import { WaitState } from '../../primitives'
-import { useCountdown } from './useCountdown'
+import { useCountdown } from '../../useCountdown'
 
 const TURN_TIME_MS = 15_000
 const MAX_WORD_LENGTH = 30

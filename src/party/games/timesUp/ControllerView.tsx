@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'
 import { Card } from '../../../components/Card'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
+import { useCountdown } from '../../useCountdown'
 import { ROUND_LABELS, ROUND_DESCS } from './types'
 import type { TimesUpClientState } from './types'
 import type { Member } from '../../../types'
@@ -17,177 +18,167 @@ export function TimesUpController() {
   const hostAdvance = usePartyStore((s) => s.hostAdvance)
   const sendAction = usePartyStore((s) => s.sendAction)
   const { play } = useSound()
-  const lastPhase = useRef<string | null>(null)
-  const [timeLeft, setTimeLeft] = useState(30)
   const state = (group?.party.roundData as TimesUpClientState | null) ?? null
 
+  // Son de nouvelle manche.
+  const lastRound = useRef<number | null>(null)
   useEffect(() => {
-    const phase = group?.party.phase
-    if (phase && phase !== lastPhase.current) {
-      if (phase === 'round1' || phase === 'round2' || phase === 'round3') play('reveal')
-      lastPhase.current = phase
-    }
-  }, [group?.party.phase, play])
+    if (!state || state.betweenRounds) return
+    if (lastRound.current !== state.round) play('reveal')
+    lastRound.current = state.round
+  }, [state?.round, state?.betweenRounds, state, play])
 
-  // Countdown timer
-  useEffect(() => {
-    if (!state?.isYourTurn || !state.currentCard) return
-    setTimeLeft(state.timeLeft)
-    const id = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
-          clearInterval(id)
-          sendAction('time-up', {})
-          return 0
-        }
-        return t - 1
-      })
-    }, 1000)
-    return () => clearInterval(id)
-  }, [state?.isYourTurn, state?.currentCard, sendAction])
+  // Fin de chrono : envoyée par celui qui décrit (ou l'hôte si son téléphone est en veille),
+  // avec le numéro du tour — le serveur ignore les doublons et les retards.
+  const turnSeq = state?.turnSeq ?? -1
+  const timeUp = useCallback(() => sendAction('time-up', { turn: turnSeq }), [sendAction, turnSeq])
+  const timeLeft = useCountdown(
+    state?.timeLeft ?? 0,
+    turnSeq,
+    !!state?.turnActive,
+    state?.isYourTurn || isHost ? timeUp : undefined,
+  )
 
   if (!group || !currentMember || !state) {
-    return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-chalk-soft text-sm">Chargement…</p></div>
+    return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-chalk-soft text-sm">Les cartes se mélangent…</p></div>
   }
 
   if (state.phase === 'ended') {
-    return <FinalResults members={group.members} scores={state.scores} onExit={() => navigate('/lobby')} />
+    return <FinalResults members={group.members} state={state} onExit={() => navigate('/lobby')} />
   }
 
-  const { party } = group
-  const isYourTurn = state.currentDescriber?.memberId === currentMember.id
+  const describer = group.members.find((m) => m.id === state.currentDescriber?.memberId)
+  const seconds = Math.ceil(timeLeft / 1000)
 
-  // Intro phase
-  if (party.phase === 'intro' || (!state.currentDescriber && (state.phase as string) !== 'ended')) {
+  // Entre deux manches : bilan, règle de la suivante, l'hôte relance.
+  if (state.betweenRounds) {
+    const last = state.roundResults[state.roundResults.length - 1]
+    const next = (state.round + 1) as 1 | 2 | 3
     return (
       <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
-        <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Time's Up</p>
-        <Card className="text-center mb-6">
-          <p className="text-2xl font-bold mb-2">{ROUND_LABELS[state.round]}</p>
-          <p className="text-sm text-chalk-soft">{ROUND_DESCS[state.round]}</p>
+        <p className="kicker text-2xs text-center mb-4">Manche {last?.round} terminée</p>
+        <Card className="mb-4 text-center">
+          <p className="text-sm text-chalk-soft">Les {last?.found.length} cartes ont été trouvées.</p>
+          <p className="text-xs text-chalk-faint mt-1">Les mêmes cartes reviennent, dans le désordre.</p>
         </Card>
-        <div className="flex flex-col gap-2 mb-6">
-          <p className="text-xs text-chalk-faint text-center">{state.totalCards || state.cardsRemaining} cartes à deviner</p>
-        </div>
+        <Card className="text-center mb-6">
+          <p className="text-xl font-bold mb-2">{ROUND_LABELS[next]}</p>
+          <p className="text-sm text-chalk-soft">{ROUND_DESCS[next]}</p>
+        </Card>
         {isHost ? (
-          <Button fullWidth onClick={() => sendAction('start-turn', {})}>
-            ▶ Lancer le tour
+          <Button fullWidth onClick={() => hostAdvance()}>
+            Lancer la manche {next}
           </Button>
         ) : (
-          <p className="text-center text-chalk-faint text-sm">L'hôte va lancer le tour…</p>
+          <p className="text-center text-chalk-soft text-sm">L'hôte lance la manche {next}</p>
         )}
       </div>
     )
   }
 
-  // Active turn
-  if (state.currentDescriber) {
-    const describer = group.members.find(m => m.id === state.currentDescriber!.memberId)
+  // Tour pas encore lancé : le joueur désigné prend le téléphone et démarre quand il est prêt.
+  if (!state.turnActive) {
     return (
       <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
-        <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
-          {ROUND_LABELS[state.round]}
-        </p>
-
-        <div className="flex flex-col items-center gap-2 mb-4">
-          <Avatar pseudo={describer?.pseudo ?? '?'} color={describer?.color ?? '#fff'} size={48} />
-          <p className="font-semibold text-sm">{isYourTurn ? "C'est ton tour !" : `${describer?.pseudo} décrit…`}</p>
+        <p className="kicker text-2xs text-center mb-2">{ROUND_LABELS[state.round]}</p>
+        <Card className="text-center mb-6">
+          <p className="text-sm text-chalk-soft">{ROUND_DESCS[state.round]}</p>
+          <p className="text-xs text-chalk-faint mt-2">
+            {state.cardsRemaining} carte{state.cardsRemaining > 1 ? 's' : ''} encore à trouver sur {state.totalCards}
+          </p>
+        </Card>
+        <div className="flex-1 flex flex-col items-center justify-center gap-3">
+          <Avatar pseudo={describer?.pseudo ?? '?'} color={describer?.color ?? '#888'} size={64} photoUrl={describer?.photoUrl} />
+          <p className="font-display text-xl text-chalk text-center">
+            {state.isYourTurn ? 'À toi de faire deviner' : `Au tour de ${describer?.pseudo}`}
+          </p>
+          {!state.isYourTurn && <p className="text-sm text-chalk-soft">Prépare-toi à deviner à voix haute.</p>}
         </div>
+        {state.isYourTurn ? (
+          <Button fullWidth onClick={() => sendAction('start-turn', {})}>
+            Je suis prêt·e — 30 secondes
+          </Button>
+        ) : isHost ? (
+          <Button fullWidth variant="ghost" onClick={() => sendAction('start-turn', {})}>
+            Lancer le tour de {describer?.pseudo}
+          </Button>
+        ) : null}
+      </div>
+    )
+  }
 
-        {isYourTurn && state.currentCard ? (
-          <>
-            {/* Timer */}
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <span className={`text-3xl font-mono font-bold ${timeLeft <= 5 ? 'text-red-400' : 'text-emerald-300'}`}>
-                {timeLeft}s
-              </span>
-            </div>
+  // Tour en cours — celui qui décrit : la carte et les deux gestes.
+  if (state.isYourTurn && state.currentCard) {
+    return (
+      <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
+        <p className="kicker text-2xs text-center mb-2">{ROUND_LABELS[state.round]}</p>
+        <p className={`text-center font-mono text-4xl font-bold mb-4 ${seconds <= 5 ? 'text-blood' : 'text-chalk'}`}>{seconds}s</p>
+        <Card className="text-center mb-6 py-10">
+          <p className="kicker text-2xs mb-3">À faire deviner</p>
+          <p className="font-display text-3xl text-chalk">{state.currentCard.text}</p>
+        </Card>
+        <div className="flex gap-3">
+          <Button className="flex-1" onClick={() => sendAction('card-found', {})}>
+            Trouvé
+          </Button>
+          <Button
+            className="flex-1"
+            variant="secondary"
+            disabled={state.cardsRemaining <= 1}
+            onClick={() => sendAction('pass-card', {})}
+          >
+            Passer
+          </Button>
+        </div>
+        <p className="text-xs text-chalk-faint text-center mt-3">
+          {state.foundThisTurn.length} trouvée{state.foundThisTurn.length > 1 ? 's' : ''} ce tour
+          {state.passedThisTurn > 0 ? ` · ${state.passedThisTurn} passée${state.passedThisTurn > 1 ? 's' : ''} (elles reviendront)` : ''}
+        </p>
+      </div>
+    )
+  }
 
-            {/* Card to describe */}
-            <Card className="text-center mb-6">
-              <p className="text-xs text-chalk-faint mb-2">À faire deviner :</p>
-              <p className="text-2xl font-bold">{state.currentCard.text}</p>
-            </Card>
-
-            {/* Actions */}
-            <div className="flex gap-3">
-              <Button className="flex-1" onClick={() => sendAction('card-found', {})}>
-                ✅ Trouvé !
-              </Button>
-              <Button className="flex-1" variant="secondary" onClick={() => sendAction('pass-card', {})}>
-                ⏭ Passer
-              </Button>
-            </div>
-
-            {/* Found this turn */}
-            {state.passedCards.length > 0 && (
-              <p className="text-xs text-chalk-faint text-center mt-3">
-                {state.passedCards.length} carte{state.passedCards.length > 1 ? 's' : ''} passée{state.passedCards.length > 1 ? 's' : ''}
-              </p>
-            )}
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4">
-            <span className="text-5xl">{state.round === 3 ? '🤫' : '🤔'}</span>
-            <p className="text-chalk-soft text-sm text-center">
-              {state.round === 3 ? 'Mime en cours… Devine à voix haute !' : 'Description en cours… Devine à voix haute !'}
-            </p>
-            {state.lastFound && (
-              <p className="text-xs text-emerald-300 bg-emerald-500/10 rounded-full px-3 py-1">
-                ✅ {state.lastFound}
-              </p>
-            )}
+  // Tour en cours — les autres devinent à voix haute.
+  return (
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
+      <p className="kicker text-2xs text-center mb-2">{ROUND_LABELS[state.round]}</p>
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
+        <Avatar pseudo={describer?.pseudo ?? '?'} color={describer?.color ?? '#888'} size={56} photoUrl={describer?.photoUrl} />
+        <p className="font-display text-xl text-chalk">
+          {describer?.pseudo} {state.round === 3 ? 'mime' : 'fait deviner'} — devine à voix haute
+        </p>
+        <p className={`font-mono text-3xl font-bold ${seconds <= 5 ? 'text-blood' : 'text-chalk-soft'}`}>{seconds}s</p>
+        {state.foundThisTurn.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-2">
+            {state.foundThisTurn.map((t) => (
+              <span key={t} className="text-xs text-jade bg-jade/10 rounded-chip px-3 py-1">{t}</span>
+            ))}
           </div>
         )}
       </div>
-    )
-  }
-
-  // Between rounds
-  if (state.phase === 'round2' || state.phase === 'round3') {
-    if (!state.currentDescriber) {
-      const lastResult = state.roundResults[state.roundResults.length - 1]
-      return (
-        <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
-          <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-4">Round terminé</p>
-          {lastResult && (
-            <Card className="mb-6">
-              <p className="text-sm text-chalk-soft mb-2">Round {lastResult.round} :</p>
-              <p className="text-emerald-300 text-sm">✅ {lastResult.found.length} trouvées</p>
-              <p className="text-pink-300 text-sm">❌ {lastResult.missed.length} ratées</p>
-            </Card>
-          )}
-          <Card className="text-center mb-6">
-            <p className="text-xl font-bold mb-2">{ROUND_LABELS[state.round]}</p>
-            <p className="text-sm text-chalk-soft">{ROUND_DESCS[state.round]}</p>
-          </Card>
-          {isHost ? (
-            <Button fullWidth onClick={() => hostAdvance()}>
-              ▶ Continuer
-            </Button>
-          ) : (
-            <p className="text-center text-chalk-faint text-sm">Préparation du prochain round…</p>
-          )}
-        </div>
-      )
-    }
-  }
-
-  return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-chalk-soft text-sm">Chargement…</p></div>
+      {isHost && (
+        <Button fullWidth variant="ghost" onClick={timeUp}>
+          Arrêter ce tour
+        </Button>
+      )}
+    </div>
+  )
 }
 
-function FinalResults({ members, scores, onExit }: { members: Member[]; scores: Record<string, number>; onExit: () => void }) {
-  const ranked = [...members].sort((a, b) => (scores[b.id] ?? 0) - (scores[a.id] ?? 0))
+function FinalResults({ members, state, onExit }: { members: Member[]; state: TimesUpClientState; onExit: () => void }) {
+  const players = members.filter((m) => state.turnOrder.includes(m.id))
+  const ranked = [...players].sort((a, b) => (state.scores[b.id] ?? 0) - (state.scores[a.id] ?? 0))
   return (
     <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
-      <h2 className="text-2xl font-extrabold text-center mb-6">Partie terminée !</h2>
+      <p className="kicker text-2xs text-center mb-2">Trois manches jouées</p>
+      <h2 className="font-display text-2xl text-center text-chalk mb-6">Qui a le mieux fait deviner</h2>
       <div className="flex flex-col gap-3 mb-6">
         {ranked.map((m, i) => (
           <div key={m.id} className="flex items-center gap-3 rounded-card bg-felt-raised p-3">
-            <span className="text-lg font-bold w-6 text-center">{i + 1}</span>
-            <Avatar pseudo={m.pseudo} color={m.color} size={36} />
+            <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
+            <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-emerald-300 font-mono text-sm">{scores[m.id] ?? 0} cartes</span>
+            <span className="font-mono text-sm text-chalk-soft">{state.scores[m.id] ?? 0} cartes</span>
           </div>
         ))}
       </div>
