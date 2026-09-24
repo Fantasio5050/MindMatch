@@ -695,9 +695,14 @@ function GameTile({
       onClick={onOpen}
       className="relative overflow-hidden rounded-card border border-line bg-felt aspect-[4/5] text-left shadow-card"
     >
-      {/* Vignette du jeu en fond, avec overlay sombre pour la lisibilité. */}
+      {/* Vignette du jeu en fond, avec overlay sombre pour la lisibilité. Deux tailles WebP : la
+          tuile occupe ~250 px CSS, donc 320 px suffisent en 1× et 640 px couvrent les écrans 2-3×
+          (les originaux PNG 1024 px pesaient 1,3 Mo chacun, 32 Mo pour le salon). */}
       <img
-        src={`/game-thumbnails/${entry.id}.png`}
+        src={`/game-thumbnails/${entry.id}-320.webp`}
+        srcSet={`/game-thumbnails/${entry.id}-320.webp 320w, /game-thumbnails/${entry.id}-640.webp 640w`}
+        sizes="50vw"
+        decoding="async"
         alt=""
         className="absolute inset-0 w-full h-full object-cover"
         style={{ opacity: locked ? 0.3 : 0.55 }}
