@@ -1,33 +1,48 @@
 import type { PartySession } from '../../src/types'
 import type { GameModule, XpAward } from './types'
-import {
-  QUIPROQUO_CONSTRAINTS,
-  QUIPROQUO_TOPICS,
-  DISCUSSION_TIME_SEC,
-  type QuiproquoConstraint,
-} from '../../src/data/quiproquo'
+import { QUIPROQUO_CONSTRAINTS, QUIPROQUO_TOPICS, type QuiproquoConstraint } from '../../src/data/quiproquo'
+
+/**
+ * Quiproquo — chacun reçoit une contrainte secrète, on discute, puis on devine celles des autres.
+ *
+ * Tout le jeu repose sur le secret des contraintes, or la table complète partait en clair : le
+ * téléphone la lisait même pour y retrouver la sienne. Et la liste des réponses proposées était
+ * construite dans l'ordre des joueurs — la n-ième proposition était la contrainte du n-ième
+ * joueur, la solution se lisait à l'écran. `viewFor` ne donne plus à chacun que sa contrainte,
+ * une liste de propositions triée, et ses propres paris (ceux des autres restent masqués jusqu'aux
+ * résultats — seul leur NOMBRE est public, pour que la pièce voie qui a fini).
+ */
 
 const TOTAL_ROUNDS = 3
-const GUESS_XP = 3
-const UNDETECTED_XP = 5
+const GUESS_POINTS = 3
+const UNDETECTED_POINTS = 5
+const HIDDEN = '?'
+
+type Phase = 'reveal-constraints' | 'discussion' | 'guessing' | 'results' | 'ended'
+
+interface QuiproquoResult {
+  memberId: string
+  constraintId: string
+  guessedBy: string[]
+  guessedCorrectly: boolean
+}
 
 interface QuiproquoState {
   round: number
   totalRounds: number
-  phase: 'intro' | 'reveal-constraints' | 'discussion' | 'guessing' | 'results' | 'ended'
+  phase: Phase
+  players: string[]
   topic: string | null
   constraintsByMember: Record<string, QuiproquoConstraint>
-  guesses: Record<string, string | null>  // voterId -> guessed constraintId for each target
-  allGuesses: Record<string, Record<string, string>>  // voterId -> { targetId -> constraintId }
+  allGuesses: Record<string, Record<string, string>> // votant -> { cible -> contrainte }
   scores: Record<string, number>
-  timeLeft: number
   usedTopics: string[]
   usedConstraintIds: string[]
-  results: { memberId: string; constraintId: string; guessedBy: string[]; guessedCorrectly: boolean }[]
+  results: QuiproquoResult[]
 }
 
-function getState(session: PartySession): QuiproquoState {
-  return session.roundData as QuiproquoState
+function getState(session: PartySession): QuiproquoState | null {
+  return session.roundData as QuiproquoState | null
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -39,21 +54,72 @@ function shuffle<T>(arr: T[]): T[] {
   return copy
 }
 
-function assignConstraints(memberIds: string[], usedIds: string[]): Record<string, QuiproquoConstraint> {
-  const available = QUIPROQUO_CONSTRAINTS.filter(c => !usedIds.includes(c.id))
-  const pool = available.length >= memberIds.length ? available : QUIPROQUO_CONSTRAINTS
-  const shuffled = shuffle(pool)
-  const assignment: Record<string, QuiproquoConstraint> = {}
-  memberIds.forEach((id, i) => {
-    assignment[id] = shuffled[i % shuffled.length]
-  })
-  return assignment
+/** Une contrainte différente par joueur (la banque en compte 20), en évitant celles déjà vues. */
+function assignConstraints(players: string[], used: string[]): Record<string, QuiproquoConstraint> {
+  const fresh = QUIPROQUO_CONSTRAINTS.filter((c) => !used.includes(c.id))
+  const pool = shuffle(fresh.length >= players.length ? fresh : QUIPROQUO_CONSTRAINTS)
+  return Object.fromEntries(players.map((id, i) => [id, pool[i % pool.length]]))
 }
 
-function pickTopic(usedTopics: string[]): string {
-  const available = QUIPROQUO_TOPICS.filter(t => !usedTopics.includes(t))
-  const pool = available.length > 0 ? available : QUIPROQUO_TOPICS
+function pickTopic(used: string[]): string {
+  const fresh = QUIPROQUO_TOPICS.filter((t) => !used.includes(t))
+  const pool = fresh.length > 0 ? fresh : QUIPROQUO_TOPICS
   return pool[Math.floor(Math.random() * pool.length)]
+}
+
+function newRound(players: string[], round: number, prev: Pick<QuiproquoState, 'scores' | 'usedTopics' | 'usedConstraintIds'>): QuiproquoState {
+  const constraintsByMember = assignConstraints(players, prev.usedConstraintIds)
+  const topic = pickTopic(prev.usedTopics)
+  return {
+    round,
+    totalRounds: TOTAL_ROUNDS,
+    phase: 'reveal-constraints',
+    players,
+    topic,
+    constraintsByMember,
+    allGuesses: {},
+    scores: prev.scores,
+    usedTopics: [...prev.usedTopics, topic],
+    usedConstraintIds: [...prev.usedConstraintIds, ...Object.values(constraintsByMember).map((c) => c.id)],
+    results: [],
+  }
+}
+
+/** A deviné tout le monde (sauf soi). */
+function isDone(s: QuiproquoState, voter: string): boolean {
+  const mine = s.allGuesses[voter] ?? {}
+  return s.players.every((t) => t === voter || !!mine[t])
+}
+
+/** Dépouillement, avec les paris déposés jusque-là (l'hôte peut clore avant que tous aient fini). */
+function tally(s: QuiproquoState): QuiproquoState {
+  const scores = { ...s.scores }
+  const results: QuiproquoResult[] = s.players.map((targetId) => {
+    const actual = s.constraintsByMember[targetId]
+    const guessedBy = s.players.filter((voter) => voter !== targetId && s.allGuesses[voter]?.[targetId] === actual.id)
+    for (const voter of guessedBy) scores[voter] = (scores[voter] ?? 0) + GUESS_POINTS
+    if (guessedBy.length === 0) scores[targetId] = (scores[targetId] ?? 0) + UNDETECTED_POINTS
+    return { memberId: targetId, constraintId: actual.id, guessedBy, guessedCorrectly: guessedBy.length > 0 }
+  })
+  return { ...s, phase: 'results', scores, results }
+}
+
+function withPhase(session: PartySession, s: QuiproquoState): PartySession {
+  return { ...session, phase: s.phase, roundData: s }
+}
+
+/** Avance d'une étape : révélation → discussion → paris → résultats. */
+function step(s: QuiproquoState): QuiproquoState {
+  if (s.phase === 'reveal-constraints') return { ...s, phase: 'discussion' }
+  if (s.phase === 'discussion') return { ...s, phase: 'guessing' }
+  if (s.phase === 'guessing') return tally(s)
+  return s
+}
+
+function finalXp(s: QuiproquoState): XpAward[] {
+  return Object.entries(s.scores)
+    .filter(([, score]) => score > 0)
+    .map(([memberId, score]) => ({ memberId, amount: score, statIncrements: { 'quiproquo.totalScore': score }, reason: `${score} points au Quiproquo` }))
 }
 
 export const quiproquo: GameModule = {
@@ -62,161 +128,100 @@ export const quiproquo: GameModule = {
   icon: '🎭',
   minPlayers: 4,
 
-  initRound(group, session, _config) {
-    const isFirstRound = session.round === 0
+  initRound(_group, session) {
     const state = getState(session)
-
-    if (!isFirstRound && state.phase === 'results') {
-      // Start next round
-      const nextRound = state.round + 1
-      if (nextRound > state.totalRounds) {
-        return { session: { ...session, status: 'ended', phase: 'ended', roundData: { ...state, phase: 'ended' } } }
-      }
-
-      const memberIds = group.members.map(m => m.id)
-      const constraints = assignConstraints(memberIds, state.usedConstraintIds)
-      const topic = pickTopic(state.usedTopics)
-      const usedConstraintIds = [...state.usedConstraintIds, ...Object.values(constraints).map(c => c.id)]
-
-      const newState: QuiproquoState = {
-        ...state,
-        round: nextRound,
-        phase: 'reveal-constraints',
-        topic,
-        constraintsByMember: constraints,
-        guesses: {},
-        allGuesses: {},
-        timeLeft: DISCUSSION_TIME_SEC,
-        usedTopics: [...state.usedTopics, topic],
-        usedConstraintIds,
-        results: [],
-      }
-      return { session: { ...session, status: 'playing', phase: 'reveal-constraints', round: nextRound, roundData: newState } }
+    if (session.round === 0 || !state) {
+      const s = newRound([...session.participantIds], 1, { scores: {}, usedTopics: [], usedConstraintIds: [] })
+      return { session: { ...session, status: 'playing', phase: s.phase, round: 1, roundData: s } }
     }
-
-    // First round
-    const memberIds = group.members.map(m => m.id)
-    const constraints = assignConstraints(memberIds, [])
-    const topic = pickTopic([])
-
-    const newState: QuiproquoState = {
-      round: 1,
-      totalRounds: TOTAL_ROUNDS,
-      phase: 'reveal-constraints',
-      topic,
-      constraintsByMember: constraints,
-      guesses: {},
-      allGuesses: {},
-      scores: {},
-      timeLeft: DISCUSSION_TIME_SEC,
-      usedTopics: [topic],
-      usedConstraintIds: Object.values(constraints).map(c => c.id),
-      results: [],
+    if (state.phase === 'results') {
+      if (state.round >= state.totalRounds) {
+        const s: QuiproquoState = { ...state, phase: 'ended' }
+        return { session: { ...session, status: 'ended', phase: 'ended', roundData: s }, xpAwards: finalXp(s) }
+      }
+      const s = newRound(state.players, state.round + 1, state)
+      return { session: { ...session, phase: s.phase, round: s.round, roundData: s } }
     }
-
-    return { session: { ...session, status: 'playing', phase: 'reveal-constraints', round: 1, roundData: newState } }
+    return { session }
   },
 
-  handleAction(group, session, memberId, action) {
+  handleAction(_group, session, memberId, action) {
     const state = getState(session)
-    const act = action as { type: string; payload: unknown }
+    if (!state || !state.players.includes(memberId)) return { session }
+    const isHost = memberId === session.hostMemberId
 
-    // Host starts discussion
-    if (act.type === 'start-discussion') {
-      if (state.phase !== 'reveal-constraints') return { session }
-      return { session: { ...session, phase: 'discussion', roundData: { ...state, phase: 'discussion' } } }
+    // Les transitions de discussion appartiennent à l'hôte (n'importe qui pouvait les déclencher).
+    if (action.type === 'start-discussion' && isHost && state.phase === 'reveal-constraints') {
+      return { session: withPhase(session, step(state)) }
+    }
+    if (action.type === 'end-discussion' && isHost && state.phase === 'discussion') {
+      return { session: withPhase(session, step(state)) }
     }
 
-    // Host ends discussion → guessing phase
-    if (act.type === 'end-discussion') {
-      if (state.phase !== 'discussion') return { session }
-      return { session: { ...session, phase: 'guessing', roundData: { ...state, phase: 'guessing' } } }
-    }
-
-    // Player submits a guess: guesses which constraint another player has
-    if (act.type === 'submit-guess') {
-      if (state.phase !== 'guessing') return { session }
-      const { targetId, constraintId } = act.payload as { targetId: string; constraintId: string }
-      if (targetId === memberId) return { session } // can't guess yourself
-
-      const allGuesses = { ...state.allGuesses }
-      if (!allGuesses[memberId]) allGuesses[memberId] = {}
-      allGuesses[memberId][targetId] = constraintId
-
-      // Check if all players have guessed all others
-      const memberIds = group.members.map(m => m.id)
-      const allDone = memberIds.every(voter => {
-        if (!state.constraintsByMember[voter]) return true
-        return allGuesses[voter] && memberIds.filter(t => t !== voter).every(t => allGuesses[voter][t])
-      })
-
-      if (allDone) {
-        // Resolve results
-        const results = memberIds.map(targetId => {
-          const actualConstraint = state.constraintsByMember[targetId]
-          const guessedBy: string[] = []
-          memberIds.forEach(voter => {
-            if (voter === targetId) return
-            const guess = allGuesses[voter]?.[targetId]
-            if (guess === actualConstraint.id) guessedBy.push(voter)
-          })
-          return {
-            memberId: targetId,
-            constraintId: actualConstraint.id,
-            guessedBy,
-            guessedCorrectly: guessedBy.length > 0,
-          }
-        })
-
-        // Compute scores
-        const scores = { ...state.scores }
-        results.forEach(r => {
-          // Points for guessing correctly
-          memberIds.forEach(voter => {
-            if (voter === r.memberId) return
-            const guess = allGuesses[voter]?.[r.memberId]
-            if (guess === r.constraintId) {
-              scores[voter] = (scores[voter] ?? 0) + GUESS_XP
-            }
-          })
-          // Points for NOT being detected
-          if (!r.guessedCorrectly) {
-            scores[r.memberId] = (scores[r.memberId] ?? 0) + UNDETECTED_XP
-          }
-        })
-
-        return {
-          session: { ...session, phase: 'results', roundData: { ...state, phase: 'results', allGuesses, scores, results } },
-        }
-      }
-
-      return { session: { ...session, roundData: { ...state, allGuesses } } }
+    if (action.type === 'submit-guess' && state.phase === 'guessing') {
+      const { targetId, constraintId } = (action.payload ?? {}) as { targetId?: string; constraintId?: string }
+      if (!targetId || !constraintId || targetId === memberId || !state.players.includes(targetId)) return { session }
+      const inPlay = Object.values(state.constraintsByMember).some((c) => c.id === constraintId)
+      if (!inPlay) return { session }
+      const allGuesses = { ...state.allGuesses, [memberId]: { ...(state.allGuesses[memberId] ?? {}), [targetId]: constraintId } }
+      let s: QuiproquoState = { ...state, allGuesses }
+      if (s.players.every((voter) => isDone(s, voter))) s = tally(s)
+      return { session: withPhase(session, s) }
     }
 
     return { session }
   },
 
-  isRoundComplete(_group, session) {
-    const state = getState(session)
-    return state.phase === 'results' || state.phase === 'ended'
+  isRoundComplete() {
+    return false
   },
 
   isAwaitingInput(_group, session) {
-    const state = getState(session)
-    return state.phase !== 'ended' && state.phase !== 'results'
+    const p = getState(session)?.phase
+    return p === 'reveal-constraints' || p === 'discussion' || p === 'guessing'
   },
 
+  /** Hôte : étape suivante — y compris clore les paris sans attendre les retardataires. */
   resolveRound(_group, session) {
     const state = getState(session)
-    if (state.phase === 'ended') {
-      const xpAwards: XpAward[] = Object.entries(state.scores).map(([memberId, score]) => ({
-        memberId,
-        amount: score,
-        statIncrements: { 'quiproquo.totalScore': score },
-        reason: `Score total: ${score}`,
-      }))
-      return { session: { ...session, status: 'ended', phase: 'ended', roundData: state }, xpAwards }
+    if (!state) return { session }
+    return { session: withPhase(session, step(state)) }
+  },
+
+  viewFor(_group, session, memberId) {
+    const s = getState(session)
+    if (!s) return null
+    const reveal = s.phase === 'results' || s.phase === 'ended'
+    const me = memberId && s.players.includes(memberId) ? memberId : null
+    // Propositions : les contraintes en jeu, TRIÉES — jamais dans l'ordre des joueurs.
+    const allConstraints = Object.values(s.constraintsByMember)
+      .filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i)
+      .map((c) => ({ id: c.id, text: c.text }))
+      .sort((a, b) => a.text.localeCompare(b.text, 'fr'))
+    // Paris : les siens en clair ; ceux des autres réduits à leur nombre avant les résultats.
+    const allGuesses = reveal
+      ? s.allGuesses
+      : Object.fromEntries(
+          Object.entries(s.allGuesses).map(([voter, g]) => [
+            voter,
+            voter === me ? g : Object.fromEntries(Object.keys(g).map((t) => [t, HIDDEN])),
+          ]),
+        )
+    const mine = me ? s.constraintsByMember[me] : null
+    return {
+      phase: s.phase,
+      round: s.round,
+      totalRounds: s.totalRounds,
+      topic: s.topic,
+      players: s.players,
+      yourConstraint: mine ? { id: mine.id, text: mine.text, description: mine.description } : null,
+      allConstraints,
+      allGuesses,
+      doneIds: s.players.filter((id) => isDone(s, id)),
+      guesses: {},
+      scores: s.scores,
+      timeLeft: 0,
+      results: reveal ? s.results : [],
     }
-    return { session }
   },
 }

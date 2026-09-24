@@ -12,6 +12,10 @@ export interface QuiproquoClientState {
   round: number
   totalRounds: number
   results: { memberId: string; constraintId: string; guessedBy: string[]; guessedCorrectly: boolean }[]
+  /** Joueurs de la partie (les arrivées en cours de route regardent) */
+  players: string[]
+  /** Joueurs qui ont deviné tout le monde */
+  doneIds: string[]
 }
 
 export const PHASE_LABELS: Record<QuiproquoPhase, string> = {

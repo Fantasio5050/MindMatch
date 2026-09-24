@@ -14,20 +14,14 @@ export function QuiproquoController() {
   const isHost = usePartyStore((s) => s.isHost())
   const hostAdvance = usePartyStore((s) => s.hostAdvance)
   const sendAction = usePartyStore((s) => s.sendAction)
-  const rawState = (group?.party.roundData as any) ?? null
-  const state = rawState ? {
-    ...rawState,
-    // Derive client-specific fields from server state
-    yourConstraint: rawState.constraintsByMember?.[currentMember?.id ?? ''] ?? null,
-    allConstraints: Object.values(rawState.constraintsByMember ?? {}).map((c: any) => ({
-      id: c.id as string,
-      text: c.text as string,
-    }))
-  } as QuiproquoClientState : null
+  // Le serveur ne livre que SA contrainte à chaque joueur (voir `viewFor`) : plus besoin — ni
+  // moyen — de la retrouver dans la table de tout le monde.
+  const state = (group?.party.roundData as QuiproquoClientState | null) ?? null
 
   if (!group || !currentMember || !state) {
-    return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-chalk-soft text-sm">Chargement…</p></div>
+    return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-chalk-soft text-sm">La table se prépare…</p></div>
   }
+  const players = group.members.filter((m) => state.players.includes(m.id))
 
   if (state.phase === 'ended') {
     return <FinalResults members={group.members} scores={state.scores} onExit={() => navigate('/lobby')} />
@@ -48,7 +42,7 @@ export function QuiproquoController() {
             <p className="text-sm text-chalk-soft">{state.yourConstraint.description}</p>
           </Card>
         ) : (
-          <Card className="text-center mb-6"><p className="text-chalk-soft">Attends…</p></Card>
+          <Card className="text-center mb-6"><p className="text-chalk-soft">Tu regardes cette manche : tu joueras à la prochaine partie.</p></Card>
         )}
         <Card className="mb-6">
           <p className="text-xs text-chalk-faint mb-2">Sujet de discussion :</p>
@@ -96,7 +90,15 @@ export function QuiproquoController() {
 
   // Phase: guessing
   if (state.phase === 'guessing') {
-    return <GuessingPhase state={state} members={group.members} currentMember={currentMember} sendAction={sendAction} />
+    return (
+      <GuessingPhase
+        state={state}
+        members={players}
+        currentMember={currentMember}
+        sendAction={sendAction}
+        onForceClose={isHost ? () => hostAdvance() : undefined}
+      />
+    )
   }
 
   // Phase: results
@@ -129,7 +131,7 @@ export function QuiproquoController() {
             {state.round >= state.totalRounds ? 'Voir les résultats finaux' : 'Round suivant →'}
           </Button>
         ) : (
-          <p className="text-center text-chalk-faint text-sm">En attente de l'hôte…</p>
+          <p className="text-center text-chalk-soft text-sm">L'hôte lance la suite</p>
         )}
       </div>
     )
@@ -138,11 +140,13 @@ export function QuiproquoController() {
   return <div className="min-h-svh flex items-center justify-center px-6"><p className="text-chalk-soft text-sm">Chargement…</p></div>
 }
 
-function GuessingPhase({ state, members, currentMember, sendAction }: {
+function GuessingPhase({ state, members, currentMember, sendAction, onForceClose }: {
   state: QuiproquoClientState
   members: Member[]
   currentMember: Member
   sendAction: (type: string, payload: unknown) => void
+  /** Hôte seulement : dépouiller sans attendre les retardataires. */
+  onForceClose?: () => void
 }) {
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null)
   const myGuesses = state.allGuesses?.[currentMember.id] ?? {}
@@ -207,7 +211,15 @@ function GuessingPhase({ state, members, currentMember, sendAction }: {
       )}
 
       {allDone && (
-        <p className="text-center text-emerald-300 text-sm mt-4">✅ Tu as deviné tout le monde ! En attente des autres…</p>
+        <p className="text-center text-jade text-sm mt-4">
+          Tu as deviné tout le monde · {state.doneIds.length} / {members.length} ont fini
+        </p>
+      )}
+
+      {onForceClose && state.doneIds.length < members.length && (
+        <Button fullWidth variant="ghost" onClick={onForceClose} className="mt-4">
+          Dévoiler sans attendre
+        </Button>
       )}
     </div>
   )
