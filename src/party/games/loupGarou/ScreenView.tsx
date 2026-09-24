@@ -27,12 +27,25 @@ export function LoupGarouScreen() {
   }
 
   if (state.winner) {
+    const roles = state.allRoles ?? {}
     return (
       <div className="tv-frame flex flex-col items-center justify-center gap-8">
-        <span className="text-8xl">{state.winner === 'village' ? '🛡️' : state.winner === 'loups' ? '🐺' : '💘'}</span>
-        <p className="text-5xl font-extrabold shimmer-text">
-          {state.winner === 'village' ? 'Le village a gagné !' : state.winner === 'loups' ? 'Les loups ont gagné !' : 'Les amoureux ont gagné !'}
+        <p className="font-stage text-tv-2xl text-brass">
+          {state.winner === 'village' ? 'Le village a gagné' : state.winner === 'loups' ? 'Les loups ont gagné' : 'Les amoureux ont gagné'}
         </p>
+        {/* La fin dévoile tout : chaque rôle, et le couple. */}
+        <div className="grid grid-cols-4 gap-5">
+          {members.filter((m) => state.players.includes(m.id)).map((m) => {
+            const r = roles[m.id]
+            return (
+              <div key={m.id} className={`flex flex-col items-center gap-1.5 ${state.alive.includes(m.id) ? '' : 'opacity-50'}`}>
+                <Avatar pseudo={m.pseudo} color={m.color} size="var(--tv-avatar-focus)" photoUrl={m.photoUrl} />
+                <span className="text-tv-xs text-chalk">{m.pseudo}{state.lovers?.includes(m.id) ? ' 💘' : ''}</span>
+                {r && <span className="text-tv-xs text-chalk-soft">{ROLE_ICONS[r]} {ROLE_NAMES[r]}</span>}
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }
@@ -77,7 +90,7 @@ export function LoupGarouScreen() {
           </p>
         )}
         <div className="grid grid-cols-4 gap-3 mt-6">
-          {members.map(m => {
+          {members.filter((m) => state.players.includes(m.id)).map(m => {
             const isDead = !state.alive.includes(m.id)
             return (
               <motion.div
@@ -98,7 +111,9 @@ export function LoupGarouScreen() {
   }
 
   if (party.phase === 'day') {
-    const nightDeaths = state.dead.filter(d => d.cause.includes('nuit'))
+    const nightDeaths = state.lastNightDeaths
+      .map((id) => state.dead.find((d) => d.memberId === id))
+      .filter((d): d is NonNullable<typeof d> => !!d)
     return (
       <div className="tv-frame flex flex-col items-center justify-center gap-6">
         <motion.span
@@ -125,7 +140,7 @@ export function LoupGarouScreen() {
                     <Avatar pseudo={m?.pseudo ?? '?'} color={m?.color ?? '#fff'} size={48} photoUrl={m?.photoUrl} />
                     <div className="text-left">
                       <p className="text-lg font-bold">{m?.pseudo}</p>
-                      <p className="text-sm text-chalk-faint">{ROLE_ICONS[d.role]} {ROLE_NAMES[d.role]}</p>
+                      <p className="text-sm text-chalk-faint">{ROLE_ICONS[d.role]} {ROLE_NAMES[d.role]} · {d.cause}</p>
                     </div>
                   </motion.div>
                 )
@@ -182,7 +197,7 @@ export function LoupGarouScreen() {
   }
 
   if (party.phase === 'reveal') {
-    const lastDeath = state.dead[state.dead.length - 1]
+    const [lastDeath, ...others] = state.dayDeaths
     const lastMember = members.find(m => m.id === lastDeath?.memberId)
     return (
       <AnimatePresence mode="wait">
@@ -199,9 +214,14 @@ export function LoupGarouScreen() {
               <p className="text-2xl font-bold">{lastMember.pseudo}</p>
               <p className="text-5xl">{ROLE_ICONS[lastDeath.role]}</p>
               <p className="text-xl font-bold shimmer-text">{ROLE_NAMES[lastDeath.role]}</p>
+              {others.map((d) => (
+                <p key={d.memberId} className="text-lg text-chalk-soft">
+                  {members.find((m) => m.id === d.memberId)?.pseudo} · {d.cause} · {ROLE_NAMES[d.role]}
+                </p>
+              ))}
             </>
           ) : (
-            <p className="text-2xl text-chalk-soft">Personne n'a été éliminé·e</p>
+            <p className="text-2xl text-chalk-soft">Égalité : personne n'est éliminé</p>
           )}
         </motion.div>
       </AnimatePresence>

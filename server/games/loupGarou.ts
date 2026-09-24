@@ -1,50 +1,82 @@
 import type { Group, PartySession } from '../../src/types'
 import type { GameModule, XpAward } from './types'
-import {
-  type RoleId,
-  type Phase,
-  type NightStep,
-  NIGHT_ORDER,
-  computeRoleCounts,
-  getNightStepForRole,
-} from '../../src/data/loupGarou'
+import { NIGHT_ORDER, computeRoleCounts, type NightStep, type RoleId } from '../../src/data/loupGarou'
 
-const DAY_VOTE_XP = 2
-const NIGHT_ACTION_XP = 1
+/**
+ * Loup-Garou de Thiercelieux — serveur autoritaire.
+ *
+ * Réécrit : la version précédente était injouable et, surtout, publique.
+ *  - Tous les rôles partaient en clair à chaque téléphone et à la TV (`roleByMember`), comme la
+ *    cible des loups, leurs votes et le couple d'amoureux. Le client, lui, attendait un `yourRole`
+ *    que rien ne produisait : personne ne connaissait son rôle à l'écran.
+ *  - La nuit ne finissait jamais : l'étape « petite fille » était toujours appelée, mais aucune
+ *    action ne permettait de la terminer.
+ *  - Le passage du jour au vote était inatteignable (le bouton de l'hôte ne faisait rien).
+ *  - Cupidon relançait un couple chaque nuit ; le chasseur mort la nuit ne tirait pas ; la
+ *    sorcière pouvait réutiliser ses potions ; le salvateur protéger deux fois de suite la même
+ *    personne ; la voyante ne voyait jamais son résultat (l'étape passait avant l'affichage).
+ *
+ * Choix de règles (application de soirée, sans meneur humain) :
+ *  - Petite fille : chaque nuit elle choisit d'espionner ou de dormir. Espionner lui montre UN
+ *    loup vivant au hasard — mais les loups apprennent la nuit suivante qu'ils ont été vus, et
+ *    par qui. Grosse information, gros risque. (L'ancienne version lui donnait la liste complète
+ *    des loups dès la première nuit : partie pliée.)
+ *  - Égalité au vote du village : personne n'est éliminé. Égalité chez les loups : tirage au sort.
+ *  - L'hôte peut toujours débloquer : sauter l'étape d'un joueur absent, clore un vote.
+ */
+
+type Phase = 'role-reveal' | 'night' | 'day' | 'vote' | 'reveal' | 'hunter-shot' | 'ended'
+type Winner = 'village' | 'loups' | 'lovers'
+
+const VOTE_XP = 1
 const WIN_XP = 10
 
-/** État secret — stocké dans session.roundData, jamais envoyé tel quel au client */
-interface LoupGarouSecrets {
+interface Death {
+  memberId: string
+  role: RoleId
+  cause: string
+  day: number
+}
+
+interface LoupGarouState {
+  phase: Phase
+  players: string[]
   roleByMember: Record<string, RoleId>
+  alive: string[]
+  dead: Death[]
+  dayNumber: number
   lovers: [string, string] | null
-  voyanteChecks: string[]
-  salvateurLastProtect: string | null
-  sorciereHealUsed: boolean
-  sorciereKillUsed: boolean
+  /** Étapes de nuit restantes (l'étape courante en tête). */
+  nightQueue: NightStep[]
+  step: NightStep | null
+  nightVotes: Record<string, string>
   killTarget: string | null
   protectedTarget: string | null
-  healedThisNight: boolean
-  nightVotes: Record<string, string> // loupId -> targetId
-  cupidonChoice: [string, string] | null
-  voyanteChoice: string | null
-  salvateurChoice: string | null
-  sorciereAction: { heal: boolean; killTarget: string | null } | null
-  dayVotes: Record<string, string> // voterId -> targetId
-  hunterShotTarget: string | null
-  nightDeaths: string[]
-  dayNumber: number
-  currentNightStep: NightStep | null  // explicitly typed
-  currentNightActor: string | null
-  winner: 'village' | 'loups' | 'lovers' | null
-  alive: string[]
-  dead: { memberId: string; role: RoleId; cause: string }[]
-  phase: Phase
-  pendingNightSteps: NightStep[]
+  salvateurLast: string | null
+  healUsed: boolean
+  poisonUsed: boolean
+  healedTonight: boolean
+  poisonTarget: string | null
+  voyanteResult: { memberId: string; role: RoleId } | null
+  /** Nuit de la dernière consultation : une seule par nuit. */
+  voyanteCheckedNight: number | null
+  petiteFilleSeen: string | null
+  /** La petite fille a espionné : les loups l'apprennent la nuit suivante. */
+  spiedBy: string | null
+  spyRevealedToWolves: boolean
+  dayVotes: Record<string, string>
+  voteResults: Record<string, number> | null
+  lastNightDeaths: string[]
+  /** Morts depuis l'ouverture du vote (élu du village, tir du chasseur, chagrin) — index dans `dead`. */
+  voteDeathsFrom: number
+  pendingHunter: string | null
+  afterHunter: 'day' | 'reveal'
+  winner: Winner | null
   history: { day: number; event: string }[]
 }
 
-function getState(session: PartySession): LoupGarouSecrets {
-  return session.roundData as LoupGarouSecrets
+function getState(session: PartySession): LoupGarouState | null {
+  return session.roundData as LoupGarouState | null
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -56,179 +88,165 @@ function shuffle<T>(arr: T[]): T[] {
   return copy
 }
 
-function assignRoles(members: { id: string }[]): Record<string, RoleId> {
-  const counts = computeRoleCounts(members.length)
-  const rolePool: RoleId[] = []
-  for (const [role, count] of Object.entries(counts)) {
-    for (let i = 0; i < count; i++) rolePool.push(role as RoleId)
-  }
-  // Fill remaining with villageois
-  while (rolePool.length < members.length) rolePool.push('villageois')
-  // Trim excess
-  rolePool.length = members.length
-
-  const shuffled = shuffle(rolePool)
-  const assignment: Record<string, RoleId> = {}
-  members.forEach((m, i) => { assignment[m.id] = shuffled[i] })
-  return assignment
+const STEP_ROLE: Record<NightStep, RoleId> = {
+  cupidon: 'cupidon',
+  voyante: 'voyante',
+  salvateur: 'salvateur',
+  loups: 'loup-garou',
+  sorciere: 'sorciere',
+  'petite-fille': 'petite-fille',
 }
 
-function checkWinCondition(state: LoupGarouSecrets): 'village' | 'loups' | 'lovers' | null {
-  const alive = state.alive
-  const aliveLoups = alive.filter(id => state.roleByMember[id] === 'loup-garou')
-  const aliveNonLoups = alive.filter(id => state.roleByMember[id] !== 'loup-garou')
+function assignRoles(players: string[]): Record<string, RoleId> {
+  const counts = computeRoleCounts(players.length)
+  const pool: RoleId[] = []
+  // Les loups d'abord : si la table est trop petite pour tous les rôles, ce sont les rôles
+  // spéciaux (en fin de liste) qui sautent, jamais les loups.
+  const order: RoleId[] = ['loup-garou', 'voyante', 'sorciere', 'chasseur', 'cupidon', 'salvateur', 'petite-fille', 'villageois']
+  for (const role of order) for (let i = 0; i < (counts[role] ?? 0); i++) pool.push(role)
+  while (pool.length < players.length) pool.push('villageois')
+  const dealt = shuffle(pool.slice(0, players.length))
+  return Object.fromEntries(players.map((id, i) => [id, dealt[i]]))
+}
 
-  if (aliveLoups.length === 0) return 'village'
-  if (aliveLoups.length >= aliveNonLoups.length) return 'loups'
+const isWolf = (s: LoupGarouState, id: string) => s.roleByMember[id] === 'loup-garou'
+const aliveWith = (s: LoupGarouState, role: RoleId) => s.alive.filter((id) => s.roleByMember[id] === role)
+const actorOf = (s: LoupGarouState, step: NightStep) => aliveWith(s, STEP_ROLE[step])[0] ?? null
 
-  // Lovers win if they're the last 2 alive
-  if (state.lovers && alive.length === 2 && state.lovers.every(id => alive.includes(id))) {
-    return 'lovers'
+function clone(s: LoupGarouState): LoupGarouState {
+  return {
+    ...s,
+    alive: [...s.alive],
+    dead: [...s.dead],
+    nightQueue: [...s.nightQueue],
+    nightVotes: { ...s.nightVotes },
+    dayVotes: { ...s.dayVotes },
+    history: [...s.history],
   }
+}
 
+function checkWinner(s: LoupGarouState): Winner | null {
+  const wolves = s.alive.filter((id) => isWolf(s, id)).length
+  const others = s.alive.length - wolves
+  if (s.lovers && s.alive.length === 2 && s.lovers.every((id) => s.alive.includes(id))) {
+    const mixed = isWolf(s, s.lovers[0]) !== isWolf(s, s.lovers[1])
+    if (mixed) return 'lovers'
+  }
+  if (wolves === 0) return 'village'
+  if (wolves >= others) return 'loups'
   return null
 }
 
-function handleDeath(state: LoupGarouSecrets, memberId: string, cause: string): { state: LoupGarouSecrets; hunterNeedsToShoot: boolean } {
-  const role = state.roleByMember[memberId]
-  const nextState: LoupGarouSecrets = {
-    ...state,
-    alive: state.alive.filter(id => id !== memberId),
-    dead: [...state.dead, { memberId, role, cause }],
+/** Tue un joueur (et son amoureux·se, par chagrin). Retourne les morts, dans l'ordre. */
+function kill(s: LoupGarouState, id: string, cause: string): string[] {
+  if (!s.alive.includes(id)) return []
+  s.alive = s.alive.filter((x) => x !== id)
+  s.dead.push({ memberId: id, role: s.roleByMember[id], cause, day: s.dayNumber })
+  const out = [id]
+  if (s.lovers?.includes(id)) {
+    const other = s.lovers.find((x) => x !== id)!
+    out.push(...kill(s, other, 'chagrin d’amour'))
   }
-
-  // Lover suicide
-  if (state.lovers && state.lovers.includes(memberId)) {
-    const other = state.lovers.find(id => id !== memberId)
-    if (other && nextState.alive.includes(other)) {
-      return handleDeath(nextState, other, 'amour (suicide)')
-    }
-  }
-
-  // Hunter shoots
-  const hunterNeedsToShoot = role === 'chasseur'
-  return { state: nextState, hunterNeedsToShoot }
+  // Le chasseur tire en mourant, quelle que soit la cause de sa mort.
+  if (s.roleByMember[id] === 'chasseur') s.pendingHunter = id
+  return out
 }
 
-function advanceNightStep(state: LoupGarouSecrets, group: Group): LoupGarouSecrets {
-  const pendingSteps = [...state.pendingNightSteps]
-  if (pendingSteps.length === 0) {
-    // Night is over — resolve deaths
-    return resolveNight(state, group)
-  }
-
-  const nextStep = pendingSteps[0]
-  const remainingSteps = pendingSteps.slice(1)
-
-  // Find the actor for this step
-  let actor: string | null = null
-  for (const id of state.alive) {
-    const role = state.roleByMember[id]
-    if (getNightStepForRole(role) === nextStep) {
-      actor = id
-      break
-    }
-  }
-
-  // For loups, any loup can act
-  if (nextStep === 'loups') {
-    actor = state.alive.find(id => state.roleByMember[id] === 'loup-garou') ?? null
-  }
-
-  // If no actor for this step (role dead), skip
-  if (!actor && nextStep !== 'petite-fille') {
-    return advanceNightStep({ ...state, pendingNightSteps: remainingSteps }, group)
-  }
-
-  return {
-    ...state,
-    currentNightStep: nextStep,
-    currentNightActor: actor,
-    pendingNightSteps: remainingSteps,
-  }
+function finishIfWon(s: LoupGarouState): boolean {
+  const w = checkWinner(s)
+  if (!w) return false
+  s.winner = w
+  s.phase = 'ended'
+  s.step = null
+  s.pendingHunter = null
+  return true
 }
 
-function resolveNight(state: LoupGarouSecrets, _group: Group): LoupGarouSecrets {
-  let nextState: LoupGarouSecrets = { ...state, phase: 'day' as Phase, currentNightStep: null as NightStep | null, currentNightActor: null as string | null }
+/** Passe à l'étape de nuit suivante dont l'acteur est vivant ; plus d'étape = aube. */
+function nextStep(s: LoupGarouState): void {
+  while (s.nightQueue.length > 0) {
+    const step = s.nightQueue.shift()!
+    if (actorOf(s, step)) {
+      s.step = step
+      return
+    }
+  }
+  s.step = null
+  dawn(s)
+}
+
+function beginNight(s: LoupGarouState, first: boolean): void {
+  if (!first) s.dayNumber += 1
+  s.phase = 'night'
+  s.nightVotes = {}
+  s.killTarget = null
+  s.protectedTarget = null
+  s.healedTonight = false
+  s.poisonTarget = null
+  s.petiteFilleSeen = null
+  s.voteResults = null
+  s.dayVotes = {}
+  // Les loups apprennent qu'on les a espionnés la nuit suivant l'espionnage.
+  s.spyRevealedToWolves = !!s.spiedBy
+  s.nightQueue = NIGHT_ORDER.filter((step) => step !== 'cupidon' || (first && !s.lovers))
+  nextStep(s)
+}
+
+/** Fin de nuit : on applique les morts, puis le chasseur éventuel, puis le jour. */
+function dawn(s: LoupGarouState): void {
   const deaths: string[] = []
-
-  // Loup kill (unless protected or healed)
-  if (state.killTarget && state.killTarget !== state.protectedTarget && !state.healedThisNight) {
-    deaths.push(state.killTarget)
+  const eaten = s.killTarget && s.killTarget !== s.protectedTarget && !s.healedTonight ? s.killTarget : null
+  if (eaten) deaths.push(...kill(s, eaten, 'dévoré·e par les loups'))
+  if (s.poisonTarget) deaths.push(...kill(s, s.poisonTarget, 'empoisonné·e'))
+  s.lastNightDeaths = deaths
+  s.history.push({ day: s.dayNumber, event: deaths.length ? `Nuit ${s.dayNumber} : ${deaths.length} mort(s)` : `Nuit ${s.dayNumber} : aucun mort` })
+  if (finishIfWon(s)) return
+  if (s.pendingHunter) {
+    s.phase = 'hunter-shot'
+    s.afterHunter = 'day'
+  } else {
+    s.phase = 'day'
   }
-
-  // Sorciere kill
-  if (state.sorciereAction?.killTarget) {
-    if (!deaths.includes(state.sorciereAction.killTarget)) {
-      deaths.push(state.sorciereAction.killTarget)
-    }
-  }
-
-  for (const deathId of deaths) {
-    if (nextState.alive.includes(deathId)) {
-      const { state: afterDeath } = handleDeath(nextState, deathId, 'nuit (loups-garous)')
-      nextState = afterDeath
-    }
-  }
-
-  nextState.history = [...nextState.history, { day: state.dayNumber, event: deaths.length > 0 ? `Nuit ${state.dayNumber}: ${deaths.length} mort(s)` : `Nuit ${state.dayNumber}: personne n'est mort` }]
-
-  // Reset night state
-  nextState.killTarget = null
-  nextState.protectedTarget = null
-  nextState.healedThisNight = false
-  nextState.sorciereAction = null
-  nextState.voyanteChoice = null
-  nextState.salvateurChoice = null
-  nextState.nightVotes = {}
-  nextState.cupidonChoice = null
-
-  // Check win
-  const winner = checkWinCondition(nextState)
-  if (winner) {
-    nextState.winner = winner
-    nextState.phase = 'ended'
-  }
-
-  return nextState
 }
 
-function resolveDayVote(state: LoupGarouSecrets, _group: Group): LoupGarouSecrets {
-  const voteCounts: Record<string, number> = {}
-  for (const targetId of Object.values(state.dayVotes)) {
-    voteCounts[targetId] = (voteCounts[targetId] ?? 0) + 1
+function tallyVote(s: LoupGarouState): XpAward[] {
+  s.voteDeathsFrom = s.dead.length
+  const counts: Record<string, number> = {}
+  for (const t of Object.values(s.dayVotes)) counts[t] = (counts[t] ?? 0) + 1
+  s.voteResults = counts
+  const max = Math.max(0, ...Object.values(counts))
+  const top = Object.keys(counts).filter((id) => counts[id] === max)
+  const xp: XpAward[] = Object.keys(s.dayVotes).map((id) => ({ memberId: id, amount: VOTE_XP, reason: 'A voté au conseil du village' }))
+  if (top.length === 1 && max > 0) {
+    kill(s, top[0], 'vote du village')
+    s.history.push({ day: s.dayNumber, event: `Jour ${s.dayNumber} : le village élimine un joueur` })
+  } else {
+    s.history.push({ day: s.dayNumber, event: `Jour ${s.dayNumber} : égalité, personne n'est éliminé` })
   }
-
-  let eliminated: string | null = null
-  let maxVotes = 0
-  for (const [id, count] of Object.entries(voteCounts)) {
-    if (count > maxVotes) {
-      maxVotes = count
-      eliminated = id
-    }
+  if (finishIfWon(s)) return xp
+  if (s.pendingHunter) {
+    s.phase = 'hunter-shot'
+    s.afterHunter = 'reveal'
+  } else {
+    s.phase = 'reveal'
   }
+  return xp
+}
 
-  let nextState = { ...state, phase: 'reveal' as Phase }
-  if (eliminated && state.alive.includes(eliminated)) {
-    const { state: afterDeath, hunterNeedsToShoot } = handleDeath(nextState, eliminated, 'vote du village')
-    nextState = afterDeath
-    nextState.hunterShotTarget = null
-    if (hunterNeedsToShoot) {
-      nextState.phase = 'hunter-shot'
-    }
+function winXp(s: LoupGarouState): XpAward[] {
+  if (!s.winner) return []
+  const winners = s.players.filter((id) =>
+    s.winner === 'lovers' ? s.lovers?.includes(id) : s.winner === 'loups' ? isWolf(s, id) : !isWolf(s, id),
+  )
+  return winners.map((id) => ({ memberId: id, amount: WIN_XP, statIncrements: { 'loupGarou.wins': 1 }, reason: 'Victoire au Loup-Garou' }))
+}
+
+function out(session: PartySession, s: LoupGarouState, xp: XpAward[] = []): { session: PartySession; xpAwards: XpAward[] } {
+  const ended = s.phase === 'ended'
+  return {
+    session: { ...session, status: ended ? 'ended' : 'playing', phase: s.phase, round: s.dayNumber, roundData: s },
+    xpAwards: ended ? [...xp, ...winXp(s)] : xp,
   }
-
-  nextState.history = [...nextState.history, { day: state.dayNumber, event: eliminated ? `Jour ${state.dayNumber}: ${eliminated} éliminé·e par le village` : `Jour ${state.dayNumber}: personne éliminé·e` }]
-  nextState.dayVotes = {}
-
-  // Check win
-  const winner = checkWinCondition(nextState)
-  if (winner) {
-    nextState.winner = winner
-    nextState.phase = 'ended'
-  }
-
-  return nextState
 }
 
 export const loupGarou: GameModule = {
@@ -237,252 +255,271 @@ export const loupGarou: GameModule = {
   icon: '🐺',
   minPlayers: 8,
 
-  initRound(group, session, _config) {
-    const isFirstRound = session.round === 0
-
-    if (!isFirstRound) {
-      const state = getState(session)
-      // Continue game based on current phase
-      if (state.phase === 'day') {
-        // Start vote
-        return { session: { ...session, status: 'playing', phase: 'vote', roundData: { ...state, phase: 'vote' as Phase } } }
+  initRound(_group: Group, session) {
+    const state = getState(session)
+    if (session.round === 0 || !state) {
+      const players = [...session.participantIds]
+      const s: LoupGarouState = {
+        phase: 'role-reveal',
+        players,
+        roleByMember: assignRoles(players),
+        alive: [...players],
+        dead: [],
+        dayNumber: 1,
+        lovers: null,
+        nightQueue: [],
+        step: null,
+        nightVotes: {},
+        killTarget: null,
+        protectedTarget: null,
+        salvateurLast: null,
+        healUsed: false,
+        poisonUsed: false,
+        healedTonight: false,
+        poisonTarget: null,
+        voteResults: null,
+        voyanteResult: null,
+        voyanteCheckedNight: null,
+        petiteFilleSeen: null,
+        spiedBy: null,
+        spyRevealedToWolves: false,
+        dayVotes: {},
+        lastNightDeaths: [],
+        voteDeathsFrom: 0,
+        pendingHunter: null,
+        afterHunter: 'day',
+        winner: null,
+        history: [],
       }
-      if (state.phase === 'reveal' || state.phase === 'hunter-shot') {
-        // Start next night
-        const nextState: LoupGarouSecrets = {
-          ...state,
-          phase: 'night',
-          dayNumber: state.dayNumber + 1,
-          pendingNightSteps: [...NIGHT_ORDER],
-          currentNightActor: null,
-        }
-        const advanced = advanceNightStep(nextState, group)
-        return { session: { ...session, status: 'playing', phase: 'night', roundData: advanced } }
-      }
-      return { session }
+      return { session: { ...session, status: 'playing', phase: s.phase, round: 1, roundData: s } }
     }
-
-    // First round — assign roles and start
-    const roleByMember = assignRoles(group.members)
-    const alive = group.members.map(m => m.id)
-
-    const state: LoupGarouSecrets = {
-      roleByMember,
-      currentNightStep: null as NightStep | null,
-      lovers: null,
-      voyanteChecks: [],
-      salvateurLastProtect: null,
-      sorciereHealUsed: false,
-      sorciereKillUsed: false,
-      killTarget: null,
-      protectedTarget: null,
-      healedThisNight: false,
-      nightVotes: {},
-      cupidonChoice: null,
-      voyanteChoice: null,
-      salvateurChoice: null,
-      sorciereAction: null,
-      dayVotes: {},
-      hunterShotTarget: null,
-      nightDeaths: [],
-      dayNumber: 1,
-      currentNightActor: null as string | null,
-      pendingNightSteps: [...NIGHT_ORDER],
-      alive,
-      dead: [],
-      phase: 'role-reveal',
-      winner: null,
-      history: [],
-    }
-
-    return {
-      session: { ...session, status: 'playing', phase: 'role-reveal', round: 1, roundData: state },
-    }
+    // Hôte : les transitions « hors saisie » — lancer la nuit, ouvrir le vote.
+    const s = clone(state)
+    if (s.phase === 'role-reveal') beginNight(s, true)
+    else if (s.phase === 'day') {
+      s.phase = 'vote'
+      s.dayVotes = {}
+    } else if (s.phase === 'reveal') beginNight(s, false)
+    else return { session }
+    return out(session, s)
   },
 
-  handleAction(group, session, memberId, action) {
+  handleAction(_group, session, memberId, action) {
     const state = getState(session)
-    const act = action as { type: string; payload: unknown }
+    if (!state || !state.players.includes(memberId)) return { session }
+    const payload = (action.payload ?? {}) as { targetId?: string; target1?: string; target2?: string }
+    const alive = (id?: string): id is string => !!id && state.alive.includes(id)
+    const isHost = memberId === session.hostMemberId
 
-    // Start game (host)
-    if (act.type === 'start') {
-      const nextState = advanceNightStep(state, group)
-      return { session: { ...session, phase: 'night', roundData: nextState } }
+    if (action.type === 'start' && isHost && state.phase === 'role-reveal') {
+      const s = clone(state)
+      beginNight(s, true)
+      return out(session, s)
     }
 
-    // Cupidon links two players
-    if (act.type === 'cupidon-link') {
-      if (state.currentNightStep !== 'cupidon' || memberId !== state.currentNightActor) return { session }
-      const { target1, target2 } = act.payload as { target1: string; target2: string }
-      const nextState = advanceNightStep({ ...state, lovers: [target1, target2] }, group)
-      return {
-        session: { ...session, roundData: nextState },
-        xpAwards: [{ memberId, amount: NIGHT_ACTION_XP, reason: 'Cupidon a lié deux amoureux' }],
-      }
-    }
+    // ─── Nuit ────────────────────────────────────────────────────────────
+    if (state.phase === 'night' && state.step) {
+      const step = state.step
+      const actor = actorOf(state, step)
+      const s = clone(state)
 
-    // Voyante checks a player
-    if (act.type === 'voyante-check') {
-      if (state.currentNightStep !== 'voyante' || memberId !== state.currentNightActor) return { session }
-      const { targetId } = act.payload as { targetId: string }
-      const nextState = advanceNightStep({
-        ...state,
-        voyanteChecks: [...state.voyanteChecks, targetId],
-        voyanteChoice: targetId,
-      }, group)
-      // Store the result for the client state to pick up
-      return {
-        session: { ...session, roundData: { ...nextState, voyanteChoice: targetId } },
-        xpAwards: [{ memberId, amount: NIGHT_ACTION_XP, reason: 'Voyante a examiné un joueur' }],
-      }
-    }
-
-    // Salvateur protects
-    if (act.type === 'salvateur-protect') {
-      if (state.currentNightStep !== 'salvateur' || memberId !== state.currentNightActor) return { session }
-      const { targetId } = act.payload as { targetId: string }
-      const nextState = advanceNightStep({
-        ...state,
-        protectedTarget: targetId,
-        salvateurLastProtect: targetId,
-        salvateurChoice: targetId,
-      }, group)
-      return {
-        session: { ...session, roundData: nextState },
-        xpAwards: [{ memberId, amount: NIGHT_ACTION_XP, reason: 'Salvateur a protégé un joueur' }],
-      }
-    }
-
-    // Loup votes for a target
-    if (act.type === 'loup-vote') {
-      if (state.currentNightStep !== 'loups') return { session }
-      const role = state.roleByMember[memberId]
-      if (role !== 'loup-garou' || !state.alive.includes(memberId)) return { session }
-      const { targetId } = act.payload as { targetId: string }
-      const nightVotes = { ...state.nightVotes, [memberId]: targetId }
-
-      // Check if all alive loups have voted
-      const aliveLoups = state.alive.filter(id => state.roleByMember[id] === 'loup-garou')
-      const allVoted = aliveLoups.every(id => id in nightVotes)
-
-      if (allVoted) {
-        // Tally votes
-        const voteCounts: Record<string, number> = {}
-        for (const target of Object.values(nightVotes)) {
-          voteCounts[target] = (voteCounts[target] ?? 0) + 1
+      if (step === 'loups' && action.type === 'loup-vote') {
+        if (!isWolf(state, memberId) || !alive(memberId) || !alive(payload.targetId) || isWolf(state, payload.targetId)) return { session }
+        s.nightVotes[memberId] = payload.targetId
+        const pack = aliveWith(s, 'loup-garou')
+        if (pack.every((id) => id in s.nightVotes)) {
+          const counts: Record<string, number> = {}
+          for (const t of Object.values(s.nightVotes)) counts[t] = (counts[t] ?? 0) + 1
+          const max = Math.max(...Object.values(counts))
+          const top = Object.keys(counts).filter((id) => counts[id] === max)
+          s.killTarget = top[Math.floor(Math.random() * top.length)]
+          nextStep(s)
         }
-        let killTarget: string | null = null
-        let maxVotes = 0
-        for (const [id, count] of Object.entries(voteCounts)) {
-          if (count > maxVotes) { maxVotes = count; killTarget = id }
+        return out(session, s)
+      }
+
+      if (memberId !== actor) return { session }
+
+      if (step === 'cupidon' && action.type === 'cupidon-link') {
+        const { target1, target2 } = payload
+        if (!alive(target1) || !alive(target2) || target1 === target2) return { session }
+        s.lovers = [target1, target2]
+        nextStep(s)
+        return out(session, s)
+      }
+
+      if (step === 'voyante') {
+        // L'examen et la fin de tour sont deux gestes : sinon l'étape passait avant que la voyante
+        // ait vu son résultat.
+        if (action.type === 'voyante-check') {
+          if (state.voyanteCheckedNight === state.dayNumber) return { session }
+          if (!alive(payload.targetId) || payload.targetId === memberId) return { session }
+          s.voyanteResult = { memberId: payload.targetId, role: s.roleByMember[payload.targetId] }
+          s.voyanteCheckedNight = s.dayNumber
+          return out(session, s)
         }
-        const nextState = advanceNightStep({ ...state, nightVotes, killTarget }, group)
-        return { session: { ...session, roundData: nextState } }
-      }
-
-      return { session: { ...session, roundData: { ...state, nightVotes } } }
-    }
-
-    // Sorciere action
-    if (act.type === 'sorciere-heal') {
-      if (state.currentNightStep !== 'sorciere' || memberId !== state.currentNightActor) return { session }
-      const nextState = advanceNightStep({
-        ...state,
-        sorciereHealUsed: true,
-        healedThisNight: true,
-        sorciereAction: { heal: true, killTarget: null },
-      }, group)
-      return { session: { ...session, roundData: nextState } }
-    }
-
-    if (act.type === 'sorciere-kill') {
-      if (state.currentNightStep !== 'sorciere' || memberId !== state.currentNightActor) return { session }
-      const { targetId } = act.payload as { targetId: string }
-      const nextState = advanceNightStep({
-        ...state,
-        sorciereKillUsed: true,
-        sorciereAction: { heal: false, killTarget: targetId },
-      }, group)
-      return { session: { ...session, roundData: nextState } }
-    }
-
-    if (act.type === 'sorciere-pass') {
-      if (state.currentNightStep !== 'sorciere' || memberId !== state.currentNightActor) return { session }
-      const nextState = advanceNightStep({ ...state, sorciereAction: { heal: false, killTarget: null } }, group)
-      return { session: { ...session, roundData: nextState } }
-    }
-
-    // Day vote
-    if (act.type === 'day-vote') {
-      if (state.phase !== 'vote' || !state.alive.includes(memberId)) return { session }
-      const { targetId } = act.payload as { targetId: string }
-      const dayVotes = { ...state.dayVotes, [memberId]: targetId }
-
-      // Check if all alive have voted
-      if (Object.keys(dayVotes).length >= state.alive.length) {
-        const resolved = resolveDayVote({ ...state, dayVotes }, group)
-        return {
-          session: { ...session, phase: resolved.phase, roundData: resolved },
-          xpAwards: state.alive.map(id => ({ memberId: id, amount: DAY_VOTE_XP, reason: 'A participé au vote' })),
+        if (action.type === 'voyante-done') {
+          nextStep(s)
+          return out(session, s)
         }
+        return { session }
       }
 
-      return { session: { ...session, roundData: { ...state, dayVotes } } }
-    }
-
-    // Hunter shoots
-    if (act.type === 'hunter-shoot') {
-      if (state.phase !== 'hunter-shot') return { session }
-      const { targetId } = act.payload as { targetId: string }
-      let nextState = { ...state, phase: 'reveal' as Phase }
-      if (state.alive.includes(targetId)) {
-        const { state: afterDeath } = handleDeath(nextState, targetId, 'chasseur')
-        nextState = afterDeath
-      }
-      nextState.hunterShotTarget = targetId
-
-      // Check win
-      const winner = checkWinCondition(nextState)
-      if (winner) {
-        nextState.winner = winner
-        nextState.phase = 'ended'
+      if (step === 'salvateur' && action.type === 'salvateur-protect') {
+        if (!alive(payload.targetId) || payload.targetId === state.salvateurLast) return { session }
+        s.protectedTarget = payload.targetId
+        s.salvateurLast = payload.targetId
+        nextStep(s)
+        return out(session, s)
       }
 
-      return { session: { ...session, phase: nextState.phase, roundData: nextState } }
-    }
+      if (step === 'sorciere') {
+        if (action.type === 'sorciere-heal') {
+          if (state.healUsed || !state.killTarget) return { session }
+          s.healUsed = true
+          s.healedTonight = true
+          return out(session, s)
+        }
+        if (action.type === 'sorciere-kill') {
+          if (state.poisonUsed || !alive(payload.targetId)) return { session }
+          s.poisonUsed = true
+          s.poisonTarget = payload.targetId
+          return out(session, s)
+        }
+        if (action.type === 'sorciere-pass' || action.type === 'sorciere-done') {
+          nextStep(s)
+          return out(session, s)
+        }
+        return { session }
+      }
 
-    // Advance (host moves to next phase)
-    if (act.type === 'advance') {
-      // This is handled by initRound being called again
+      if (step === 'petite-fille') {
+        if (action.type === 'petite-fille-spy') {
+          const pack = aliveWith(s, 'loup-garou')
+          s.petiteFilleSeen = pack[Math.floor(Math.random() * pack.length)] ?? null
+          s.spiedBy = memberId
+          return out(session, s)
+        }
+        if (action.type === 'petite-fille-sleep' || action.type === 'petite-fille-done') {
+          nextStep(s)
+          return out(session, s)
+        }
+        return { session }
+      }
       return { session }
+    }
+
+    // ─── Vote du village ─────────────────────────────────────────────────
+    if (state.phase === 'vote' && action.type === 'day-vote') {
+      if (!alive(memberId) || !alive(payload.targetId) || payload.targetId === memberId) return { session }
+      const s = clone(state)
+      s.dayVotes[memberId] = payload.targetId
+      if (s.alive.every((id) => id in s.dayVotes)) return out(session, s, tallyVote(s))
+      return out(session, s)
+    }
+
+    // ─── Tir du chasseur ─────────────────────────────────────────────────
+    if (state.phase === 'hunter-shot' && action.type === 'hunter-shoot' && memberId === state.pendingHunter) {
+      if (!alive(payload.targetId)) return { session }
+      const s = clone(state)
+      s.pendingHunter = null
+      kill(s, payload.targetId, 'abattu·e par le chasseur')
+      if (!finishIfWon(s)) {
+        // Un amoureux chasseur emporté par chagrin a lui aussi droit à son tir.
+        if (!s.pendingHunter) s.phase = s.afterHunter
+      }
+      return out(session, s)
     }
 
     return { session }
   },
 
-  isRoundComplete(_group, session) {
-    const state = getState(session)
-    return state.phase === 'ended'
+  isRoundComplete() {
+    return false
   },
 
   isAwaitingInput(_group, session) {
-    const state = getState(session)
-    return state.phase !== 'ended'
+    const p = getState(session)?.phase
+    return p === 'night' || p === 'vote' || p === 'hunter-shot'
   },
 
+  /** Hôte : sauter l'étape d'un joueur absent, clore le vote, ou le chasseur renonce à tirer. */
   resolveRound(_group, session) {
     const state = getState(session)
-    if (state.winner) {
-      const xpAwards: XpAward[] = state.alive.map(id => ({
-        memberId: id,
-        amount: WIN_XP,
-        reason: `Victoire du camp ${state.winner}`,
-      }))
-      return {
-        session: { ...session, status: 'ended', phase: 'ended', roundData: state },
-        xpAwards,
+    if (!state) return { session }
+    const s = clone(state)
+    if (s.phase === 'night') {
+      // Loups indécis : la cible la plus votée jusqu'ici (s'il y en a une).
+      if (s.step === 'loups' && Object.keys(s.nightVotes).length > 0) {
+        const counts: Record<string, number> = {}
+        for (const t of Object.values(s.nightVotes)) counts[t] = (counts[t] ?? 0) + 1
+        const max = Math.max(...Object.values(counts))
+        const top = Object.keys(counts).filter((id) => counts[id] === max)
+        s.killTarget = top[Math.floor(Math.random() * top.length)]
       }
+      nextStep(s)
+      return out(session, s)
+    }
+    if (s.phase === 'vote') return out(session, s, tallyVote(s))
+    if (s.phase === 'hunter-shot') {
+      s.pendingHunter = null
+      s.phase = s.afterHunter
+      return out(session, s)
     }
     return { session }
+  },
+
+  viewFor(group, session, memberId) {
+    const s = getState(session)
+    if (!s) return null
+    const me = memberId && s.players.includes(memberId) ? memberId : null
+    const role = me ? s.roleByMember[me] : null
+    const iAmAlive = !!me && s.alive.includes(me)
+    const wolf = role === 'loup-garou'
+    const ended = s.phase === 'ended'
+    const step = s.phase === 'night' ? s.step : null
+    const yourStep = !!step && iAmAlive && (step === 'loups' ? wolf : actorOf(s, step) === me)
+    const lover = me && s.lovers?.includes(me) ? s.lovers.find((x) => x !== me)! : null
+    const loverMember = lover ? group.members.find((m) => m.id === lover) : null
+
+    return {
+      phase: s.phase,
+      dayNumber: s.dayNumber,
+      alive: s.alive,
+      dead: s.dead,
+      players: s.players,
+      // Narration (TV comprise) : quelle étape se joue, jamais qui la joue.
+      currentNightStep: step,
+      nightStep: step,
+      yourStep,
+      currentVoter: yourStep ? me : null,
+      yourRole: role,
+      yourLover: loverMember ? { memberId: loverMember.id, pseudo: loverMember.pseudo } : null,
+      // Ce qui n'appartient qu'à un rôle :
+      loupsMembers: wolf || ended ? aliveWith(s, 'loup-garou').concat(s.dead.filter((d) => d.role === 'loup-garou').map((d) => d.memberId)) : null,
+      nightVotes: wolf && step === 'loups' ? s.nightVotes : {},
+      spiedBy: wolf && s.spyRevealedToWolves ? s.spiedBy : null,
+      killTarget: (wolf && step === 'loups') || (role === 'sorciere' && step === 'sorciere') ? s.killTarget : null,
+      sorciereHealUsed: role === 'sorciere' ? s.healUsed : false,
+      sorciereKillUsed: role === 'sorciere' ? s.poisonUsed : false,
+      healedThisNight: role === 'sorciere' && step === 'sorciere' ? s.healedTonight : false,
+      poisonTarget: role === 'sorciere' && step === 'sorciere' ? s.poisonTarget : null,
+      salvateurLast: role === 'salvateur' ? s.salvateurLast : null,
+      protectedTarget: null,
+      voyanteResult: role === 'voyante' ? s.voyanteResult : null,
+      voyanteCheckedTonight: role === 'voyante' && step === 'voyante' && s.voyanteCheckedNight === s.dayNumber,
+      petiteFilleInfo: role === 'petite-fille' && s.petiteFilleSeen ? [s.petiteFilleSeen] : null,
+      // Public :
+      lastNightDeaths: s.lastNightDeaths,
+      dayDeaths: s.phase === 'reveal' || (s.phase === 'hunter-shot' && s.afterHunter === 'reveal') ? s.dead.slice(s.voteDeathsFrom) : [],
+      dayVotes: s.phase === 'vote' || s.phase === 'reveal' || s.phase === 'hunter-shot' ? s.dayVotes : {},
+      voteResults: s.voteResults,
+      hunterId: s.phase === 'hunter-shot' ? s.pendingHunter : null,
+      winner: s.winner,
+      history: s.history,
+      // Fin de partie : tout se dévoile.
+      allRoles: ended ? s.roleByMember : null,
+      lovers: ended ? s.lovers : null,
+    }
   },
 }
