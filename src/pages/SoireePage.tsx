@@ -10,7 +10,7 @@ import { usePartyStore } from '../store/usePartyStore'
 import { useSound } from '../hooks/useSound'
 import { orderedQueue, skipThreshold, parseYouTubeId, youtubeThumb, formatDuration, totalDurationMs } from '../lib/jukebox'
 import { fetchYouTubeMeta, searchYouTubeHybrid, type YouTubeSearchResult } from '../lib/youtube'
-import { searchSpotify, fetchAlbumTracks, fetchArtistTopTracks, fetchPlaylistTracks, type SpotifySearchResult } from '../lib/spotify'
+import { searchSpotify, fetchAlbumTracks, fetchArtistTracks, type SpotifySearchResult } from '../lib/spotify'
 import type { Member, MusicSession, MusicTrack } from '../types'
 
 export function SoireePage() {
@@ -534,13 +534,15 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
   const [expandedTracks, setExpandedTracks] = useState<SpotifySearchResult[]>([])
   const [expanding, setExpanding] = useState(false)
 
-  // Charger les tendances au montage : pre-recherche de termes populaires
-  // (l'API featured-playlists retourne 403 en client credentials).
-  const TREND_QUERIES = ['Top hits 2026', 'Hits du moment', 'Chill mix']
+  // Tendances : l'API « featured playlists » n'existe plus (février 2026), on les approxime par
+  // quelques recherches. Chargées à la PREMIÈRE ouverture de l'onglet seulement — au montage,
+  // chaque téléphone de la soirée brûlait 3 requêtes du quota Spotify sans que personne ne regarde.
   useEffect(() => {
+    if (tab !== 'featured' || featured.length > 0) return
+    const trendQueries = [`Top hits ${new Date().getFullYear()}`, 'Hits du moment', 'Chill mix']
     const loadTrends = async () => {
       try {
-        const all = await Promise.all(TREND_QUERIES.map(q => searchSpotify(q).catch(() => [])))
+        const all = await Promise.all(trendQueries.map((q) => searchSpotify(q).catch(() => [])))
         const tracks = all.flat()
           .filter(r => r.kind === 'track' || !r.kind)
           .filter((r, i, arr) => arr.findIndex(x => x.id === r.id) === i)
@@ -549,7 +551,7 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
       } catch { /* erreur silencieuse */ }
     }
     loadTrends()
-  }, [])
+  }, [tab, featured.length])
 
   const submit = async () => {
     if (!query.trim()) return
@@ -580,12 +582,16 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
     setExpandedTracks([])
     try {
       let tracks: SpotifySearchResult[]
-      if (r.kind === 'album') tracks = await fetchAlbumTracks(r.id)
-      else if (r.kind === 'artist') tracks = await fetchArtistTopTracks(r.id)
-      else tracks = await fetchPlaylistTracks(r.id)
+      if (r.kind === 'album') {
+        // Les morceaux d'un album arrivent sans pochette : on leur donne celle de l'album, sinon
+        // la file et la platine affichaient une case vide.
+        tracks = (await fetchAlbumTracks(r.id)).map((t) => ({ ...t, thumbnail: t.thumbnail ?? r.thumbnail }))
+      } else {
+        tracks = await fetchArtistTracks(r.title)
+      }
       setExpandedTracks(tracks)
     } catch {
-      setLocalError('Impossible de charger les morceaux — ce contenu nécessite peut-être un compte Spotify connecté.')
+      setLocalError('Impossible de charger les morceaux pour le moment.')
       setExpanded(null)
     } finally {
       setExpanding(false)
@@ -632,7 +638,7 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
                 <div className="flex items-center gap-2 min-w-0">
                   {expanded.thumbnail && <img src={expanded.thumbnail} alt="" className="w-7 h-7 rounded object-cover shrink-0" />}
                   <span className="text-sm font-semibold truncate">{expanded.title}</span>
-                  <span className="text-[10px] uppercase tracking-[0.12em] text-chalk-faint shrink-0">{expanded.kind}</span>
+                  <span className="text-[10px] uppercase tracking-[0.12em] text-chalk-faint shrink-0">{kindLabel(expanded.kind)}</span>
                 </div>
               </div>
               {expanding ? (
@@ -680,7 +686,7 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
               {results.length > 0 && (
                 <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
                   {results.map((r) => (
-                    <button key={r.id} onClick={() => expand(r)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised">
+                    <button key={`${r.kind ?? 'track'}-${r.id}`} onClick={() => expand(r)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised">
                       {r.thumbnail ? (
                         <img src={r.thumbnail} alt="" className="w-11 h-11 rounded object-cover shrink-0" />
                       ) : (
@@ -690,11 +696,11 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
                         <p className="text-sm truncate">{r.title}</p>
                         <p className="text-[11px] text-chalk-faint truncate">
                           {r.subtitle ?? r.artist}
-                          {r.kind && r.kind !== 'track' ? ` · ${r.kind}` : r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}
+                          {r.kind && r.kind !== 'track' ? '' : r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}
                         </p>
                       </div>
                       {r.kind && r.kind !== 'track' ? (
-                        <span className="text-[10px] uppercase tracking-[0.12em] text-chalk-faint shrink-0">{r.kind} →</span>
+                        <span className="text-[10px] uppercase tracking-[0.12em] text-chalk-faint shrink-0">{kindLabel(r.kind)} →</span>
                       ) : (
                         <span className="text-emerald-300 text-lg shrink-0">＋</span>
                       )}
@@ -730,6 +736,10 @@ function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) =>
       )}
     </Card>
   )
+}
+
+function kindLabel(kind: SpotifySearchResult['kind']): string {
+  return kind === 'album' ? 'Album' : kind === 'artist' ? 'Artiste' : 'Titre'
 }
 
 function TabPill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {

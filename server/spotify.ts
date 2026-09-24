@@ -79,7 +79,7 @@ interface SpotifyApiTrack {
 }
 
 interface SpotifyCatalogItem {
-  kind: 'track' | 'album' | 'artist' | 'playlist'
+  kind: 'track' | 'album' | 'artist'
   id: string
   title: string
   artist: string
@@ -110,7 +110,6 @@ function mapAlbumItem(album: { id?: string; name?: string; artists?: { name?: st
     id: album.id,
     title: album.name,
     artist: spotifyArtistNames(album.artists),
-    subtitle: 'Album',
     thumbnail: spotifyImageUrl(album.images),
     durationMs: null,
     uri: `spotify:album:${album.id}`,
@@ -131,212 +130,123 @@ function mapArtistItem(artist: { id?: string; name?: string; images?: { url?: st
   }
 }
 
-function mapPlaylistItem(playlist: { id?: string; name?: string; owner?: { display_name?: string }; images?: { url?: string }[] } | null | undefined): SpotifyCatalogItem | null {
-  if (!playlist || !playlist.id || !playlist.name) return null
-  return {
-    kind: 'playlist',
-    id: playlist.id,
-    title: playlist.name,
-    artist: playlist.owner?.display_name ?? 'Spotify',
-    subtitle: 'Playlist',
-    thumbnail: spotifyImageUrl(playlist.images),
-    durationMs: null,
-    uri: `spotify:playlist:${playlist.id}`,
-  }
-}
-
 // ---- Config handler --------------------------------------------------------
 
 export function spotifyConfigHandler(_req: Request, res: Response): void {
   res.json({ enabled: spotifyConfigured })
 }
 
+// ---- Cache ------------------------------------------------------------------
+//
+// Depuis février 2026, une app Spotify en « development mode » a un quota serré. Or huit
+// téléphones qui tapent « Hits » ou ouvrent le même album font huit fois la même requête : on
+// garde donc les réponses du catalogue quelques minutes (il ne bouge pas à l'échelle d'une soirée).
+
+const CACHE_TTL_MS = 10 * 60_000
+const CACHE_MAX = 300
+const cache = new Map<string, { at: number; value: unknown }>()
+
+async function cached<T>(key: string, load: () => Promise<T | null>): Promise<T | null> {
+  const hit = cache.get(key)
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value as T
+  const value = await load()
+  if (value !== null) {
+    if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string)
+    cache.set(key, { at: Date.now(), value })
+  }
+  return value
+}
+
+/** GET sur l'API Web avec le jeton d'app. `null` = échec (déjà journalisé). */
+async function spotifyGet<T>(scope: string, url: string): Promise<T | null> {
+  const token = await getAppToken()
+  if (!token) return null
+  try {
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } })
+    if (!r.ok) {
+      const text = await r.text().catch(() => '')
+      spotifyError(scope, { status: r.status, url, body: text.slice(0, 500) })
+      return null
+    }
+    return (await r.json()) as T
+  } catch (error) {
+    spotifyError(scope, { message: 'fetch threw', url, error })
+    return null
+  }
+}
+
 // ---- Search ----------------------------------------------------------------
+//
+// Pas de playlists dans les résultats : depuis février 2026, l'API ne donne plus accès au contenu
+// des playlists d'autres utilisateurs, et une recherche sans compte connecté ne trouve que celles-là.
+// Les proposer menait systématiquement à « Impossible de charger les morceaux ».
+
+type SearchResponse = {
+  tracks?: { items?: SpotifyApiTrack[] }
+  albums?: { items?: Array<{ id?: string; name?: string; artists?: { name?: string }[]; images?: { url?: string }[] }> }
+  artists?: { items?: Array<{ id?: string; name?: string; images?: { url?: string }[] }> }
+}
 
 export async function spotifySearchHandler(req: Request, res: Response): Promise<void> {
-  const q = typeof req.query.q === 'string' ? req.query.q.trim() : ''
+  const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : ''
   if (!q) {
     res.json({ tracks: [], results: [] })
     return
   }
-  const token = await getAppToken()
-  if (!token) {
+  if (!spotifyConfigured) {
     res.status(503).json({ error: 'Spotify non disponible.' })
     return
   }
-  try {
-    const r = await fetch(`https://api.spotify.com/v1/search?type=track,album,artist,playlist&limit=10&q=${encodeURIComponent(q)}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
-      },
-    })
-
-    if (!r.ok) {
-      const text = await r.text().catch(() => '')
-      spotifyError('search', { status: r.status, query: q, body: text.slice(0, 500) })
-      res.status(502).json({ error: 'Recherche Spotify indisponible pour le moment.' })
-      return
-    }
-
-    const data = (await r.json()) as {
-      tracks?: { items?: SpotifyApiTrack[] }
-      albums?: { items?: Array<{ id?: string; name?: string; artists?: { name?: string }[]; images?: { url?: string }[] }> }
-      artists?: { items?: Array<{ id?: string; name?: string; images?: { url?: string }[] }> }
-      playlists?: { items?: Array<{ id?: string; name?: string; owner?: { display_name?: string }; images?: { url?: string }[] }> }
-    }
-
-    const results: SpotifyCatalogItem[] = [
-      ...(data.tracks?.items ?? []).map(mapTrackItem),
-      ...(data.albums?.items ?? []).map((item) => mapAlbumItem(item)).filter((x): x is SpotifyCatalogItem => x !== null),
-      ...(data.artists?.items ?? []).map((item) => mapArtistItem(item)).filter((x): x is SpotifyCatalogItem => x !== null),
-      ...(data.playlists?.items ?? []).map((item) => mapPlaylistItem(item)).filter((x): x is SpotifyCatalogItem => x !== null),
-    ]
-
-    const tracks = results.filter((entry) => entry.kind === 'track').map((entry) => ({
-      id: entry.id,
-      title: entry.title,
-      artist: entry.artist,
-      thumbnail: entry.thumbnail,
-      durationMs: entry.durationMs,
-      kind: entry.kind,
-      subtitle: entry.subtitle,
-      uri: entry.uri,
-    }))
-
-    res.json({ tracks, results })
-  } catch (error) {
-    spotifyError('search', { message: 'fetch threw', error })
+  // Plafond de l'API depuis février 2026 : 10 résultats par type.
+  const url = `https://api.spotify.com/v1/search?type=track,album,artist&limit=10&q=${encodeURIComponent(q)}`
+  const data = await cached(`search:${q.toLowerCase()}`, () => spotifyGet<SearchResponse>('search', url))
+  if (!data) {
     res.status(502).json({ error: 'Recherche Spotify indisponible pour le moment.' })
-  }
-}
-
-// ---- Featured playlists ----------------------------------------------------
-
-export async function spotifyFeaturedPlaylistsHandler(_req: Request, res: Response): Promise<void> {
-  const token = await getAppToken()
-  if (!token) {
-    res.status(503).json({ error: 'Spotify non disponible.' })
     return
   }
-
-  try {
-    const r = await fetch('https://api.spotify.com/v1/browse/featured-playlists?limit=5&country=FR', {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    })
-    if (!r.ok) {
-      const text = await r.text().catch(() => '')
-      spotifyError('featured-playlists', { status: r.status, body: text.slice(0, 500) })
-      res.status(502).json({ error: 'Playlists Spotify indisponibles.' })
-      return
-    }
-    const data = (await r.json()) as { playlists?: { items?: Array<{ id?: string; name?: string; owner?: { display_name?: string }; images?: { url?: string }[] }> } }
-    const playlists = (data.playlists?.items ?? []).map((item) => mapPlaylistItem(item)).filter(Boolean) as SpotifyCatalogItem[]
-    res.json({ playlists })
-  } catch (error) {
-    spotifyError('featured-playlists', { message: 'fetch threw', error })
-    res.status(502).json({ error: 'Playlists Spotify indisponibles.' })
-  }
+  const results: SpotifyCatalogItem[] = [
+    ...(data.tracks?.items ?? []).filter((t) => t?.id).map(mapTrackItem),
+    ...(data.albums?.items ?? []).map((item) => mapAlbumItem(item)).filter((x): x is SpotifyCatalogItem => x !== null),
+    ...(data.artists?.items ?? []).map((item) => mapArtistItem(item)).filter((x): x is SpotifyCatalogItem => x !== null),
+  ]
+  const tracks = results.filter((entry) => entry.kind === 'track')
+  res.json({ tracks, results })
 }
 
-// ---- Artist top tracks -----------------------------------------------------
+// ---- Artist tracks ---------------------------------------------------------
+//
+// L'endpoint « top tracks » d'un artiste a été supprimé en février 2026. On passe par la recherche
+// filtrée sur l'artiste, qui reste disponible et renvoie ses titres les plus pertinents.
 
-export async function spotifyArtistTopTracksHandler(req: Request, res: Response): Promise<void> {
-  const artistId = typeof req.query.artistId === 'string' ? req.query.artistId.trim() : ''
-  if (!artistId) {
+export async function spotifyArtistTracksHandler(req: Request, res: Response): Promise<void> {
+  const name = typeof req.query.name === 'string' ? req.query.name.trim().slice(0, 100) : ''
+  if (!name) {
     res.json({ tracks: [] })
     return
   }
-
-  const token = await getAppToken()
-  if (!token) {
-    res.status(503).json({ error: 'Spotify non disponible.' })
+  const q = `artist:"${name.replace(/"/g, '')}"`
+  const url = `https://api.spotify.com/v1/search?type=track&limit=10&q=${encodeURIComponent(q)}`
+  const data = await cached(`artist:${name.toLowerCase()}`, () => spotifyGet<{ tracks?: { items?: SpotifyApiTrack[] } }>('artist-tracks', url))
+  if (!data) {
+    res.status(502).json({ error: "Titres de l'artiste indisponibles." })
     return
   }
-
-  try {
-    const r = await fetch(`https://api.spotify.com/v1/artists/${encodeURIComponent(artistId)}/top-tracks?market=FR`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    })
-    if (!r.ok) {
-      const text = await r.text().catch(() => '')
-      spotifyError('artist-top-tracks', { artistId, status: r.status, body: text.slice(0, 500) })
-      res.status(502).json({ error: 'Top tracks Spotify indisponibles.' })
-      return
-    }
-    const data = (await r.json()) as { tracks?: SpotifyApiTrack[] }
-    const tracks = (data.tracks ?? []).map(mapTrackItem)
-    res.json({ tracks })
-  } catch (error) {
-    spotifyError('artist-top-tracks', { message: 'fetch threw', error })
-    res.status(502).json({ error: 'Top tracks Spotify indisponibles.' })
-  }
+  res.json({ tracks: (data.tracks?.items ?? []).filter((t) => t?.id).map(mapTrackItem) })
 }
 
 // ---- Album tracks ----------------------------------------------------------
 
 export async function spotifyAlbumTracksHandler(req: Request, res: Response): Promise<void> {
   const albumId = typeof req.query.albumId === 'string' ? req.query.albumId.trim() : ''
-  if (!albumId) {
+  if (!/^[A-Za-z0-9]{1,64}$/.test(albumId)) {
     res.json({ tracks: [] })
     return
   }
-
-  const token = await getAppToken()
-  if (!token) {
-    res.status(503).json({ error: 'Spotify non disponible.' })
+  const url = `https://api.spotify.com/v1/albums/${albumId}/tracks?limit=50&market=FR`
+  const data = await cached(`album:${albumId}`, () => spotifyGet<{ items?: SpotifyApiTrack[] }>('album-tracks', url))
+  if (!data) {
+    res.status(502).json({ error: "Morceaux de l'album indisponibles." })
     return
   }
-
-  try {
-    const r = await fetch(`https://api.spotify.com/v1/albums/${encodeURIComponent(albumId)}/tracks?limit=50&market=FR`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    })
-    if (!r.ok) {
-      const text = await r.text().catch(() => '')
-      spotifyError('album-tracks', { albumId, status: r.status, body: text.slice(0, 500) })
-      res.status(502).json({ error: 'Morceaux de l\'album indisponibles.' })
-      return
-    }
-    const data = (await r.json()) as { items?: SpotifyApiTrack[] }
-    const tracks = (data.items ?? []).map(mapTrackItem)
-    res.json({ tracks })
-  } catch (error) {
-    spotifyError('album-tracks', { message: 'fetch threw', error })
-    res.status(502).json({ error: 'Morceaux de l\'album indisponibles.' })
-  }
-}
-
-// ---- Playlist tracks ------------------------------------------------------
-
-export async function spotifyPlaylistTracksHandler(req: Request, res: Response): Promise<void> {
-  const playlistId = typeof req.query.playlistId === 'string' ? req.query.playlistId.trim() : ''
-  if (!playlistId) {
-    res.json({ tracks: [] })
-    return
-  }
-
-  const token = await getAppToken()
-  if (!token) {
-    res.status(503).json({ error: 'Spotify non disponible.' })
-    return
-  }
-
-  try {
-    const r = await fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/tracks?limit=50&market=FR&fields=items(track(id,name,duration_ms,artists(name),album(images(url)))`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    })
-    if (!r.ok) {
-      const text = await r.text().catch(() => '')
-      spotifyError('playlist-tracks', { playlistId, status: r.status, body: text.slice(0, 500) })
-      res.status(502).json({ error: 'Morceaux de la playlist indisponibles.' })
-      return
-    }
-    const data = (await r.json()) as { items?: Array<{ track?: SpotifyApiTrack }> }
-    const tracks = (data.items ?? []).map((item) => item.track).filter((t): t is SpotifyApiTrack => !!t).map(mapTrackItem)
-    res.json({ tracks })
-  } catch (error) {
-    spotifyError('playlist-tracks', { message: 'fetch threw', error })
-    res.status(502).json({ error: 'Morceaux de la playlist indisponibles.' })
-  }
+  res.json({ tracks: (data.items ?? []).filter((t) => t?.id).map(mapTrackItem) })
 }

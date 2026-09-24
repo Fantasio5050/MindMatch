@@ -164,7 +164,7 @@ export interface SpotifySearchResult {
   subtitle?: string
   thumbnail: string | null
   durationMs: number | null
-  kind?: 'track' | 'album' | 'artist' | 'playlist'
+  kind?: 'track' | 'album' | 'artist'
   uri?: string
 }
 
@@ -176,25 +176,20 @@ export async function searchSpotify(query: string): Promise<SpotifySearchResult[
   return data.tracks ?? []
 }
 
-// ---- Récupération des morceaux d'un album / artiste / playlist (déléguée au serveur) ----
+// ---- Morceaux d'un album / d'un artiste (délégués au serveur) ----
 
 export async function fetchAlbumTracks(albumId: string): Promise<SpotifySearchResult[]> {
   const res = await fetch(`/api/spotify/album-tracks?albumId=${encodeURIComponent(albumId)}`)
-  if (!res.ok) throw new Error('Morceaux de l\'album indisponibles.')
+  if (!res.ok) throw new Error("Morceaux de l'album indisponibles.")
   const data = (await res.json()) as { tracks?: SpotifySearchResult[] }
   return data.tracks ?? []
 }
 
-export async function fetchArtistTopTracks(artistId: string): Promise<SpotifySearchResult[]> {
-  const res = await fetch(`/api/spotify/artist-top-tracks?artistId=${encodeURIComponent(artistId)}`)
-  if (!res.ok) throw new Error('Top tracks de l\'artiste indisponibles.')
-  const data = (await res.json()) as { tracks?: SpotifySearchResult[] }
-  return data.tracks ?? []
-}
-
-export async function fetchPlaylistTracks(playlistId: string): Promise<SpotifySearchResult[]> {
-  const res = await fetch(`/api/spotify/playlist-tracks?playlistId=${encodeURIComponent(playlistId)}`)
-  if (!res.ok) throw new Error('Morceaux de la playlist indisponibles.')
+/** Titres d'un artiste. Par NOM, pas par id : l'endpoint « top tracks » a été retiré de l'API en
+ * février 2026, le serveur passe par une recherche filtrée sur l'artiste. */
+export async function fetchArtistTracks(artistName: string): Promise<SpotifySearchResult[]> {
+  const res = await fetch(`/api/spotify/artist-tracks?name=${encodeURIComponent(artistName)}`)
+  if (!res.ok) throw new Error("Titres de l'artiste indisponibles.")
   const data = (await res.json()) as { tracks?: SpotifySearchResult[] }
   return data.tracks ?? []
 }
