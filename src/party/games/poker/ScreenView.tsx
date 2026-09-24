@@ -331,14 +331,7 @@ function ShowdownScreen({ state, members }: { state: PokerClientState; members: 
         animate={{ opacity: 1, scale: 1 }}
         className="text-center max-w-4xl"
       >
-        <motion.div
-          initial={{ scale: 0, rotate: -20 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ delay: 0.2, type: 'spring' }}
-          className="text-8xl mb-4"
-        >
-          🏆
-        </motion.div>
+        <p className="kicker text-tv-xs mb-3">Abattage · main n° {state.handNumber}</p>
 
         <p className="text-3xl font-extrabold shimmer-text mb-2">
           {state.winners.length > 1 ? 'Pot partagé' : `${winner?.pseudo} ramasse le pot`}
@@ -354,14 +347,14 @@ function ShowdownScreen({ state, members }: { state: PokerClientState; members: 
           initial={{ scale: 0.5 }}
           animate={{ scale: 1 }}
           transition={{ delay: 0.4, type: 'spring' }}
-          className="text-5xl font-extrabold font-mono text-emerald-300 mb-8"
+          className="text-4xl font-extrabold font-mono text-jade mb-5"
         >
           +{state.pot}
         </motion.p>
 
         {/* Community cards */}
         {state.communityCards.length > 0 && (
-          <div className="flex gap-3 justify-center mb-8">
+          <div className="flex gap-3 justify-center mb-5">
             {state.communityCards.map((card) => (
               <TvCard key={card.id} card={card} />
             ))}
@@ -369,7 +362,7 @@ function ShowdownScreen({ state, members }: { state: PokerClientState; members: 
         )}
 
         {Object.keys(state.revealedHands).length > 0 && (
-          <div className="flex flex-wrap justify-center gap-6 mb-8">
+          <div className="flex flex-wrap justify-center gap-6 mb-5">
             {Object.entries(state.revealedHands).map(([id, r]) => {
               const m = members.find((x) => x.id === id)
               const won = state.winners.some((w) => w.memberId === id)

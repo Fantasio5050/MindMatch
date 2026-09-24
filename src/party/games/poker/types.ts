@@ -204,12 +204,13 @@ export const SUIT_SYMBOLS: Record<PokerCard['suit'], string> = {
   spades: '♠',
 }
 
-/** Couleurs CSS pour les cartes selon la couleur */
+/** Couleurs CSS des enseignes. Les cartes sont dessinées sur fond blanc : les enseignes noires
+ * étaient en `text-chalk` (blanc cassé) et donc quasi invisibles — trèfles et piques illisibles. */
 export const SUIT_COLORS: Record<PokerCard['suit'], string> = {
-  hearts: 'text-red-400',
-  diamonds: 'text-red-400',
-  clubs: 'text-chalk',
-  spades: 'text-chalk',
+  hearts: 'text-blood',
+  diamonds: 'text-blood',
+  clubs: 'text-ink',
+  spades: 'text-ink',
 }
 
 /** Emoji pour le niveau de force de main */
