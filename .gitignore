@@ -31,3 +31,7 @@ server/data/
 *.njsproj
 *.sln
 *.sw?
+
+# Sorties Playwright
+test-results/
+playwright-report/

@@ -1,10 +1,12 @@
+# Tests de bout en bout dans un conteneur isolé : l'image embarque le Chromium exact attendu par
+# @playwright/test, et le script y démarre lui-même l'API et le front sur une base jetable.
+#   npm run test:e2e:docker
+# Nom de projet distinct : même dossier que docker-compose.yml, sans ça Docker rangerait les
+# conteneurs de prod et de test dans le même projet « mindmatch ».
+name: mindmatch-e2e
 services:
   mindmatch-test:
     build:
-      context: /var/www/mindmatch
+      context: .
       dockerfile: playwright.Dockerfile
     container_name: mindmatch-playwright-tests
-    environment:
-      - TEST_BASE_URL=http://host.docker.internal:5173
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
