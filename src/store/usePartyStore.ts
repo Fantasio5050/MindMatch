@@ -56,6 +56,23 @@ interface PartyState {
 }
 
 export const usePartyStore = create<PartyState>((set, get) => {
+  /**
+   * Action de jeu : envoyée seulement si la connexion est là. Socket.io met sinon les envois en
+   * file pendant une coupure (téléphone en veille, réseau qui saute) et les rejoue tous à la
+   * reconnexion — un coup tapé il y a trente secondes arrivait alors sur une partie qui avait
+   * avancé. Mieux vaut le dire au joueur et le laisser rejouer sur l'état à jour.
+   */
+  function play(event: string, payload?: unknown) {
+    const socket = get().socket
+    if (!socket) return
+    if (!socket.connected) {
+      set({ error: 'Connexion perdue — reconnexion en cours, réessaie dans un instant.' })
+      return
+    }
+    if (payload === undefined) socket.emit(event)
+    else socket.emit(event, payload)
+  }
+
   function wire(socket: Socket) {
     socket.on('connect', () => set({ connected: true }))
     socket.on('disconnect', () => set({ connected: false }))
@@ -111,13 +128,13 @@ export const usePartyStore = create<PartyState>((set, get) => {
       set({ socket: null, connected: false, group: null, emotes: [] })
     },
 
-    startGame: (gameId, config) => get().socket?.emit('party:start', { gameId, config }),
-    sendAction: (type, payload) => get().socket?.emit('party:action', { type, payload }),
+    startGame: (gameId, config) => play('party:start', { gameId, config }),
+    sendAction: (type, payload) => play('party:action', { type, payload }),
     sendEmote: (emoji) => get().socket?.emit('party:emote', { emoji }),
-    kickMember: (targetMemberId) => get().socket?.emit('party:kick', { targetMemberId }),
-    hostAdvance: () => get().socket?.emit('party:hostAdvance'),
-    endGame: () => get().socket?.emit('party:endGame'),
-    setAdultMode: (enabled) => get().socket?.emit('party:setAdultMode', { enabled }),
+    kickMember: (targetMemberId) => play('party:kick', { targetMemberId }),
+    hostAdvance: () => play('party:hostAdvance'),
+    endGame: () => play('party:endGame'),
+    setAdultMode: (enabled) => play('party:setAdultMode', { enabled }),
     startMusic: (source) => get().socket?.emit('music:start', { source }),
     stopMusic: () => get().socket?.emit('music:stop'),
     musicAction: (type, payload) => get().socket?.emit('music:action', { type, payload }),

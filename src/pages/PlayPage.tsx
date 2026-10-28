@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { PageTransition } from '../components/PageTransition'
 import { usePartyStore } from '../store/usePartyStore'
@@ -15,6 +16,20 @@ export function PlayPage() {
   const code = usePartyStore((s) => s.group?.code)
   const [copied, setCopied] = useState(false)
   const { play } = useSound()
+  const connected = usePartyStore((s) => s.connected)
+  const error = usePartyStore((s) => s.error)
+  const clearError = usePartyStore((s) => s.clearError)
+  // « Reconnexion… » seulement après une première connexion réussie, pas pendant le chargement.
+  const wasConnected = useRef(false)
+  if (connected) wasConnected.current = true
+  const offline = !connected && wasConnected.current
+
+  // Les messages d'erreur du serveur (« Action impossible… ») s'effacent d'eux-mêmes.
+  useEffect(() => {
+    if (!error) return
+    const t = window.setTimeout(clearError, 3500)
+    return () => window.clearTimeout(t)
+  }, [error, clearError])
 
   useEffect(() => {
     connectAsPlayer()
@@ -63,6 +78,19 @@ export function PlayPage() {
           )}
           <EmoteBar />
         </div>
+        <AnimatePresence>
+          {(offline || error) && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="fixed top-16 inset-x-4 z-50 rounded-control border border-blood/40 bg-ink/90 px-4 py-2.5 text-center text-sm text-chalk backdrop-blur-sm safe-top"
+              role="status"
+            >
+              {offline ? 'Connexion perdue — reconnexion en cours…' : error}
+            </motion.div>
+          )}
+        </AnimatePresence>
         <PartyGameShell mode="controller" />
         <EmoteOverlay />
       </div>

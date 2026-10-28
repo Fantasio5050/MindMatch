@@ -60,8 +60,9 @@ const FAN_SCALE = 0.9
 const CENTER_SCALE = 1.4
 const CARD_T = 0.012
 const DECK_LAYER = 0.0075
-const CAMERA_HOME = new THREE.Vector3(0, 14.2, 11.2)
-const CAMERA_TARGET = new THREE.Vector3(0, 0, 0.55)
+// Assez de recul pour laisser libres les coins du haut, où se posent « Au tour de » et « Couleur ».
+const CAMERA_HOME = new THREE.Vector3(0, 15.6, 12.6)
+const CAMERA_TARGET = new THREE.Vector3(0, 0, 0.05)
 
 function hash(s: string): number {
   let h = 2166136261
@@ -166,7 +167,9 @@ export class UnoTable {
     key.shadow.camera.bottom = -9
     key.shadow.camera.near = 4
     key.shadow.camera.far = 40
-    key.shadow.bias = -0.0008
+    key.shadow.bias = -0.0004
+    // Cartes très fines : sans décalage le long de la normale, leur propre ombre les zèbre.
+    key.shadow.normalBias = 0.03
     scene.add(key)
     this.centerLight = new THREE.PointLight(0xffffff, 26, 16, 1.6)
     this.centerLight.position.set(0, 5.5, 0)
@@ -420,7 +423,8 @@ export class UnoTable {
       const a = (k - (visible - 1) / 2) * step
       // Rotation autour du bas de la carte : l'éventail s'ouvre comme dans une main.
       const h = (CARD_H * FAN_SCALE) / 2
-      card.position.set(Math.sin(a) * h + a * 0.5, Math.cos(a) * h + 0.05, k * 0.004)
+      // Écart supérieur à l'épaisseur d'une carte : deux cartes qui s'interpénètrent scintillent.
+      card.position.set(Math.sin(a) * h + a * 0.5, Math.cos(a) * h + 0.05, k * 0.016)
       card.rotation.set(0, 0, -a)
     })
   }
@@ -459,7 +463,7 @@ export class UnoTable {
   private discardPose(card: TableCard, layer: number): Pose {
     const r = hash(card.id)
     const r2 = hash(card.id + 'b')
-    const pos = new THREE.Vector3(DISCARD_POS.x + (r - 0.5) * 0.6, 0.02 + layer * 0.02, DISCARD_POS.z + (r2 - 0.5) * 0.5)
+    const pos = new THREE.Vector3(DISCARD_POS.x + (r - 0.5) * 0.6, 0.02 + layer * 0.026, DISCARD_POS.z + (r2 - 0.5) * 0.5)
     const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, (r - 0.5) * 1.1))
     return { pos, quat, scale: CENTER_SCALE }
   }

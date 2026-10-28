@@ -317,53 +317,57 @@ function HandFan({
   // Une rangée tant que le chevauchement laisse voir l'index de chaque carte, sinon deux.
   const fitStep = (n: number) => (n <= 1 ? 0 : Math.min(CARD_W + 6, (width - CARD_W) / (n - 1)))
   const rows = fitStep(sorted.length) >= MIN_STEP ? [sorted] : [sorted.slice(0, Math.ceil(sorted.length / 2)), sorted.slice(Math.ceil(sorted.length / 2))]
+  const ROW_H = CARD_H + 14
+  // Toutes les cartes vivent dans UN seul conteneur, à leur position calculée : une carte qui
+  // change de rangée glisse, au lieu de disparaître d'une rangée et de réapparaître dans l'autre
+  // (deux exemplaires à moitié transparents le temps des fondus).
+  const placed = rows.flatMap((row, r) => {
+    const step = fitStep(row.length)
+    const total = row.length > 0 ? CARD_W + step * (row.length - 1) : 0
+    const left = Math.max(0, (width - total) / 2)
+    return row.map((card, i) => ({ card, x: left + i * step, y: r * (ROW_H + 8), z: r * 100 + i }))
+  })
 
   return (
-    <div ref={box} className="flex flex-col gap-2">
-      {rows.map((row, r) => {
-        const step = fitStep(row.length)
-        const total = row.length > 0 ? CARD_W + step * (row.length - 1) : 0
-        return (
-          <div key={r} className="relative mx-auto" style={{ width: total, height: CARD_H + 14 }}>
-            <AnimatePresence>
-              {row.map((card, i) => {
-                const playable = active && playableIds.includes(card.id)
-                return (
-                  <motion.button
-                    key={card.id}
-                    layout
-                    initial={{ opacity: 0, y: 40 }}
-                    animate={{ opacity: active && !playable ? 0.45 : 1, y: playable ? 0 : 14 }}
-                    exit={{ opacity: 0, y: -60, scale: 0.8 }}
-                    transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-                    whileTap={playable ? { scale: 0.94, y: -6 } : undefined}
-                    disabled={!playable}
-                    onClick={() => onPlay(card)}
-                    className="absolute top-0"
-                    data-testid="uno-card"
-                    data-playable={playable ? 'true' : 'false'}
-                    style={{ left: i * step, width: CARD_W, zIndex: i }}
-                    aria-label={`${card.color} ${card.value}`}
-                  >
-                    <img
-                      src={cardImage(card)}
-                      alt=""
-                      draggable={false}
-                      className="w-full rounded-lg"
-                      style={{
-                        boxShadow: playable
-                          ? '0 0 0 2px #FF3D7F, 0 0 18px rgba(255,61,127,0.55), 0 6px 14px rgba(0,0,0,0.5)'
-                          : '0 6px 14px rgba(0,0,0,0.5)',
-                      }}
-                    />
-                  </motion.button>
-                )
-              })}
-            </AnimatePresence>
-          </div>
-        )
-      })}
-      {hand.length === 0 && <div style={{ height: CARD_H + 14 }} />}
+    <div ref={box} className="relative w-full" style={{ height: Math.max(1, rows.length) * (ROW_H + 8) }}>
+      <AnimatePresence initial={false}>
+        {placed.map(({ card, x, y, z }) => {
+          const playable = active && playableIds.includes(card.id)
+          // Carte injouable : assombrie, jamais transparente — on ne doit pas voir celle de dessous.
+          const dim = active && !playable
+          return (
+            <motion.button
+              key={card.id}
+              initial={{ opacity: 0, x, y: y + 40 }}
+              animate={{ opacity: 1, x, y: y + (playable ? 0 : 14) }}
+              exit={{ opacity: 0, y: y - 60, scale: 0.8 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+              whileTap={playable ? { scale: 0.94 } : undefined}
+              disabled={!playable}
+              onClick={() => onPlay(card)}
+              className="absolute top-0 left-0"
+              data-testid="uno-card"
+              data-playable={playable ? 'true' : 'false'}
+              style={{ width: CARD_W, zIndex: z }}
+              aria-label={`${card.color} ${card.value}`}
+            >
+              <img
+                src={cardImage(card)}
+                alt=""
+                draggable={false}
+                className="w-full rounded-lg"
+                style={{
+                  filter: dim ? 'brightness(0.5) saturate(0.55)' : undefined,
+                  transition: 'filter 160ms ease',
+                  boxShadow: playable
+                    ? '0 0 0 2px #FF3D7F, 0 0 18px rgba(255,61,127,0.55), 0 6px 14px rgba(0,0,0,0.5)'
+                    : '0 6px 14px rgba(0,0,0,0.5)',
+                }}
+              />
+            </motion.button>
+          )
+        })}
+      </AnimatePresence>
     </div>
   )
 }
