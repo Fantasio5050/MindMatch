@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { createManagedRenderer, disposeScene, makeFrameGate, type ManagedRenderer } from '../../../lib/threePerf'
 import { disposeSprite, ease, makeAvatarTexture, makeGlowTexture, makeTextSprite, Particles, SeatLabel, Tweens } from '../../../lib/fx3d'
-import { faceRotation, poseAtTime, seededRandom, simulateDice, type SimResult } from '../../../lib/diceSim'
+import { faceRotation, planRoll, poseAtTime, seededRandom, type SimResult } from '../../../lib/diceSim'
 import { DieSkin, makeDieGeometry } from '../../../lib/dieArt'
 import { sfx } from '../../../lib/sfx'
 
@@ -99,6 +99,16 @@ function roundedPath(hx: number, hz: number, r: number): THREE.Path {
   p.lineTo(-hx, -hz + r)
   p.quadraticCurveTo(-hx, -hz, -hx + r, -hz)
   return p
+}
+
+const _wobble = new THREE.Euler()
+
+/** Pose du dé secoué dans la main, de t = 0 à 1. À t = 1 il est immobile, prêt au lâcher : c'est
+ * de cette pose exacte que part la simulation. */
+function shakePose(t: number, origin: THREE.Vector3, pos: THREE.Vector3, quat: THREE.Quaternion) {
+  const k = t >= 1 ? 0 : Math.sin(t * Math.PI)
+  pos.set(origin.x + Math.sin(t * 60) * 0.12 * k, origin.y + Math.abs(Math.sin(t * 47)) * 0.18 * k, origin.z + Math.cos(t * 53) * 0.1 * k)
+  quat.setFromEuler(_wobble.set(Math.sin(t * 31) * 0.6 * k, t * 6, Math.cos(t * 37) * 0.6 * k))
 }
 
 export class DiceTable {
@@ -544,8 +554,33 @@ export class DiceTable {
     this.cameraGoal.pos.copy(CAMERA_HOME)
     this.cameraGoal.target.copy(CAMERA_TARGET)
 
-    // 1. Le dé rejoint la main du joueur.
+    // 1. Le lancer est calculé d'avance, depuis la pose exacte où le dé quittera la main : on
+    // cherche un roulé qui tombe de lui-même sur la valeur du serveur (voir `planRoll`).
     const origin = this.throwOrigin(seat)
+    const releasePos = new THREE.Vector3()
+    const releaseQuat = new THREE.Quaternion()
+    shakePose(1, origin, releasePos, releaseQuat)
+    const toCenter = new THREE.Vector3(-origin.x, 0, -origin.z).normalize()
+    const side = new THREE.Vector3(-toCenter.z, 0, toCenter.x)
+    const plan = planRoll(
+      [roll.value],
+      [this.dieMesh.quaternion.clone()],
+      (attempt) => {
+        const r = seededRandom(roll.seed + attempt * 7919)
+        return [
+          {
+            pos: releasePos.clone(),
+            vel: toCenter.clone().multiplyScalar(8.5 + r() * 3).addScaledVector(side, (r() - 0.5) * 4).setY(3 + r() * 2.5),
+            spin: new THREE.Vector3((r() - 0.5) * 36, (r() - 0.5) * 26, (r() - 0.5) * 36),
+            quat: releaseQuat.clone(),
+          },
+        ]
+      },
+      { halfX: TRAY_HX, halfZ: TRAY_HZ },
+      DIE,
+    )
+
+    // 2. Le dé rejoint la main du joueur.
     const fromPos = this.die.position.clone()
     const fromQuat = this.die.quaternion.clone()
     const lift = new THREE.Vector3()
@@ -557,36 +592,14 @@ export class DiceTable {
       this.die.quaternion.slerpQuaternions(fromQuat, new THREE.Quaternion(), t)
     }, { ease: ease.inOutCubic })
 
-    // 2. Secoué dans la main.
+    // 3. Secoué dans la main, puis lâché.
     const shakeMs = hurry ? 300 : 620
     sfx.rattle(shakeMs / 1000)
-    const r = seededRandom(roll.seed)
-    const wobble = new THREE.Euler()
-    await this.tweens.add(shakeMs, (t) => {
-      const k = Math.sin(t * Math.PI)
-      this.die.position.set(origin.x + Math.sin(t * 60) * 0.12 * k, origin.y + Math.abs(Math.sin(t * 47)) * 0.18 * k, origin.z + Math.cos(t * 53) * 0.1 * k)
-      wobble.set(Math.sin(t * 31) * 0.6 * k, t * 6, Math.cos(t * 37) * 0.6 * k)
-      this.die.quaternion.setFromEuler(wobble)
-    }, { ease: ease.linear })
-
-    // 3. Le lancer : simulation physique depuis la pose actuelle, vers le centre du bac.
-    const toCenter = new THREE.Vector3(-origin.x, 0, -origin.z).normalize()
-    const side = new THREE.Vector3(-toCenter.z, 0, toCenter.x)
-    const speed = 8.5 + r() * 3
-    const sim = simulateDice(
-      [
-        {
-          pos: this.die.position.clone(),
-          vel: toCenter.clone().multiplyScalar(speed).addScaledVector(side, (r() - 0.5) * 4).setY(3 + r() * 2.5),
-          spin: new THREE.Vector3((r() - 0.5) * 36, (r() - 0.5) * 26, (r() - 0.5) * 36),
-          quat: this.die.quaternion.clone(),
-        },
-      ],
-      { halfX: TRAY_HX, halfZ: TRAY_HZ },
-      DIE,
-    )
-    // L'habillage tourne pour que la face tirée par le serveur soit celle qui finira en haut.
-    this.dieMesh.quaternion.copy(faceRotation(roll.value, sim.upAxis[0]))
+    await this.tweens.add(shakeMs, (t) => shakePose(t, origin, this.die.position, this.die.quaternion), { ease: ease.linear })
+    // Retouche de l'habillage seulement si aucun essai n'est tombé juste — le dé tourne alors
+    // trop vite pour qu'on voie ses faces changer.
+    if (plan.remaps[0]) this.dieMesh.quaternion.copy(plan.remaps[0])
+    const sim = plan.sim
     sfx.whoosh(0, 0.25)
     await new Promise<void>((resolve) => {
       this.playback = { sim, start: performance.now(), impactIndex: 0, resolve }

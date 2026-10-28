@@ -1,4 +1,4 @@
-import type { Group, PartySession } from '../../src/types'
+import type { PartySession } from '../../src/types'
 import type { GameModule, GameAction, XpAward } from './types'
 import { pickWithoutRepeat } from './pickHelpers'
 import { WHEEL_GAGES } from '../../src/data/wheelSegments'
@@ -83,11 +83,6 @@ export const petitsChevaux: GameModule = {
   icon: '🐴',
   minPlayers: 2,
   adult: true,
-
-  canStart(group: Group) {
-    if (!group.adultModeEnabled) return 'Active le mode 18+ pour lancer les Petits Chevaux (jeu à boire).'
-    return null
-  },
 
   initRound(_group, session) {
     const state = getState(session)

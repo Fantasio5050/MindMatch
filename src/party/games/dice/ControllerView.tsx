@@ -9,7 +9,7 @@ import { Button } from '../../../components/Button'
 import { Player } from '../../../components/Player'
 import { HostCue } from '../../primitives'
 import { CssDie } from './CssDie'
-import { FLAVOR, sips, useRollAnimation } from './shared'
+import { FLAVOR, currentTurn, ranking, sips, useRollAnimation } from './shared'
 import type { DiceClientState } from './types'
 import type { Member } from '../../../types'
 
@@ -31,7 +31,7 @@ export function DiceController() {
   const state = (group?.party.roundData ?? null) as DiceClientState | null
   const { rolling } = useRollAnimation(state?.lastRoll)
 
-  const currentId = state ? (state.order[state.currentIndex] ?? null) : null
+  const currentId = state && group ? currentTurn(state, group.members) : null
   const myTurn = !!state && group?.party.phase === 'turn' && currentId === myId && !rolling
   // Ton tour : une petite vibration, pour lever les yeux de la conversation.
   useEffect(() => {
@@ -182,9 +182,10 @@ function ThrowPad({ onThrow }: { onThrow: () => void }) {
   }, [thrown])
 
   const start = () => {
-    if (thrown) return
+    if (thrown || holding) return
     setHolding(true)
     navigator.vibrate?.(25)
+    window.clearInterval(buzz.current)
     buzz.current = window.setInterval(() => navigator.vibrate?.(18), 110)
   }
   const release = () => {
@@ -234,10 +235,7 @@ function ThrowPad({ onThrow }: { onThrow: () => void }) {
 }
 
 function FinalView({ state, members, myId, onExit }: { state: DiceClientState; members: Member[]; myId: string; onExit: () => void }) {
-  const ranked = state.order
-    .map((id) => members.find((m) => m.id === id))
-    .filter((m): m is Member => !!m)
-    .sort((a, b) => (state.totalSips[b.id] ?? 0) - (state.totalSips[a.id] ?? 0))
+  const ranked = ranking(state, members)
   const top = ranked[0]
   return (
     <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">

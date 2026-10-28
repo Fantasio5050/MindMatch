@@ -102,7 +102,6 @@ export class UnoTable {
   private seats = new Map<string, Seat>()
   private deck: THREE.Mesh
   private discard = new Map<string, THREE.Mesh>()
-  private seenDiscards = new Set<string>()
   private rimGlow: THREE.Mesh
   private ring: THREE.Group
   private ringMat: THREE.MeshBasicMaterial
@@ -688,7 +687,6 @@ export class UnoTable {
     // Premier instantané : on construit la table telle quelle (ou on distribue si la partie
     // démarre à peine), sans rejouer d'historique.
     if (!prev) {
-      for (const c of next.discards) this.seenDiscards.add(c.id)
       this.lastSeq = next.lastEvent?.seq ?? 0
       if (next.phase === 'intro') this.deal(next.order, next.handCounts)
       else for (const seat of this.seats.values()) this.setFan(seat, next.handCounts[seat.id] ?? 0)
@@ -699,13 +697,20 @@ export class UnoTable {
       return
     }
 
-    // 1. Nouvelles cartes sur la défausse → elles partent de la main de leur joueur.
-    const fresh = next.discards.filter((c) => !this.seenDiscards.has(c.id))
+    // 1. Nouvelles cartes sur la défausse → elles partent de la main de leur joueur. « Nouvelle » se
+    // juge par rapport à l'instantané précédent, pas à tout l'historique : après un remélange de
+    // la pioche, une carte déjà jouée revient en jeu avec le même identifiant.
+    const before = new Set(prev.discards.map((c) => c.id))
+    const fresh = next.discards.filter((c) => !before.has(c.id))
     const counts = { ...next.handCounts }
     let playDelay = 0
     let actorDrop: string | null = null
     fresh.forEach((card) => {
-      this.seenDiscards.add(card.id)
+      const stale = this.discard.get(card.id)
+      if (stale) {
+        this.scene.remove(stale)
+        this.discard.delete(card.id)
+      }
       const ev = next.lastEvent
       const byEvent = ev?.type === 'play' || ev?.type === 'win' ? ev.memberId : null
       const shrunk = next.order.find((id) => (counts[id] ?? 0) < (this.seats.get(id)?.shown ?? 0))

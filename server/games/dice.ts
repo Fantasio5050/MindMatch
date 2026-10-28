@@ -1,5 +1,6 @@
-import type { PartySession } from '../../src/types'
+import type { Group, PartySession } from '../../src/types'
 import type { GameModule, GameAction, XpAward } from './types'
+import type { DiceClientState, DiceRoll } from '../../src/party/games/dice/types'
 
 /** Lancer de dés (18+). Chacun son tour lance un dé et boit le nombre de gorgées qu'il indique.
  * C'est tout — la mise en scène fait le reste : le dé roule en 3D sur la TV, et en 3D CSS sur les
@@ -18,26 +19,7 @@ const HISTORY = 12
 const ROLL_XP = 1
 const SIX_XP = 2
 
-export interface DiceRoll {
-  /** Numéro du lancer dans la partie (1, 2, 3…). */
-  n: number
-  memberId: string
-  value: number
-  /** Graine de la trajectoire 3D. */
-  seed: number
-  at: number
-}
-
-interface DiceState {
-  order: string[]
-  currentIndex: number
-  lastRoll: DiceRoll | null
-  /** Les derniers lancers, du plus ancien au plus récent. */
-  history: DiceRoll[]
-  totalSips: Record<string, number>
-  rollCount: Record<string, number>
-  rolls: number
-}
+type DiceState = DiceClientState
 
 function getState(session: PartySession): DiceState {
   return (
@@ -53,6 +35,17 @@ function getState(session: PartySession): DiceState {
   )
 }
 
+/** Prochain joueur encore dans le groupe, à partir de `from` (inclus). Un joueur parti ne bloque
+ * pas la partie : son tour est sauté. */
+function presentFrom(state: DiceState, group: Group, from: number): number {
+  const n = state.order.length
+  for (let k = 0; k < n; k++) {
+    const i = (from + k) % n
+    if (group.members.some((m) => m.id === state.order[i])) return i
+  }
+  return from % Math.max(1, n)
+}
+
 function bump(totals: Record<string, number>, memberId: string, amount: number): Record<string, number> {
   return { ...totals, [memberId]: (totals[memberId] ?? 0) + amount }
 }
@@ -64,7 +57,7 @@ export const dice: GameModule = {
   minPlayers: 2,
   adult: true,
 
-  initRound(_group, session) {
+  initRound(group, session) {
     const state = getState(session)
 
     // Premier appel : ordre de passage figé, règles à l'écran.
@@ -74,24 +67,26 @@ export const dice: GameModule = {
     }
 
     if (session.phase === 'intro') {
-      return { session: { ...session, phase: 'turn', round: 1, roundData: state } }
+      return { session: { ...session, phase: 'turn', round: 1, roundData: { ...state, currentIndex: presentFrom(state, group, 0) } } }
     }
 
     // Pendant un tour, l'avance de l'hôte passe le joueur absent.
     if (session.phase === 'turn' && state.order.length > 0) {
       return {
-        session: { ...session, round: session.round + 1, roundData: { ...state, currentIndex: (state.currentIndex + 1) % state.order.length } },
+        session: { ...session, round: session.round + 1, roundData: { ...state, currentIndex: presentFrom(state, group, state.currentIndex + 1) } },
       }
     }
 
     return { session }
   },
 
-  handleAction(_group, session, memberId, action: GameAction) {
+  handleAction(group, session, memberId, action: GameAction) {
     const state = getState(session)
 
     if (action.type === 'roll' && session.phase === 'turn') {
-      if (state.order[state.currentIndex] !== memberId) return { session }
+      // Si le joueur attendu a quitté le groupe, la main passe d'elle-même au suivant présent.
+      const turn = presentFrom(state, group, state.currentIndex)
+      if (state.order[turn] !== memberId) return { session }
       const now = Date.now()
       if (state.lastRoll && now - state.lastRoll.at < DICE_COOLDOWN_MS) return { session }
 
@@ -111,7 +106,7 @@ export const dice: GameModule = {
           round: session.round + 1,
           roundData: {
             ...state,
-            currentIndex: (state.currentIndex + 1) % state.order.length,
+            currentIndex: presentFrom(state, group, turn + 1),
             lastRoll: roll,
             history: [...state.history, roll].slice(-HISTORY),
             totalSips: bump(state.totalSips, memberId, value),

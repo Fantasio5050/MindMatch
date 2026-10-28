@@ -74,7 +74,7 @@ export function startGame(
   const game = getGame(gameId)
   if (!game) return { error: 'Jeu introuvable.', status: 404 }
   if (game.adult && !group.adultModeEnabled) {
-    return { error: 'Ce jeu est réservé au mode 18+.', status: 403 }
+    return { error: `Active le mode 18+ pour lancer ${game.name}.`, status: 403 }
   }
   if (group.members.length < game.minPlayers) {
     return { error: `Il faut au moins ${game.minPlayers} joueurs pour ce jeu.`, status: 400 }

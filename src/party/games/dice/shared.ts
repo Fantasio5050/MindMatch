@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { ROLL_ANIM_MS, type DiceRoll } from './types'
+import { ROLL_ANIM_MS, type DiceClientState, type DiceRoll } from './types'
+import type { Member } from '../../../types'
 
 export const sips = (n: number) => `${n} gorgée${n > 1 ? 's' : ''}`
 
@@ -34,4 +35,23 @@ export function useRollAnimation(lastRoll: DiceRoll | null | undefined, duration
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
   return { rolling: rollingN !== null && rollingN === n }
+}
+
+/** À qui le tour : le joueur attendu, ou le suivant encore présent s'il a quitté le groupe (même
+ * règle que le serveur). */
+export function currentTurn(state: DiceClientState, members: { id: string }[]): string | null {
+  const n = state.order.length
+  for (let k = 0; k < n; k++) {
+    const id = state.order[(state.currentIndex + k) % n]
+    if (members.some((m) => m.id === id)) return id
+  }
+  return null
+}
+
+/** Classement final : le plus assoiffé en tête. */
+export function ranking(state: DiceClientState, members: Member[]): Member[] {
+  return state.order
+    .map((id) => members.find((m) => m.id === id))
+    .filter((m): m is Member => !!m)
+    .sort((a, b) => (state.totalSips[b.id] ?? 0) - (state.totalSips[a.id] ?? 0))
 }

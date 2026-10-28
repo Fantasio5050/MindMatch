@@ -231,6 +231,8 @@ function deal(participantIds: string[]): UnoState {
   if (!first) return s
   s.discardPile = [first]
   s.currentColor = first.color === 'wild' ? COLORS[Math.floor(Math.random() * 4)] : first.color
+  // Joker retourné d'office : sa couleur tirée au sort est celle qu'on peint sur la carte.
+  if (first.color === 'wild') s.wildColors = { ...(s.wildColors ?? {}), [first.id]: s.currentColor }
 
   // Effet de la carte de départ sur le premier joueur.
   if (first.value === 'skip') {

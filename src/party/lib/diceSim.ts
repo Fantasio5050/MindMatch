@@ -8,10 +8,9 @@ import * as THREE from 'three'
  * vrai solide (impulsions aux coins contre le sol et les parois, frottement, rebonds entre dés),
  * simulé à 240 Hz et enregistré à 60 images par seconde.
  *
- * Le résultat est imposé par le serveur, pas par la physique : une fois la simulation terminée, on
- * regarde quelle face du SOLIDE est tournée vers le ciel, puis on tourne l'habillage du dé (ses
- * faces peintes) d'une symétrie du cube pour que la valeur voulue soit peinte sur cette face-là.
- * Le spectateur voit un lancer physique honnête qui tombe pile sur le tirage du serveur.
+ * Le résultat est imposé par le serveur, pas par la physique : `planRoll` rejoue le lancer avec
+ * d'autres conditions initiales jusqu'à ce que la face voulue finisse d'elle-même en haut. Le
+ * spectateur voit un lancer physique honnête qui tombe pile sur le tirage du serveur.
  *
  * Déterministe pour une graine donnée : deux écrans qui rejouent le même lancer voient le même roulé.
  */
@@ -343,3 +342,41 @@ export function poseAtTime(sim: SimResult, die: number, t: number, pos: THREE.Ve
 }
 const _p = new THREE.Vector3()
 const _q = new THREE.Quaternion()
+
+export interface RollPlan {
+  sim: SimResult
+  /** Par dé : rotation d'habillage à appliquer au lâcher, ou null si la physique tombe juste. */
+  remaps: (THREE.Quaternion | null)[]
+}
+
+/**
+ * Trouve un lancer qui tombe tout seul sur les valeurs voulues.
+ *
+ * Plutôt que de repeindre le dé (ses faces sauteraient à l'écran), on rejoue la simulation avec
+ * d'autres conditions initiales jusqu'à ce que la face voulue, telle qu'elle est peinte en ce
+ * moment, finisse en haut : une chance sur six par essai pour un dé. Si aucun essai ne convient
+ * (rare, ou plusieurs dés), on garde le meilleur et on retouche l'habillage des dés restants au
+ * lâcher, quand ils tournent trop vite pour qu'on le voie.
+ *
+ * `make(essai)` fournit les conditions initiales de chaque essai (déterministes pour un essai donné).
+ */
+export function planRoll(
+  values: number[],
+  skins: THREE.Quaternion[],
+  make: (attempt: number) => DieInit[],
+  arena: DiceArena,
+  size = 1,
+  maxTries = 80,
+): RollPlan {
+  let best: { sim: SimResult; ok: boolean[] } | null = null
+  const n = new THREE.Vector3()
+  for (let attempt = 0; attempt < maxTries; attempt++) {
+    const sim = simulateDice(make(attempt), arena, size)
+    const ok = values.map((v, i) => n.copy(FACE_NORMALS[v] ?? FACE_NORMALS[1]).applyQuaternion(skins[i]).dot(sim.upAxis[i]) > 0.99)
+    const score = ok.filter(Boolean).length
+    if (!best || score > best.ok.filter(Boolean).length) best = { sim, ok }
+    if (score === values.length) break
+  }
+  const { sim, ok } = best!
+  return { sim, remaps: values.map((v, i) => (ok[i] ? null : faceRotation(v, sim.upAxis[i]))) }
+}

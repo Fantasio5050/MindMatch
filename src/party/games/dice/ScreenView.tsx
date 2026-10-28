@@ -4,7 +4,7 @@ import { usePartyStore } from '../../../store/usePartyStore'
 import { Player } from '../../../components/Player'
 import { TvViewport } from '../../primitives/TvViewport'
 import { CssDie } from './CssDie'
-import { FLAVOR, sips, useRollAnimation } from './shared'
+import { FLAVOR, currentTurn, ranking, sips, useRollAnimation } from './shared'
 import type { DiceClientState } from './types'
 import type { DiceMember, DiceTable, DiceTableEvent, DiceTableState } from './three/diceTable'
 import type { Member } from '../../../types'
@@ -29,10 +29,6 @@ export function DiceScreen() {
     )
   }
   return <Dice3D state={state} phase={phase} members={group.members} onUnsupported={() => setFlat(true)} />
-}
-
-function currentOf(state: DiceClientState): string | null {
-  return state.order[state.currentIndex] ?? null
 }
 
 type Banner = { n: number; memberId: string; value: number } | null
@@ -95,10 +91,10 @@ function Dice3D({ state, phase, members, onUnsupported }: { state: DiceClientSta
       return
     }
     table.current.sync(
-      { phase, order: state.order, currentId: currentOf(state), lastRoll: state.lastRoll, totalSips: state.totalSips },
+      { phase, order: state.order, currentId: currentTurn(state, members), lastRoll: state.lastRoll, totalSips: state.totalSips },
       tableMembers,
     )
-  }, [ready, state, phase, tableMembers, onUnsupported])
+  }, [ready, state, phase, members, tableMembers, onUnsupported])
 
   // Le verdict reste affiché un moment, puis laisse la place au joueur suivant.
   useEffect(() => {
@@ -131,7 +127,7 @@ function Hud({
   revealedN: number
 }) {
   const byId = (id: string | null | undefined) => members.find((m) => m.id === id)
-  const current = byId(rolling ?? currentOf(state))
+  const current = byId(rolling ?? currentTurn(state, members))
   // Les lancers pas encore montrés par la scène ne comptent pas encore : pas de spoiler.
   const hidden = state.history.filter((r) => r.n > revealedN)
   const totalDrunk = Object.values(state.totalSips).reduce((a, b) => a + b, 0) - hidden.reduce((a, r) => a + r.value, 0)
@@ -215,13 +211,6 @@ function Hud({
   )
 }
 
-function ranking(state: DiceClientState, members: Member[]) {
-  return state.order
-    .map((id) => members.find((m) => m.id === id))
-    .filter((m): m is Member => !!m)
-    .sort((a, b) => (state.totalSips[b.id] ?? 0) - (state.totalSips[a.id] ?? 0))
-}
-
 function FinalPanel({ state, members }: { state: DiceClientState; members: Member[] }) {
   const ranked = ranking(state, members)
   return (
@@ -255,7 +244,9 @@ function DiceFlatScreen({ state, phase, members }: { state: DiceClientState; pha
   const byId = (id: string | null | undefined) => members.find((m) => m.id === id)
   const last = state.lastRoll
   const roller = byId(last?.memberId)
-  const current = byId(currentOf(state))
+  const current = byId(currentTurn(state, members))
+  // Le total du lanceur n'avance qu'une fois le dé posé.
+  const shownSips = (id: string) => (state.totalSips[id] ?? 0) - (rolling && last?.memberId === id ? last.value : 0)
 
   if (phase === 'ended') {
     const ranked = ranking(state, members)
@@ -310,9 +301,9 @@ function DiceFlatScreen({ state, phase, members }: { state: DiceClientState; pha
           if (!m) return null
           return (
             <div key={id} className="flex flex-col items-center gap-1">
-              <Player member={m} size="md" speaking={phase === 'turn' && id === currentOf(state) && !rolling} />
+              <Player member={m} size="md" speaking={phase === 'turn' && id === current?.id && !rolling} />
               <span className="text-base tabular-nums" style={{ color: '#f5a524' }}>
-                {state.totalSips[id] ?? 0} 🍺
+                {shownSips(id)} 🍺
               </span>
             </div>
           )

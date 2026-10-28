@@ -71,6 +71,9 @@ function burst(ctx: AudioContext, o: BurstOptions) {
   g.gain.setValueAtTime(0.0001, o.at)
   g.gain.exponentialRampToValueAtTime(Math.max(0.0002, o.gain), o.at + attack)
   g.gain.exponentialRampToValueAtTime(0.0001, o.at + o.dur)
+  // En boucle : un souffle plus long que la seconde de bruit (fanfare, tambour) ne s'arrête pas net,
+  // et le point de départ aléatoire évite d'entendre deux fois le même grain.
+  src.loop = true
   src.connect(f).connect(g).connect(output(ctx))
   src.start(o.at, Math.random() * 0.8)
   src.stop(o.at + o.dur + 0.05)

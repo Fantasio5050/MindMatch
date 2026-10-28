@@ -77,8 +77,10 @@ export function EmoteBar() {
   const { play } = useSound()
   const [open, setOpen] = useState(false)
 
+  // Pas de `relative` ici : la rangée se cale sous le bord gauche de la barre du haut (son ancêtre
+  // positionné), pas sous ce bouton, troisième de la barre — elle déborderait sur un petit écran.
   return (
-    <div className="relative">
+    <div>
       <motion.button
         whileTap={{ scale: 0.9 }}
         onClick={() => setOpen((o) => !o)}

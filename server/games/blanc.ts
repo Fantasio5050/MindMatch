@@ -1,4 +1,4 @@
-import type { Group, PartySession } from '../../src/types'
+import type { PartySession } from '../../src/types'
 import type { GameModule, GameAction, XpAward } from './types'
 import { pickWithoutRepeat } from './pickHelpers'
 import { BLANC_PROMPTS, BLANC_ANSWERS, type BlancPrompt, type BlancAnswer } from '../../src/data/blancCards'
@@ -108,11 +108,6 @@ export const blanc: GameModule = {
   icon: '🖊️',
   minPlayers: MIN_PLAYERS,
   adult: true,
-
-  canStart(group: Group) {
-    if (!group.adultModeEnabled) return 'Active le mode 18+ pour lancer Le Grand Blanc.'
-    return null
-  },
 
   initRound(_group, session) {
     const state = getState(session)
