@@ -221,7 +221,7 @@ test.describe('Nouveaux jeux — jouables et étanches', () => {
     const player = (await firstWhere(t.phones, (p) => rollButton(p).isVisible()))!
     await rollButton(player).click()
     // Selon la case : acheter, lire une carte, relancer après un double… jusqu'à la fin du tour.
-    for (let i = 0; i < 8 && !(await player.getByRole('button', { name: /Fin du tour/ }).isVisible()); i++) {
+    for (let i = 0; i < 30 && !(await player.getByRole('button', { name: /Fin du tour/ }).isVisible()); i++) {
       await player.waitForTimeout(700)
       for (const name of [/^Acheter/, /^OK$/, /Tenter un double/, /Lancer les dés/]) {
         const b = player.getByRole('button', { name })

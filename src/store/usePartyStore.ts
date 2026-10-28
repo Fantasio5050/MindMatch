@@ -27,6 +27,8 @@ interface PartyState {
   emotes: EmoteEvent[]
   /** Latest playback position reported by the platine (jukebox), or null before any report. */
   musicPosition: MusicPosition | null
+  /** Dernier événement de jeu que la TV a fini d'animer (remis à zéro à chaque nouvelle partie). */
+  screenProgress: { game: string; seq: number; at: number } | null
   /** True right after the host kicks THIS client out of the room — a page-level watcher redirects
    * home and shows a message, then clears it. */
   kicked: boolean
@@ -48,6 +50,7 @@ interface PartyState {
   platineClaim: (platineId: string) => void
   platineEnded: (platineId: string, trackId: string) => void
   reportPosition: (pos: { positionMs: number; durationMs: number | null; isPlaying: boolean }) => void
+  reportScreenProgress: (game: string, seq: number) => void
   clearError: () => void
   clearKicked: () => void
 
@@ -76,9 +79,13 @@ export const usePartyStore = create<PartyState>((set, get) => {
   function wire(socket: Socket) {
     socket.on('connect', () => set({ connected: true }))
     socket.on('disconnect', () => set({ connected: false }))
-    socket.on('room:update', (msg: { group: Group; onlinePlayerIds: string[] }) =>
-      set({ group: msg.group, onlinePlayerIds: msg.onlinePlayerIds }),
-    )
+    socket.on('room:update', (msg: { group: Group; onlinePlayerIds: string[] }) => {
+      const prev = get().group?.party
+      const next = msg.group.party
+      // Nouvelle partie : la progression de la TV de la précédente ne veut plus rien dire.
+      const fresh = !prev || prev.currentGameId !== next.currentGameId || (prev.status !== 'playing' && next.status === 'playing')
+      set({ group: msg.group, onlinePlayerIds: msg.onlinePlayerIds, ...(fresh ? { screenProgress: null } : {}) })
+    })
     socket.on('party:error', (msg: { error: string }) => set({ error: msg.error }))
     socket.on('party:emote', (msg: EmoteEvent) => {
       set((s) => ({ emotes: [...s.emotes, msg] }))
@@ -91,6 +98,9 @@ export const usePartyStore = create<PartyState>((set, get) => {
     socket.on('music:position', (msg: { positionMs: number; durationMs: number | null; isPlaying: boolean }) => {
       set({ musicPosition: { ...msg, at: Date.now() } })
     })
+    socket.on('screen:progress', (msg: { game: string; seq: number }) => {
+      set({ screenProgress: { ...msg, at: Date.now() } })
+    })
   }
 
   return {
@@ -102,6 +112,7 @@ export const usePartyStore = create<PartyState>((set, get) => {
     error: null,
     emotes: [],
     musicPosition: null,
+    screenProgress: null,
     kicked: false,
 
     connectAsPlayer: () => {
@@ -141,6 +152,7 @@ export const usePartyStore = create<PartyState>((set, get) => {
     platineClaim: (platineId) => get().socket?.emit('music:platine', { type: 'claim', platineId }),
     platineEnded: (platineId, trackId) => get().socket?.emit('music:platine', { type: 'ended', platineId, trackId }),
     reportPosition: (pos) => get().socket?.emit('music:position', pos),
+    reportScreenProgress: (game, seq) => get().socket?.volatile.emit('screen:progress', { game, seq }),
     clearError: () => set({ error: null }),
     clearKicked: () => set({ kicked: false }),
 

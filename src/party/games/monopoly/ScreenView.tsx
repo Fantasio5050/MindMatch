@@ -34,6 +34,9 @@ export function MonopolyScreen() {
 }
 
 function Monopoly3D({ state, members, phase, onUnsupported }: { state: MonoClientState; members: Member[]; phase: BoardPhase; onUnsupported: () => void }) {
+  const reportScreenProgress = usePartyStore((s) => s.reportScreenProgress)
+  const reportRef = useRef(reportScreenProgress)
+  reportRef.current = reportScreenProgress
   const host = useRef<HTMLDivElement>(null)
   const board = useRef<MonopolyBoard | null>(null)
   const [ready, setReady] = useState(false)
@@ -50,6 +53,7 @@ function Monopoly3D({ state, members, phase, onUnsupported }: { state: MonoClien
         setBusy(true)
         setShown(n.event)
       } else if (n.type === 'cash') setCashShown(n.cash)
+      else if (n.type === 'progress') reportRef.current('monopoly', n.seq)
       else {
         setBusy(false)
         setCashShown(null)
@@ -282,6 +286,9 @@ function ContextPanel({ state, name }: { state: MonoClientState; name: (id: stri
 
 /** Plateau 2D de secours : les 40 cases en couronne, les pions dessus, l'essentiel au centre. */
 function FlatBoard({ state, members, phase }: { state: MonoClientState; members: Member[]; phase: BoardPhase }) {
+  // Sans animation, l'écran de secours est toujours à jour.
+  const reportScreenProgress = usePartyStore((s) => s.reportScreenProgress)
+  useEffect(() => reportScreenProgress('monopoly', state.seq), [reportScreenProgress, state.seq])
   const byId = (id: string | null | undefined) => members.find((m) => m.id === id)
   const name = (id: string | null) => byId(id)?.pseudo ?? '?'
   const last = [...state.events].reverse().find((e) => eventCaption(e, name))

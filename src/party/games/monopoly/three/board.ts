@@ -27,7 +27,12 @@ export interface BoardMember {
   photoUrl: string | null
 }
 
-export type BoardNotice = { type: 'event'; event: MonoEvent } | { type: 'cash'; cash: Record<string, number> } | { type: 'idle' }
+export type BoardNotice =
+  | { type: 'event'; event: MonoEvent }
+  | { type: 'cash'; cash: Record<string, number> }
+  /** Dernier événement que la scène a fini de montrer (ou, pour une carte, posée devant la caméra). */
+  | { type: 'progress'; seq: number }
+  | { type: 'idle' }
 export type BoardPhase = 'intro' | 'turn' | 'ended'
 
 const DIE = 0.95
@@ -117,6 +122,9 @@ export class MonopolyBoard {
   private state: MonoClientState | null = null
   private phase: BoardPhase = 'intro'
   private lastSeq = 0
+  /** Dernier événement entièrement joué à l'écran (ce que les téléphones peuvent dévoiler). */
+  private doneSeq = 0
+  private playingSeq = 0
   private queue: MonoEvent[] = []
   private running = false
   private follow: string | null = null
@@ -447,7 +455,8 @@ export class MonopolyBoard {
     this.phase = phase
     this.ensurePawns(next, members)
     if (first) {
-      this.lastSeq = next.seq
+      this.lastSeq = this.doneSeq = next.seq
+      this.notify({ type: 'progress', seq: next.seq })
       this.reconcile(next)
       if (phase === 'ended') this.startCelebration(next.winner)
       return
@@ -456,6 +465,8 @@ export class MonopolyBoard {
     if (fresh.length) {
       this.lastSeq = fresh[fresh.length - 1].seq
       this.queue.push(...fresh)
+      // Accusé de réception : les téléphones savent qu'une TV va jouer ces événements, et où elle en est.
+      this.notify({ type: 'progress', seq: this.doneSeq })
       void this.drain()
     }
     if (!this.running) this.idleState()
@@ -489,6 +500,7 @@ export class MonopolyBoard {
     this.notify({ type: 'cash', cash: Object.fromEntries([...this.pawns.values()].map((p) => [p.id, p.cash])) })
     while (this.queue.length) {
       const ev = this.queue.shift()!
+      this.playingSeq = ev.seq
       this.notify({ type: 'event', event: ev })
       try {
         await this.play(ev, this.queue.length > 6)
@@ -502,6 +514,8 @@ export class MonopolyBoard {
       }
       this.refreshLabels()
       this.notify({ type: 'cash', cash: ev.cash })
+      this.doneSeq = ev.seq
+      this.notify({ type: 'progress', seq: ev.seq })
     }
     this.running = false
     if (this.state) this.reconcile(this.state)
@@ -790,6 +804,9 @@ export class MonopolyBoard {
     }, { ease: ease.inOutCubic })
     sfx.pop(0, 0.8)
     this.cardHeld = true
+    // La carte est lisible : le téléphone peut proposer « OK » (la TV attend justement ce clic).
+    this.doneSeq = this.playingSeq
+    this.notify({ type: 'progress', seq: this.doneSeq })
     // La carte reste lisible tant que le joueur ne l'a pas validée sur son téléphone : tant que
     // c'est bien CETTE carte qui attend, et qu'aucun événement plus récent (sa conséquence, ou une
     // deuxième carte) n'est arrivé.

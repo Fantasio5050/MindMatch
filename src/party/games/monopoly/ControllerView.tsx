@@ -31,13 +31,16 @@ export function MonopolyController() {
   const { play } = useSound()
   const [tab, setTab] = useState<'play' | 'titles' | 'trade'>('play')
   const state = (group?.party.roundData ?? null) as MonoClientState | null
+  const { shown, tv } = useShownSeq(state)
 
   const me = state?.players?.find((p) => p.id === myId) ?? null
   const cur = state?.players?.[state.turn] ?? null
   const myTurn = !!me && cur?.id === me.id && group?.party.phase === 'turn'
+  // Le téléphone vibre quand il y a quelque chose à faire — une fois le pion posé à l'écran.
+  const revealed = shown >= (state?.seq ?? 0)
   useEffect(() => {
-    if (myTurn) navigator.vibrate?.([30, 60, 30])
-  }, [myTurn, state?.step])
+    if (myTurn && revealed) navigator.vibrate?.([30, 60, 30])
+  }, [myTurn, state?.step, revealed])
 
   if (!group || !state?.players || !myId) return null
   const act = (type: string, payload: unknown = {}) => {
@@ -92,23 +95,25 @@ export function MonopolyController() {
       <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
         <p className="kicker text-2xs text-center mb-2">Spectateur</p>
         <p className="text-chalk-soft text-sm text-center mb-6">La table est pleine (8 pions) : tu suis la partie.</p>
-        <Feed state={state} name={pseudo} />
+        <Feed state={state} shown={shown} name={pseudo} />
       </div>
     )
   }
 
   const color = byId(me.id)?.color ?? '#999'
+  // Tant que le pion n'a pas atterri à l'écran, la fortune et la case restent celles d'avant.
+  const view = shownPlayer(state, me, shown)
   return (
     <div className="min-h-svh flex flex-col px-5 pt-[4.5rem] pb-8 safe-top">
       {/* Ta fortune. */}
       <div className="flex items-center gap-3 mb-4">
         <TokenBadge token={me.token} color={color} size={44} />
         <div className="flex-1 min-w-0">
-          <motion.p key={me.cash} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className="font-display text-2xl text-[#f5c542] tabular-nums leading-none">
-            {formatMoney(me.cash)}
+          <motion.p key={view.cash} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className="font-display text-2xl text-[#f5c542] tabular-nums leading-none">
+            {formatMoney(view.cash)}
           </motion.p>
           <p className="text-xs text-chalk-faint truncate mt-1">
-            {me.inJail ? 'En prison' : squareName(me.pos)} · {titles(holdings(state, me.id).length)}
+            {view.inJail ? 'En prison' : squareName(view.pos)} · {titles(holdings(state, me.id).length)}
             {me.jailCards > 0 && ' · carte « Libéré de prison »'}
           </p>
         </div>
@@ -130,14 +135,14 @@ export function MonopolyController() {
 
       <IncomingTrade state={state} me={me} name={name} act={act} />
 
-      {tab === 'play' && <PlayTab state={state} me={me} cur={cur} myTurn={myTurn} name={name} pseudo={pseudo} act={act} members={group.members} />}
+      {tab === 'play' && <PlayTab state={state} shown={shown} tv={tv} me={me} cur={cur} myTurn={myTurn} pseudo={pseudo} name={name} act={act} members={group.members} />}
       {tab === 'titles' && <TitlesTab state={state} me={me} myTurn={myTurn} act={act} />}
       {tab === 'trade' && <TradeTab state={state} me={me} name={name} act={act} members={group.members} onSent={() => setTab('play')} />}
 
       {isHost && (
         <div className="mt-auto pt-6 flex gap-2">
           <Button variant="ghost" className="flex-1" onClick={() => { play('pop'); hostAdvance() }}>
-            Forcer ({FORCE_LABEL[state.step]})
+            {shown < state.seq ? 'Forcer' : `Forcer (${FORCE_LABEL[state.step]})`}
           </Button>
           <Button variant="ghost" className="flex-1" onClick={() => act('finish')}>
             Terminer
@@ -163,19 +168,82 @@ const titles = (n: number) => `${n} titre${n > 1 ? 's' : ''}`
 type Act = (type: string, payload?: unknown) => void
 type Name = (id: string | null) => string
 
-/** Dés du dernier lancer : ils roulent un instant à chaque nouveau lancer. */
-function LastDice({ state }: { state: MonoClientState }) {
-  const last = [...state.events].reverse().find((e) => e.type === 'roll')
+/** Sans TV qui réponde, les dés du téléphone font le spectacle : la case se dévoile quand ils sont posés. */
+const NO_TV_MS = 1300
+/** La TV signale chaque événement joué ; muette plus longtemps que le plus long d'entre eux (un tour
+ * de plateau complet), c'est qu'elle a décroché (onglet en veille, coupure) : on ne l'attend plus. */
+const TV_SILENT_MS = 8000
+/** Délai laissé à la TV pour accuser réception d'un nouveau lancer. */
+const TV_ACK_MS = 2500
+
+/**
+ * Jusqu'où la manette peut raconter la partie (numéro du dernier événement dévoilé).
+ *
+ * Le serveur connaît la case d'arrivée — et le loyer, la carte, l'achat possible — dès le lancer ;
+ * la TV, elle, met quelques secondes à faire rouler les dés puis avancer le pion. La manette s'en
+ * tient à ce que la TV a déjà montré et dévoile tout quand le pion atterrit.
+ */
+function useShownSeq(state: MonoClientState | null): { shown: number; tv: boolean } {
+  const progress = usePartyStore((s) => s.screenProgress)
+  const tv = progress?.game === 'monopoly' ? progress : null
+  const seq = state?.seq ?? 0
+  // Tout ce qui précède est déjà dévoilé.
+  const [settled, setSettled] = useState(seq)
+  const since = useRef(0)
+  const [tick, setTick] = useState(0)
+  // Le dernier lancer ou déplacement à attendre : au-delà, le pion est posé.
+  const gate = state?.events.findLast((e) => e.seq > settled && (e.type === 'roll' || e.type === 'move'))?.seq ?? 0
+  const live = tv?.seq ?? settled
+  const open = !gate || live >= gate
+  useEffect(() => {
+    if (open) {
+      since.current = 0
+      if (settled !== seq) setSettled(seq)
+      return
+    }
+    if (!since.current) since.current = Date.now()
+    // La TV accuse réception de chaque nouvel état : sans nouvelles d'elle, on ne l'attend pas.
+    const heard = tv?.at ?? 0
+    const deadline = heard >= since.current - 1000 ? Math.max(since.current, heard) + TV_SILENT_MS : since.current + (tv ? TV_ACK_MS : NO_TV_MS)
+    const left = deadline - Date.now()
+    const t = window.setTimeout(() => (left <= 0 ? setSettled(seq) : setTick((n) => n + 1)), Math.max(0, Math.min(250, left)))
+    return () => window.clearTimeout(t)
+  }, [open, settled, seq, tv, tick])
+  return { shown: open ? seq : Math.max(settled, Math.min(live, seq)), tv: !!tv }
+}
+
+/** Fortune, case et prison d'un joueur telles que la TV les montre encore. */
+function shownPlayer(state: MonoClientState, p: MonoPlayer, shown: number): { cash: number; pos: number; inJail: boolean } {
+  if (shown >= state.seq) return p
+  const hidden = state.events.filter((e) => e.seq > shown && 'who' in e && e.who === p.id)
+  const move = hidden.find((e) => e.type === 'move')
+  const jail = hidden.find((e) => e.type === 'jail' || e.type === 'free')
+  return {
+    cash: state.events.findLast((e) => e.seq <= shown)?.cash[p.id] ?? p.cash,
+    pos: move?.type === 'move' ? move.from : p.pos,
+    inJail: jail ? jail.type === 'free' : p.inJail,
+  }
+}
+
+/**
+ * Dés du dernier lancer. Avec une TV, ils apparaissent posés quand ceux de l'écran s'arrêtent ;
+ * sans TV, ils roulent un instant dans la main.
+ */
+function LastDice({ state, shown, tv }: { state: MonoClientState; shown: number; tv: boolean }) {
+  const last = state.events.findLast((e) => e.type === 'roll' && (!tv || e.seq <= shown))
   const seq = last?.seq ?? 0
   const seen = useRef(seq)
   const [rolling, setRolling] = useState(false)
   useEffect(() => {
     if (seq === seen.current) return
     seen.current = seq
+    if (tv) return
     setRolling(true)
     const t = window.setTimeout(() => setRolling(false), 1500)
     return () => window.clearTimeout(t)
-  }, [seq])
+  }, [seq, tv])
+  // Un nouveau lancer roule encore sur la TV : pas question d'afficher les dés du précédent.
+  if (tv && state.events.some((e) => e.type === 'roll' && e.seq > shown)) return null
   if (!last || last.type !== 'roll') return null
   return (
     <div className="flex justify-center gap-4 my-2">
@@ -186,13 +254,31 @@ function LastDice({ state }: { state: MonoClientState }) {
   )
 }
 
-function PlayTab({ state, me, cur, myTurn, name, pseudo, act, members }: { state: MonoClientState; me: MonoPlayer; cur: MonoPlayer | null; myTurn: boolean; name: Name; pseudo: Name; act: Act; members: Member[] }) {
+function PlayTab({ state, shown, tv, me, cur, myTurn, name, pseudo, act, members }: { state: MonoClientState; shown: number; tv: boolean; me: MonoPlayer; cur: MonoPlayer | null; myTurn: boolean; name: Name; pseudo: Name; act: Act; members: Member[] }) {
   const step = state.step
   const square = BOARD[me.pos]
   const panel = 'rounded-sheet bg-felt border border-line p-4'
+  if (shown < state.seq) {
+    // Les dés roulent ou le pion avance à l'écran : la case d'arrivée attend qu'il y soit.
+    const next = state.events.find((e) => e.seq > shown && (e.type === 'roll' || e.type === 'move'))
+    const walker = next && 'who' in next ? next.who : null
+    return (
+      <div className="flex flex-col gap-4">
+        <LastDice state={state} shown={shown} tv={tv} />
+        <div className={clsx(panel, 'text-center')}>
+          <p className="font-display text-xl text-chalk mb-1">
+            {next?.type === 'move' ? (walker === me.id ? 'Ton pion avance…' : `Le pion de ${pseudo(walker)} avance…`) : 'Les dés roulent…'}
+          </p>
+          {tv && <p className="text-xs text-chalk-faint">Regarde la TV.</p>}
+        </div>
+        <Feed state={state} shown={shown} name={pseudo} />
+        <Standings state={state} shown={shown} members={members} />
+      </div>
+    )
+  }
   return (
     <div className="flex flex-col gap-4">
-      <LastDice state={state} />
+      <LastDice state={state} shown={shown} tv={tv} />
 
       {/* Enchères : tout le monde joue. */}
       {step === 'auction' && state.auction && <AuctionPanel state={state} me={me} name={name} act={act} />}
@@ -282,8 +368,8 @@ function PlayTab({ state, me, cur, myTurn, name, pseudo, act, members }: { state
         <HostCue action={STEP_TEXT[step]} memberId={cur.id} />
       )}
 
-      <Feed state={state} name={pseudo} />
-      <Standings state={state} members={members} />
+      <Feed state={state} shown={shown} name={pseudo} />
+      <Standings state={state} shown={shown} members={members} />
     </div>
   )
 }
@@ -333,8 +419,9 @@ function AuctionPanel({ state, me, name, act }: { state: MonoClientState; me: Mo
   )
 }
 
-function Feed({ state, name }: { state: MonoClientState; name: Name }) {
+function Feed({ state, shown, name }: { state: MonoClientState; shown: number; name: Name }) {
   const lines = state.events
+    .filter((e) => e.seq <= shown)
     .map((e) => ({ seq: e.seq, text: eventCaption(e, name) }))
     .filter((l): l is { seq: number; text: string } => !!l.text)
     .slice(-4)
@@ -353,7 +440,7 @@ function Feed({ state, name }: { state: MonoClientState; name: Name }) {
   )
 }
 
-function Standings({ state, members }: { state: MonoClientState; members: Member[] }) {
+function Standings({ state, shown, members }: { state: MonoClientState; shown: number; members: Member[] }) {
   return (
     <div className="flex flex-col gap-1.5">
       {state.players.map((p, i) => {
@@ -364,7 +451,7 @@ function Standings({ state, members }: { state: MonoClientState; members: Member
             <TokenBadge token={p.token} color={m.color} size={24} />
             <span className={clsx('flex-1 text-sm text-chalk truncate', p.bankrupt && 'line-through')}>{m.pseudo}</span>
             <span className="text-xs text-chalk-faint">{titles(holdings(state, p.id).length)}</span>
-            <span className="text-sm text-[#f5c542] tabular-nums w-20 text-right">{formatMoney(p.cash)}</span>
+            <span className="text-sm text-[#f5c542] tabular-nums w-20 text-right">{formatMoney(shownPlayer(state, p, shown).cash)}</span>
           </div>
         )
       })}

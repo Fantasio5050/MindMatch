@@ -113,6 +113,15 @@ export function attachRealtime(httpServer: HttpServer): { broadcastRoom: (groupI
           isPlaying: !!payload?.isPlaying,
         })
       }))
+
+      // Où en est l'animation de la TV dans les événements de la partie : les téléphones attendent
+      // que le pion ait atterri à l'écran pour dévoiler la case. Relais pur, comme la position.
+      socket.on('screen:progress', guarded(socket, 'screen:progress', (payload: { game?: string; seq?: number }) => {
+        const game = typeof payload?.game === 'string' ? payload.game.slice(0, 40) : ''
+        const seq = Number(payload?.seq)
+        if (!game || !Number.isInteger(seq) || seq < 0) return
+        io.to(group.id).emit('screen:progress', { game, seq })
+      }))
       return
     }
 
