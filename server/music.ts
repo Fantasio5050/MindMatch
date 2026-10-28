@@ -57,7 +57,7 @@ export function startMusic(
   memberToken: string,
   source: MusicSource,
 ): Ok | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const auth = findAuthorizedMember(db, groupId, memberId, memberToken)
   if (isApiError(auth)) return auth
   const { group } = auth
@@ -90,7 +90,7 @@ export function startMusic(
 }
 
 export function stopMusic(groupId: string, memberId: string, memberToken: string): Ok | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const auth = findAuthorizedMember(db, groupId, memberId, memberToken)
   if (isApiError(auth)) return auth
   const { group } = auth
@@ -122,7 +122,7 @@ export function musicAction(
   type: string,
   payload: unknown,
 ): Ok | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const auth = findAuthorizedMember(db, groupId, memberId, memberToken)
   if (isApiError(auth)) return auth
   const { group } = auth
@@ -227,7 +227,7 @@ export function musicAction(
 
 export function claimPlatine(groupId: string, platineId: string): Ok | ApiError {
   if (!platineId) return { error: 'Platine invalide.', status: 400 }
-  const db = readDb()
+  const db = readDb({ groupId })
   const group = db.groups.find((g) => g.id === groupId)
   if (!group || !group.music) return { error: 'Aucun mode soirée en cours.', status: 400 }
   group.music.platineId = platineId
@@ -239,7 +239,7 @@ export function claimPlatine(groupId: string, platineId: string): Ok | ApiError 
  * if this really is the active platine and the ended track is still the current one (guards against
  * a stale/duplicate platine double-skipping). */
 export function platineTrackEnded(groupId: string, platineId: string, trackId: string): Ok | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const group = db.groups.find((g) => g.id === groupId)
   if (!group || !group.music) return { error: 'Aucun mode soirée en cours.', status: 400 }
   const session = group.music

@@ -18,7 +18,7 @@ import {
   isApiError,
 } from './store'
 import { attachRealtime } from './realtime'
-import { readDb, getRecentGameHistory } from './db'
+import { readDb, readMemberPhoto, getRecentGameHistory } from './db'
 import { spotifyAlbumTracksHandler, spotifyArtistTracksHandler, spotifyConfigHandler, spotifySearchHandler } from './spotify'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -116,9 +116,20 @@ api.get('/groups/:groupId/history', (req, res) => {
   const { groupId } = req.params
   const memberId = typeof req.query.memberId === 'string' ? req.query.memberId : ''
   const memberToken = typeof req.query.memberToken === 'string' ? req.query.memberToken : ''
-  const authResult = findAuthorizedMember(readDb(), groupId, memberId, memberToken)
+  const authResult = findAuthorizedMember(readDb({ groupId }), groupId, memberId, memberToken)
   if (isApiError(authResult)) return res.status(authResult.status).json({ error: authResult.error })
   res.json({ history: getRecentGameHistory(groupId) })
+})
+
+// Photo de profil d'un membre. L'URL est versionnée (`?v=empreinte`, voir `sanitizeMember`) : le
+// contenu d'une URL donnée ne change jamais, d'où un cache navigateur long et immuable.
+api.get('/photos/:memberId', (req, res) => {
+  const dataUrl = readMemberPhoto(req.params.memberId)
+  const match = dataUrl ? /^data:(image\/(?:jpeg|png|webp|gif));base64,(.+)$/.exec(dataUrl) : null
+  if (!match) return res.status(404).end()
+  res.set('Content-Type', match[1])
+  res.set('Cache-Control', 'public, max-age=31536000, immutable')
+  res.send(Buffer.from(match[2], 'base64'))
 })
 
 // Mode Soirée — source Spotify (recherche du catalogue côté serveur, sans exposer les identifiants).

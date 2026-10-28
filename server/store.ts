@@ -1,4 +1,5 @@
-import { readDb, writeDb, deleteMember as deleteMemberRow } from './db'
+import { createHash } from 'node:crypto'
+import { readDb, writeDb, codeExists, deleteMember as deleteMemberRow } from './db'
 import type { StoredGroup, StoredMember } from './types'
 import type { Group, Member, PartySession } from '../src/types'
 import { computeScores, getArchetypeId } from '../src/lib/scoring'
@@ -22,9 +23,9 @@ function makeToken(): string {
   return randomString(32, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 }
 
-function generateUniqueCode(db: { groups: StoredGroup[] }): string {
+function generateUniqueCode(): string {
   let code = randomString(5, CODE_CHARS)
-  while (db.groups.some((g) => g.code === code)) {
+  while (codeExists(code)) {
     code = randomString(5, CODE_CHARS)
   }
   return code
@@ -36,11 +37,32 @@ export function isApiError(x: unknown): x is ApiError {
   return typeof x === 'object' && x !== null && 'error' in x && 'status' in x
 }
 
+const photoVersions = new Map<string, string>()
+
+/** Empreinte courte d'une photo, mise en cache : elle versionne l'URL publique (`?v=`), donc le
+ * navigateur garde la photo indéfiniment et la recharge seulement quand elle change. */
+function photoVersion(dataUrl: string): string {
+  let v = photoVersions.get(dataUrl)
+  if (!v) {
+    v = createHash('sha1').update(dataUrl).digest('hex').slice(0, 10)
+    if (photoVersions.size > 500) photoVersions.clear()
+    photoVersions.set(dataUrl, v)
+  }
+  return v
+}
+
+/**
+ * Vue publique d'un membre. La photo n'est PAS recopiée : elle est remplacée par l'URL de sa route
+ * dédiée (`GET /api/photos/:memberId`). Avant, chaque `room:update` embarquait la photo base64 de
+ * chaque membre, envoyée à chaque téléphone à chaque action — une partie d'UNO à 8 coûtait
+ * plusieurs mégaoctets de réseau mobile par carte posée.
+ */
 export function sanitizeMember(member: StoredMember, isSelf: boolean): Member {
-  const { token, answers, ...rest } = member
+  const { token, answers, photoUrl, ...rest } = member
   void token
   return {
     ...rest,
+    photoUrl: photoUrl ? `/api/photos/${member.id}?v=${photoVersion(photoUrl)}` : null,
     answers: isSelf ? answers : {},
   }
 }
@@ -175,7 +197,8 @@ export function sanitizeGroup(group: StoredGroup, requestingMemberId: string | n
 }
 
 export function createGroup(groupName: string, pseudo: string): { group: Group; memberId: string; memberToken: string } {
-  const db = readDb()
+  // Instantané vide : on n'écrit que le nouveau groupe (le code est garanti unique par la base).
+  const db: { groups: StoredGroup[] } = { groups: [] }
   const groupId = makeId()
   const memberId = makeId()
   const token = makeToken()
@@ -198,7 +221,7 @@ export function createGroup(groupName: string, pseudo: string): { group: Group; 
 
   const group: StoredGroup = {
     id: groupId,
-    code: generateUniqueCode(db),
+    code: generateUniqueCode(),
     name: groupName.trim().slice(0, 40) || 'Mon groupe',
     createdAt: Date.now(),
     members: [member],
@@ -225,8 +248,8 @@ export function joinGroup(
   code: string,
   pseudo: string,
 ): { group: Group; memberId: string; memberToken: string } | ApiError {
-  const db = readDb()
   const normalized = code.trim().toUpperCase()
+  const db = readDb({ code: normalized })
   const group = db.groups.find((g) => g.code === normalized)
   if (!group) return { error: 'Code introuvable. Vérifie et réessaie.', status: 404 }
 
@@ -273,7 +296,7 @@ export function findAuthorizedMember(
 }
 
 export function getGroup(groupId: string, memberId: string | null, memberToken: string | null): Group | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const group = db.groups.find((g) => g.id === groupId)
   if (!group) return { error: 'Groupe introuvable.', status: 404 }
 
@@ -292,7 +315,7 @@ export function saveAnswer(
   questionId: string,
   optionId: string,
 ): { ok: true } | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const result = findAuthorizedMember(db, groupId, memberId, memberToken)
   if (isApiError(result)) return result
 
@@ -324,7 +347,7 @@ export function restartMemberQuiz(
   memberId: string,
   memberToken: string,
 ): { group: Group } | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const result = findAuthorizedMember(db, groupId, memberId, memberToken)
   if (isApiError(result)) return result
 
@@ -346,7 +369,7 @@ export function updateMemberPhoto(
   memberToken: string,
   photoUrl: string | null,
 ): { group: Group } | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const result = findAuthorizedMember(db, groupId, memberId, memberToken)
   if (isApiError(result)) return result
 
@@ -374,7 +397,7 @@ export function kickMember(
   hostToken: string,
   targetMemberId: string,
 ): { group: Group } | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const result = findAuthorizedMember(db, groupId, hostMemberId, hostToken)
   if (isApiError(result)) return result
   const { group } = result
@@ -403,7 +426,7 @@ export function finishMember(
   memberId: string,
   memberToken: string,
 ): { group: Group } | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const result = findAuthorizedMember(db, groupId, memberId, memberToken)
   if (isApiError(result)) return result
 

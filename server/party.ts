@@ -63,7 +63,7 @@ export function startGame(
   gameId: string,
   config?: unknown,
 ): { group: Group } | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const result = findAuthorizedMember(db, groupId, memberId, memberToken)
   if (isApiError(result)) return result
   const { group } = result
@@ -98,7 +98,7 @@ export function submitAction(
   actionType: string,
   payload: unknown,
 ): { group: Group } | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const result = findAuthorizedMember(db, groupId, memberId, memberToken)
   if (isApiError(result)) return result
   const { group } = result
@@ -117,7 +117,7 @@ export function submitAction(
 }
 
 export function hostAdvance(groupId: string, memberId: string, memberToken: string): { group: Group } | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const result = findAuthorizedMember(db, groupId, memberId, memberToken)
   if (isApiError(result)) return result
   const { group } = result
@@ -141,7 +141,7 @@ export function hostAdvance(groupId: string, memberId: string, memberToken: stri
 }
 
 export function endGame(groupId: string, memberId: string, memberToken: string): { group: Group } | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const result = findAuthorizedMember(db, groupId, memberId, memberToken)
   if (isApiError(result)) return result
   const { group } = result
@@ -160,7 +160,7 @@ export function setAdultMode(
   memberToken: string,
   enabled: boolean,
 ): { group: Group } | ApiError {
-  const db = readDb()
+  const db = readDb({ groupId })
   const result = findAuthorizedMember(db, groupId, memberId, memberToken)
   if (isApiError(result)) return result
   const { group } = result

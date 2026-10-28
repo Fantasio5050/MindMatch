@@ -156,8 +156,35 @@ function rowToGroup(row: GroupRow, members: StoredMember[]): StoredGroup {
 
 const selectGroups = sqlite.prepare('SELECT * FROM groups')
 const selectMembers = sqlite.prepare('SELECT * FROM members')
+const selectGroupById = sqlite.prepare('SELECT * FROM groups WHERE id = ?')
+const selectGroupByCode = sqlite.prepare('SELECT * FROM groups WHERE code = ?')
+const selectMembersOfGroup = sqlite.prepare('SELECT * FROM members WHERE group_id = ?')
+const selectCodeExists = sqlite.prepare('SELECT 1 FROM groups WHERE code = ?')
+const selectPhoto = sqlite.prepare('SELECT photo_url FROM members WHERE id = ?')
 
-export function readDb(): Database {
+/** Portée d'une lecture : un seul groupe, par id ou par code de salle. */
+export type DbScope = { groupId: string } | { code: string }
+
+/**
+ * Instantané de la base. Sans portée, TOUTE la base (outils, migrations) ; avec une portée, le
+ * seul groupe concerné.
+ *
+ * Toutes les routes chaudes (action de jeu, diffusion socket, jukebox) passent une portée. Avant,
+ * chaque carte posée à l'UNO relisait et re-parsait l'intégralité des groupes et des membres de
+ * la base, puis les réécrivait tous : un coût qui grossissait avec chaque soirée jamais jouée.
+ * `writeDb` n'écrit que les groupes présents dans l'instantané, donc une lecture ciblée donne
+ * automatiquement une écriture ciblée.
+ */
+export function readDb(scope?: DbScope): Database {
+  if (scope) {
+    const row = ('groupId' in scope ? selectGroupById.get(scope.groupId) : selectGroupByCode.get(scope.code)) as
+      | GroupRow
+      | undefined
+    if (!row) return { groups: [] }
+    const members = (selectMembersOfGroup.all(row.id) as MemberRow[]).map(rowToMember)
+    return { groups: [rowToGroup(row, members)] }
+  }
+
   const groupRows = selectGroups.all() as GroupRow[]
   const memberRows = selectMembers.all() as MemberRow[]
 
@@ -255,6 +282,16 @@ const deleteMemberStmt = sqlite.prepare('DELETE FROM members WHERE id = ?')
  * their row (the next readDb() would resurrect them). Used when the host kicks someone. */
 export function deleteMember(memberId: string): void {
   deleteMemberStmt.run(memberId)
+}
+
+export function codeExists(code: string): boolean {
+  return !!selectCodeExists.get(code)
+}
+
+/** Photo de profil d'un membre (data URL), lue seule — servie par sa propre route, en cache. */
+export function readMemberPhoto(memberId: string): string | null {
+  const row = selectPhoto.get(memberId) as { photo_url: string | null } | undefined
+  return row?.photo_url ?? null
 }
 
 const insertHistory = sqlite.prepare(`
