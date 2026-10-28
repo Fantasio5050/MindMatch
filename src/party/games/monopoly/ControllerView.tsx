@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import clsx from 'clsx'
@@ -334,15 +334,11 @@ function AuctionPanel({ state, me, name, act }: { state: MonoClientState; me: Mo
 }
 
 function Feed({ state, name }: { state: MonoClientState; name: Name }) {
-  const lines = useMemo(
-    () =>
-      state.events
-        .map((e) => ({ seq: e.seq, text: eventCaption(e, name) }))
-        .filter((l): l is { seq: number; text: string } => !!l.text)
-        .slice(-4)
-        .reverse(),
-    [state.events, name],
-  )
+  const lines = state.events
+    .map((e) => ({ seq: e.seq, text: eventCaption(e, name) }))
+    .filter((l): l is { seq: number; text: string } => !!l.text)
+    .slice(-4)
+    .reverse()
   if (!lines.length) return null
   return (
     <div className="flex flex-col gap-1">
@@ -450,6 +446,25 @@ function tradable(state: MonoClientState, id: string): number[] {
   })
 }
 
+function SquareChip({ i, on, onClick }: { i: number; on: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className={clsx('flex items-center gap-1.5 h-8 px-2.5 rounded-chip border text-xs', on ? 'border-spark bg-spark/15 text-chalk' : 'border-line text-chalk-soft')}>
+      <span className="w-2 h-2 rounded-full" style={{ background: squareColor(i) }} />
+      {squareName(i)}
+    </button>
+  )
+}
+
+function CashStepper({ value, max, onChange }: { value: number; max: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      <SmallButton disabled={value <= 0} onClick={() => onChange(Math.max(0, value - 50))}>−50</SmallButton>
+      <span className="text-sm text-[#f5c542] tabular-nums w-20 text-center">{formatMoney(value)}</span>
+      <SmallButton disabled={value + 50 > max} onClick={() => onChange(Math.min(max, value + 50))}>+50</SmallButton>
+    </div>
+  )
+}
+
 function TradeTab({ state, me, name, act, members, onSent }: { state: MonoClientState; me: MonoPlayer; name: Name; act: Act; members: Member[]; onSent: () => void }) {
   const others = state.players.filter((p) => p.id !== me.id && !p.bankrupt)
   const [to, setTo] = useState<string | null>(others[0]?.id ?? null)
@@ -472,19 +487,6 @@ function TradeTab({ state, me, name, act, members, onSent }: { state: MonoClient
 
   const toggle = (o: MonoOffer, set: (o: MonoOffer) => void, i: number) => set({ ...o, squares: o.squares.includes(i) ? o.squares.filter((x) => x !== i) : [...o.squares, i] })
   const empty = give.cash === 0 && get.cash === 0 && !give.squares.length && !get.squares.length
-  const SquareChip = ({ i, on, onClick }: { i: number; on: boolean; onClick: () => void }) => (
-    <button onClick={onClick} className={clsx('flex items-center gap-1.5 h-8 px-2.5 rounded-chip border text-xs', on ? 'border-spark bg-spark/15 text-chalk' : 'border-line text-chalk-soft')}>
-      <span className="w-2 h-2 rounded-full" style={{ background: squareColor(i) }} />
-      {squareName(i)}
-    </button>
-  )
-  const CashStepper = ({ value, max, onChange }: { value: number; max: number; onChange: (v: number) => void }) => (
-    <div className="flex items-center gap-2">
-      <SmallButton disabled={value <= 0} onClick={() => onChange(Math.max(0, value - 50))}>−50</SmallButton>
-      <span className="text-sm text-[#f5c542] tabular-nums w-20 text-center">{formatMoney(value)}</span>
-      <SmallButton disabled={value + 50 > max} onClick={() => onChange(Math.min(max, value + 50))}>+50</SmallButton>
-    </div>
-  )
 
   return (
     <div className="flex flex-col gap-4">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { usePartyStore } from '../../../store/usePartyStore'
 import { useSound } from '../../../hooks/useSound'
@@ -21,6 +21,7 @@ import type { Member } from '../../../types'
 export function UnoScreen() {
   const group = usePartyStore((s) => s.group)
   const [flat, setFlat] = useState(false)
+  const onUnsupported = useCallback(() => setFlat(true), [])
   const state = (group?.party.roundData ?? null) as UnoClientState | null
 
   if (!group || !state) return null
@@ -31,7 +32,7 @@ export function UnoScreen() {
       </TvViewport>
     )
   }
-  return <Uno3D state={state} members={group.members} onUnsupported={() => setFlat(true)} />
+  return <Uno3D state={state} members={group.members} onUnsupported={onUnsupported} />
 }
 
 function toTableState(s: UnoClientState): TableState {

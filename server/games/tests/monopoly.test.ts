@@ -214,3 +214,51 @@ test('l’hôte termine : le plus riche gagne', () => {
   assert.equal(room.status, 'ended')
   assert.equal(s().winner, s().players[1].id)
 })
+
+test('caution forcée sans argent : le pion avance une fois la dette réglée', () => {
+  const { room, s, cur } = setup(2)
+  const a = cur().id
+  const p = () => s().players.find((x) => x.id === a)!
+  Object.assign(p(), { inJail: true, pos: 10, jailTurns: 2, cash: 20 })
+  s().owners[11] = a
+  s().step = 'jail'
+  withDice([1, 2], () => room.act(a, 'roll'))
+  assert.equal(s().step, 'debt')
+  assert.equal(p().pos, 10)
+  room.act(a, 'mortgage', { square: 11 }) // +70 €
+  room.act(a, 'pay-debt')
+  assert.equal(p().pos, 13)
+  assert.ok(s().events.some((e) => e.type === 'free' && e.how === 'forced'))
+})
+
+test('loyer réglé après une dette : l’événement loyer est bien raconté', () => {
+  const { room, s, cur } = setup(2)
+  const a = cur().id
+  const b = s().players.find((x) => x.id !== a)!.id
+  s().owners[39] = b
+  s().owners[37] = b
+  s().houses[39] = 2
+  s().houses[37] = 2
+  s().owners[1] = a
+  Object.assign(s().players.find((x) => x.id === a)!, { cash: 500, pos: 33 })
+  withDice([2, 4], () => room.act(a, 'roll')) // 39 : 600 € avec deux maisons
+  assert.equal(s().step, 'debt')
+  room.act(a, 'mortgage', { square: 1 }) // +30 €
+  s().players.find((x) => x.id === a)!.cash += 100
+  room.act(a, 'pay-debt')
+  const last = s().events.at(-1)!
+  assert.equal(last.type, 'rent')
+  assert.equal(s().players.find((x) => x.id === b)!.cash, START_CASH + 600)
+})
+
+test('enchères : un joueur parti du groupe n’est pas attendu', () => {
+  const { room, s, cur } = setup(3)
+  const a = cur().id
+  const [b, c] = s().players.map((p) => p.id).filter((id) => id !== a)
+  room.group.members = room.group.members.filter((m) => m.id !== c)
+  withDice([3, 6], () => room.act(a, 'roll'))
+  room.act(a, 'decline')
+  room.act(b, 'bid', { amount: 50 })
+  room.act(a, 'pass')
+  assert.equal(s().owners[9], b)
+})

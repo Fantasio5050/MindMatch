@@ -184,6 +184,8 @@ test.describe('Nouveaux jeux — jouables et étanches', () => {
     const t = await openTable(browser, ['Hote', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7', 'J8'])
     await launch(t, 'Loup-Garou')
     const roles = ['Loup-Garou', 'Voyante', 'Sorcière', 'Chasseur', 'Cupidon', 'Salvateur', 'Petite Fille']
+    // On compte une fois que chaque téléphone affiche son rôle (pas un écran de transition).
+    await expect.poll(async () => (await Promise.all(t.phones.map(bodyText))).every((x) => x.toLowerCase().includes('ton rôle')), { timeout: 15000 }).toBe(true)
     let wolves = 0
     for (const p of t.phones) if ((await bodyText(p)).includes('Loup-Garou')) wolves++
     expect(wolves).toBe(2)

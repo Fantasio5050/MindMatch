@@ -27,7 +27,7 @@ export interface BoardMember {
   photoUrl: string | null
 }
 
-export type BoardNotice = { type: 'event'; event: MonoEvent } | { type: 'idle' }
+export type BoardNotice = { type: 'event'; event: MonoEvent } | { type: 'cash'; cash: Record<string, number> } | { type: 'idle' }
 export type BoardPhase = 'intro' | 'turn' | 'ended'
 
 const DIE = 0.95
@@ -484,20 +484,24 @@ export class MonopolyBoard {
   private async drain() {
     if (this.running) return
     this.running = true
+    // Les fortunes affichées sont celles d'avant la file : chaque montant change quand l'animation
+    // qui le justifie (pièces, carte, achat) est terminée, jamais avant.
+    this.notify({ type: 'cash', cash: Object.fromEntries([...this.pawns.values()].map((p) => [p.id, p.cash])) })
     while (this.queue.length) {
       const ev = this.queue.shift()!
       this.notify({ type: 'event', event: ev })
-      for (const [id, cash] of Object.entries(ev.cash)) {
-        const p = this.pawns.get(id)
-        if (p) p.cash = cash
-      }
-      this.refreshLabels()
       try {
         await this.play(ev, this.queue.length > 6)
       } catch (error) {
         console.error(error)
       }
       if (this.disposed) return
+      for (const [id, cash] of Object.entries(ev.cash)) {
+        const p = this.pawns.get(id)
+        if (p) p.cash = cash
+      }
+      this.refreshLabels()
+      this.notify({ type: 'cash', cash: ev.cash })
     }
     this.running = false
     if (this.state) this.reconcile(this.state)
@@ -786,9 +790,12 @@ export class MonopolyBoard {
     }, { ease: ease.inOutCubic })
     sfx.pop(0, 0.8)
     this.cardHeld = true
-    // La carte reste lisible tant que le joueur ne l'a pas validée sur son téléphone.
+    // La carte reste lisible tant que le joueur ne l'a pas validée sur son téléphone : tant que
+    // c'est bien CETTE carte qui attend, et qu'aucun événement plus récent (sa conséquence, ou une
+    // deuxième carte) n'est arrivé.
     const t0 = performance.now()
-    while (!this.disposed && this.state?.card && performance.now() - t0 < 20_000) await this.tweens.wait(120)
+    const pending = () => this.state?.card?.text === text && this.state.card.deck === deck && this.queue.length === 0
+    while (!this.disposed && pending() && performance.now() - t0 < 20_000) await this.tweens.wait(120)
     await this.tweens.wait(400)
     this.cardHeld = false
     const from = card.position.clone()

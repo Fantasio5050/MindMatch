@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { usePartyStore } from '../../../store/usePartyStore'
 import { Player } from '../../../components/Player'
@@ -17,6 +17,7 @@ import type { Member } from '../../../types'
 export function DiceScreen() {
   const group = usePartyStore((s) => s.group)
   const [flat, setFlat] = useState(false)
+  const onUnsupported = useCallback(() => setFlat(true), [])
   const state = (group?.party.roundData ?? null) as DiceClientState | null
 
   if (!group || !state) return null
@@ -28,7 +29,7 @@ export function DiceScreen() {
       </TvViewport>
     )
   }
-  return <Dice3D state={state} phase={phase} members={group.members} onUnsupported={() => setFlat(true)} />
+  return <Dice3D state={state} phase={phase} members={group.members} onUnsupported={onUnsupported} />
 }
 
 type Banner = { n: number; memberId: string; value: number } | null

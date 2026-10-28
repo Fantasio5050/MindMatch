@@ -30,6 +30,10 @@ export interface MonoDebt {
   to: { id: string; amount: number }[]
   /** Étape à reprendre une fois la dette réglée. */
   resume: MonoStep
+  /** Ce que la TV montrera au paiement (loyer, taxe…). */
+  event?: MonoEventInput
+  /** Cases à avancer une fois payé (caution forcée au troisième échec en prison). */
+  move?: number
 }
 
 export interface MonoOffer {
@@ -69,6 +73,9 @@ export type MonoEvent = { seq: number; cash: Record<string, number> } & (
   | { type: 'bankrupt'; who: string; to: string | null }
   | { type: 'end'; winner: string | null }
 )
+
+/** Un événement tel que le serveur le crée, avant numérotation. */
+export type MonoEventInput = MonoEvent extends infer E ? (E extends unknown ? Omit<E, 'seq' | 'cash'> : never) : never
 
 export interface MonoState {
   players: MonoPlayer[]

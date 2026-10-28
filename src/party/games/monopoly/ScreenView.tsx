@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import clsx from 'clsx'
 import { usePartyStore } from '../../../store/usePartyStore'
@@ -19,6 +19,7 @@ import type { Member } from '../../../types'
 export function MonopolyScreen() {
   const group = usePartyStore((s) => s.group)
   const [flat, setFlat] = useState(false)
+  const onUnsupported = useCallback(() => setFlat(true), [])
   const state = (group?.party.roundData ?? null) as MonoClientState | null
   if (!group || !state?.players) return null
   const phase = (group.party.status === 'ended' ? 'ended' : group.party.phase) as BoardPhase
@@ -29,7 +30,7 @@ export function MonopolyScreen() {
       </TvViewport>
     )
   }
-  return <Monopoly3D state={state} members={group.members} phase={phase} onUnsupported={() => setFlat(true)} />
+  return <Monopoly3D state={state} members={group.members} phase={phase} onUnsupported={onUnsupported} />
 }
 
 function Monopoly3D({ state, members, phase, onUnsupported }: { state: MonoClientState; members: Member[]; phase: BoardPhase; onUnsupported: () => void }) {
@@ -38,6 +39,7 @@ function Monopoly3D({ state, members, phase, onUnsupported }: { state: MonoClien
   const [ready, setReady] = useState(false)
   const [shown, setShown] = useState<MonoEvent | null>(null)
   const [busy, setBusy] = useState(false)
+  const [cashShown, setCashShown] = useState<Record<string, number> | null>(null)
   const boardMembers: BoardMember[] = useMemo(() => members.map((m) => ({ id: m.id, pseudo: m.pseudo, color: m.color, photoUrl: m.photoUrl })), [members])
 
   useEffect(() => {
@@ -47,7 +49,11 @@ function Monopoly3D({ state, members, phase, onUnsupported }: { state: MonoClien
       if (n.type === 'event') {
         setBusy(true)
         setShown(n.event)
-      } else setBusy(false)
+      } else if (n.type === 'cash') setCashShown(n.cash)
+      else {
+        setBusy(false)
+        setCashShown(null)
+      }
     }
     void import('./three/board')
       .then(({ MonopolyBoard }) => MonopolyBoard.create(host.current!, notify))
@@ -84,16 +90,16 @@ function Monopoly3D({ state, members, phase, onUnsupported }: { state: MonoClien
   return (
     <div className="fixed inset-0 bg-[#07090b]">
       <div ref={host} className="absolute inset-0" />
-      <Hud state={state} members={members} phase={phase} shown={shown} busy={busy} />
+      <Hud state={state} members={members} phase={phase} shown={shown} busy={busy} cashShown={cashShown} />
     </div>
   )
 }
 
-function Hud({ state, members, phase, shown, busy }: { state: MonoClientState; members: Member[]; phase: BoardPhase; shown: MonoEvent | null; busy: boolean }) {
+function Hud({ state, members, phase, shown, busy, cashShown }: { state: MonoClientState; members: Member[]; phase: BoardPhase; shown: MonoEvent | null; busy: boolean; cashShown: Record<string, number> | null }) {
   const byId = (id: string | null | undefined) => members.find((m) => m.id === id)
   const name = (id: string | null) => byId(id)?.pseudo ?? '?'
-  // Pendant que la scène rejoue, les fortunes affichées sont celles de l'événement en cours.
-  const cash = (id: string) => (busy && shown ? (shown.cash[id] ?? 0) : (state.players.find((p) => p.id === id)?.cash ?? 0))
+  // Pendant que la scène rejoue, les fortunes affichées sont celles qu'elle a déjà montrées.
+  const cash = (id: string) => cashShown?.[id] ?? state.players.find((p) => p.id === id)?.cash ?? 0
   const cur = state.players[state.turn]
   const caption = shown ? eventCaption(shown, name) : null
   const ranked = [...state.players].sort((a, b) => netWorth(state, b.id) - netWorth(state, a.id))

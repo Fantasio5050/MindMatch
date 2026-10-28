@@ -16,7 +16,7 @@ import {
   isBuyable,
   type MonopolyCard,
 } from '../../src/data/monopoly'
-import type { MonoEvent, MonoOffer, MonoPlayer, MonoState, MonoStep } from '../../src/party/games/monopoly/types'
+import type { MonoEvent, MonoEventInput, MonoOffer, MonoPlayer, MonoState, MonoStep } from '../../src/party/games/monopoly/types'
 import { netWorth } from '../../src/party/games/monopoly/rules'
 
 /**
@@ -45,7 +45,7 @@ interface Secrets {
 
 type State = MonoState & { secrets: Secrets }
 
-type EventInput = MonoEvent extends infer E ? (E extends unknown ? Omit<E, 'seq' | 'cash'> : never) : never
+type EventInput = MonoEventInput
 
 const MAX_EVENTS = 40
 const WIN_XP = 30
@@ -114,21 +114,41 @@ function settled(s: State) {
   s.step = s.again && !p.inJail && !p.bankrupt ? 'roll' : 'done'
 }
 
-/** Paiement. Sans assez de liquide, le joueur passe en dette : il vend, hypothèque ou fait faillite. */
-function charge(s: State, payer: MonoPlayer, amount: number, to: { id: string; amount: number }[], resume: MonoStep): boolean {
+type Creditors = { id: string; amount: number }[]
+
+/** Verse `amount` aux créanciers, ou à la cagnotte du Parc gratuit si c'est la banque. */
+function pay(s: State, payer: MonoPlayer, amount: number, to: Creditors) {
+  payer.cash -= amount
+  if (to.length === 0) s.pot += amount
+  for (const c of to) {
+    const creditor = playerOf(s, c.id)
+    if (creditor) creditor.cash += c.amount
+  }
+}
+
+/** Paiement, avec l'événement qui le raconte. Sans assez de liquide, le joueur passe en dette :
+ * il vend, hypothèque ou fait faillite — et l'événement attend le paiement effectif. */
+function charge(s: State, payer: MonoPlayer, amount: number, to: Creditors, opts: { resume: MonoStep; event: EventInput; move?: number }): boolean {
   if (amount <= 0) return true
   if (payer.cash >= amount) {
-    payer.cash -= amount
-    if (to.length === 0) s.pot += amount
-    for (const c of to) {
-      const creditor = playerOf(s, c.id)
-      if (creditor) creditor.cash += c.amount
-    }
+    pay(s, payer, amount, to)
+    emit(s, opts.event)
     return true
   }
-  s.debt = { memberId: payer.id, amount, to, resume }
+  s.debt = { memberId: payer.id, amount, to, resume: opts.resume, event: opts.event, move: opts.move }
   s.step = 'debt'
   return false
+}
+
+function startAuction(s: State, square: number) {
+  s.auction = { square, high: null, passed: [] }
+  s.step = 'auction'
+  emit(s, { type: 'auction', square })
+}
+
+/** Une carte « Libéré de prison » rendue repart sous son paquet. */
+function returnJailCard(s: State, deck: Deck) {
+  s.secrets[deck].push(cards(deck).findIndex((c) => c.effect.type === 'jailFree'))
 }
 
 function sendToJail(s: State, p: MonoPlayer) {
@@ -166,19 +186,13 @@ function land(s: State, p: MonoPlayer, opts: LandOptions = {}) {
     const rent = rentFor(s, p.pos, sum, { doubleStation: opts.doubleStation, utilityTimes: opts.utilityTen ? 10 : undefined })
     if (rent <= 0) return settled(s)
     const next: MonoStep = s.again && !p.inJail ? 'roll' : 'done'
-    if (charge(s, p, rent, [{ id: owner, amount: rent }], next)) {
-      emit(s, { type: 'rent', who: p.id, to: owner, square: p.pos, amount: rent })
-      settled(s)
-    }
+    if (charge(s, p, rent, [{ id: owner, amount: rent }], { resume: next, event: { type: 'rent', who: p.id, to: owner, square: p.pos, amount: rent } })) settled(s)
     return
   }
   switch (sq.kind) {
     case 'tax': {
       const next: MonoStep = s.again ? 'roll' : 'done'
-      if (charge(s, p, sq.amount, [], next)) {
-        emit(s, { type: 'tax', who: p.id, square: p.pos, amount: sq.amount })
-        settled(s)
-      }
+      if (charge(s, p, sq.amount, [], { resume: next, event: { type: 'tax', who: p.id, square: p.pos, amount: sq.amount } })) settled(s)
       return
     }
     case 'chance':
@@ -252,9 +266,7 @@ function applyCard(s: State, p: MonoPlayer) {
       if (effect.amount >= 0) {
         p.cash += effect.amount
         emit(s, { type: 'money', who: p.id, amount: effect.amount, reason: 'Carte' })
-      } else if (charge(s, p, -effect.amount, [], next)) {
-        emit(s, { type: 'money', who: p.id, amount: effect.amount, reason: 'Carte' })
-      } else return
+      } else if (!charge(s, p, -effect.amount, [], { resume: next, event: { type: 'money', who: p.id, amount: effect.amount, reason: 'Carte' } })) return
       return settled(s)
     case 'jail':
       return sendToJail(s, p)
@@ -267,19 +279,13 @@ function applyCard(s: State, p: MonoPlayer) {
         const h = s.houses[Number(k)] ?? 0
         total += h === 5 ? effect.hotel : h * effect.house
       }
-      if (total === 0 || charge(s, p, total, [], next)) {
-        if (total > 0) emit(s, { type: 'money', who: p.id, amount: -total, reason: 'Réparations' })
-        settled(s)
-      }
+      if (total === 0 || charge(s, p, total, [], { resume: next, event: { type: 'money', who: p.id, amount: -total, reason: 'Réparations' } })) settled(s)
       return
     }
     case 'payEach': {
       const others = active(s).filter((o) => o.id !== p.id)
       const to = others.map((o) => ({ id: o.id, amount: effect.amount }))
-      if (charge(s, p, effect.amount * others.length, to, next)) {
-        emit(s, { type: 'money', who: p.id, amount: -effect.amount * others.length, reason: 'Chaque joueur' })
-        settled(s)
-      }
+      if (charge(s, p, effect.amount * others.length, to, { resume: next, event: { type: 'money', who: p.id, amount: -effect.amount * others.length, reason: 'Chaque joueur' } })) settled(s)
       return
     }
     case 'collectEach': {
@@ -337,8 +343,8 @@ function roll(s: State, p: MonoPlayer) {
     // Troisième échec : caution obligatoire, puis on avance.
     p.inJail = false
     p.jailTurns = 0
-    if (!charge(s, p, BAIL, [], 'done')) return
-    emit(s, { type: 'free', who: p.id, how: 'forced' })
+    // Sans quoi payer, le déplacement attend le règlement de la dette.
+    if (!charge(s, p, BAIL, [], { resume: 'done', event: { type: 'free', who: p.id, how: 'forced' }, move: d[0] + d[1] })) return
     return moveBy(s, p, d[0] + d[1])
   }
   if (isDouble) {
@@ -364,10 +370,11 @@ function closeAuction(s: State) {
   settled(s)
 }
 
-function checkAuction(s: State) {
+function checkAuction(s: State, group: Group) {
   const a = s.auction
   if (!a) return
-  const still = active(s).filter((p) => !a.passed.includes(p.id))
+  // Un joueur parti du groupe ne passera jamais : on ne l'attend pas.
+  const still = active(s).filter((p) => !a.passed.includes(p.id) && group.members.some((m) => m.id === p.id))
   if (a.high ? still.every((p) => p.id === a.high!.id) : still.length === 0) closeAuction(s)
 }
 
@@ -426,8 +433,10 @@ function cleanOffer(raw: unknown): MonoOffer {
 }
 
 function offerValid(s: State, p: MonoPlayer, o: MonoOffer): boolean {
+  // L'argent promis dans une enchère en cours n'est plus disponible pour un échange.
+  const pledged = s.auction?.high?.id === p.id ? s.auction.high.amount : 0
   return (
-    p.cash >= o.cash &&
+    p.cash - pledged >= o.cash &&
     p.jailCards >= o.jailCards &&
     o.squares.every((i) => s.owners[i] === p.id && !groupHasHouses(s, i))
   )
@@ -459,8 +468,18 @@ function executeTrade(s: State) {
 // ─── Fin de partie ──────────────────────────────────────────────────────────
 
 function bankrupt(s: State, group: Group, p: MonoPlayer) {
-  const creditorId = s.debt && s.debt.to.length === 1 ? s.debt.to[0].id : null
+  const creditors = s.debt?.to ?? []
+  const creditorId = creditors.length === 1 ? creditors[0].id : null
   const creditor = playerOf(s, creditorId)
+  // Plusieurs créanciers (« versez 50 € à chaque joueur ») : le liquide restant est partagé entre
+  // eux, les terrains retournent à la banque.
+  if (creditors.length > 1) {
+    const share = Math.floor(p.cash / creditors.length)
+    for (const c of creditors) {
+      const o = playerOf(s, c.id)
+      if (o) o.cash += Math.min(share, c.amount)
+    }
+  }
   for (const [k, owner] of Object.entries(s.owners)) {
     if (owner !== p.id) continue
     const i = Number(k)
@@ -481,7 +500,7 @@ function bankrupt(s: State, group: Group, p: MonoPlayer) {
     creditor.jailCards += p.jailCards
     ;(s.secrets.held[creditor.id] ??= []).push(...(s.secrets.held[p.id] ?? []))
   } else {
-    for (const deck of s.secrets.held[p.id] ?? []) s.secrets[deck].push(cards(deck).findIndex((c) => c.effect.type === 'jailFree'))
+    for (const deck of s.secrets.held[p.id] ?? []) returnJailCard(s, deck)
   }
   delete s.secrets.held[p.id]
   p.cash = 0
@@ -561,9 +580,7 @@ function forceStep(s: State, group: Group) {
     case 'jail':
       return roll(s, p)
     case 'buy':
-      s.auction = { square: p.pos, high: null, passed: [] }
-      s.step = 'auction'
-      return emit(s, { type: 'auction', square: p.pos })
+      return startAuction(s, p.pos)
     case 'auction':
       return closeAuction(s)
     case 'card':
@@ -636,9 +653,7 @@ export const monopoly: GameModule = {
       }
       case 'decline':
         if (mine && s.step === 'buy') {
-          s.auction = { square: me.pos, high: null, passed: [] }
-          s.step = 'auction'
-          emit(s, { type: 'auction', square: me.pos })
+          startAuction(s, me.pos)
           changed = true
         }
         break
@@ -648,7 +663,7 @@ export const monopoly: GameModule = {
         if (s.step === 'auction' && a && !a.passed.includes(me.id) && Number.isInteger(amount) && amount >= 10 && amount > (a.high?.amount ?? 0) && amount <= me.cash) {
           a.high = { id: me.id, amount }
           emit(s, { type: 'bid', who: me.id, amount })
-          checkAuction(s)
+          checkAuction(s, group)
           changed = true
         }
         break
@@ -656,7 +671,7 @@ export const monopoly: GameModule = {
       case 'pass':
         if (s.step === 'auction' && s.auction && !s.auction.passed.includes(me.id) && s.auction.high?.id !== me.id) {
           s.auction.passed.push(me.id)
-          checkAuction(s)
+          checkAuction(s, group)
           changed = true
         }
         break
@@ -681,7 +696,7 @@ export const monopoly: GameModule = {
         if (mine && s.step === 'jail' && me.jailCards > 0) {
           me.jailCards -= 1
           const deck = s.secrets.held[me.id]?.pop()
-          if (deck) s.secrets[deck].push(cards(deck).findIndex((c) => c.effect.type === 'jailFree'))
+          if (deck) returnJailCard(s, deck)
           me.inJail = false
           me.jailTurns = 0
           emit(s, { type: 'free', who: me.id, how: 'card' })
@@ -704,15 +719,11 @@ export const monopoly: GameModule = {
       case 'pay-debt': {
         const d = s.debt
         if (d && d.memberId === me.id && me.cash >= d.amount) {
-          me.cash -= d.amount
-          if (d.to.length === 0) s.pot += d.amount
-          for (const c of d.to) {
-            const creditor = playerOf(s, c.id)
-            if (creditor) creditor.cash += c.amount
-          }
-          emit(s, { type: 'money', who: me.id, amount: -d.amount, reason: 'Dette réglée' })
+          pay(s, me, d.amount, d.to)
           s.debt = null
-          s.step = d.resume
+          emit(s, d.event ?? { type: 'money', who: me.id, amount: -d.amount, reason: 'Dette réglée' })
+          if (d.move) moveBy(s, me, d.move)
+          else s.step = d.resume
           changed = true
         }
         break
