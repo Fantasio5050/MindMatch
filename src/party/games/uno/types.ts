@@ -29,7 +29,7 @@ export interface UnoClientState {
   /** ID du gagnant (null si la partie continue) */
   winner: string | null
   /** Phase actuelle */
-  phase: 'playing' | 'ended'
+  phase: 'intro' | 'playing' | 'ended'
   /** Si tu peux jouer au moins une carte */
   canPlay: boolean
   /** Si c'est ton tour */
@@ -60,6 +60,8 @@ export interface UnoClientState {
   exposed: string | null
   /** Tu peux crier « Contre-UNO ! » sur le joueur exposé */
   canCatch: boolean
+  /** Haut de la défausse, du plus ancien au plus récent (jokers : couleur annoncée) */
+  recentDiscards?: (UnoCard & { chosenColor: 'red' | 'yellow' | 'green' | 'blue' | null })[]
   /** Classement final (cartes restantes), fin de partie seulement */
   ranking: { memberId: string; cardsLeft: number }[] | null
 }

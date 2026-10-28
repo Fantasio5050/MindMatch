@@ -115,6 +115,7 @@ export const CLIENT_GAME_REGISTRY: Record<string, ClientGameEntry> = {
   uno: {
     Controller: view(() => import('./games/uno/ControllerView'), 'UnoController'),
     Screen: view(() => import('./games/uno/ScreenView'), 'UnoScreen'),
+    nativeTv: true,
   },
   poker: {
     Controller: view(() => import('./games/poker/ControllerView'), 'PokerController'),

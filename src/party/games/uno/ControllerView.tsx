@@ -1,329 +1,258 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
+import clsx from 'clsx'
 import { usePartyStore } from '../../../store/usePartyStore'
+import { useAppStore } from '../../../store/useAppStore'
 import { useSound } from '../../../hooks/useSound'
 import { Button } from '../../../components/Button'
 import { Avatar } from '../../../components/Avatar'
-import type { UnoClientState, UnoCard } from './types'
-import {
-  COLOR_LABELS,
-  COLOR_EMOJI,
-  COLOR_CLASSES,
-  VALUE_LABELS,
-  PLAYABLE_COLORS,
-} from './types'
+import { HostCue } from '../../primitives'
+import { cardImage, UNO_HEX, type PlayColor } from './three/cardFaces'
+import { COLOR_LABELS, PLAYABLE_COLORS, type UnoCard, type UnoClientState } from './types'
 import type { Member } from '../../../types'
 
+/**
+ * La manette UNO : ta main, et ce qu'il faut pour jouer vite.
+ *
+ * Les cartes sont dessinées par le même code que celles de la table 3D (`cardFaces.ts`) : la carte
+ * qu'on touche au téléphone est celle qu'on voit atterrir sur la TV. La main tient toujours dans
+ * l'écran — les cartes se chevauchent d'autant plus qu'il y en a, puis passent sur deux rangées —
+ * pour ne jamais chercher une carte en faisant défiler.
+ */
 export function UnoController() {
   const navigate = useNavigate()
   const group = usePartyStore((s) => s.group)
-  const currentMember = usePartyStore((s) => s.currentMember())
   const isHost = usePartyStore((s) => s.isHost())
   const sendAction = usePartyStore((s) => s.sendAction)
   const hostAdvance = usePartyStore((s) => s.hostAdvance)
+  const myId = useAppStore((s) => s.identity?.memberId) ?? null
   const { play } = useSound()
-  const lastSeq = useRef<number>(0)
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
-  const [chosenColor, setChosenColor] = useState<'red' | 'yellow' | 'green' | 'blue' | null>(null)
-  const [showColorPicker, setShowColorPicker] = useState(false)
+  const lastSeq = useRef(0)
+  const [wildCard, setWildCard] = useState<UnoCard | null>(null)
 
-  const state = (group?.party.roundData as unknown as UnoClientState | null) ?? null
+  const state = (group?.party.roundData ?? null) as UnoClientState | null
 
   useEffect(() => {
     const evt = state?.lastEvent
     if (!evt || evt.seq === lastSeq.current) return
     lastSeq.current = evt.seq
-    if (evt.type === 'win') play('win')
-    else if (evt.type === 'play') play('vote')
-    else if (evt.type === 'uno' || evt.type === 'penalty') play('reveal')
-  }, [state?.lastEvent, play])
+    if (evt.type === 'penalty' && evt.memberId === myId) play('lose')
+    else if (evt.type === 'play' && evt.memberId !== myId) play('tick')
+  }, [state?.lastEvent, play, myId])
 
-  if (!group || !currentMember) return null
-  const { party } = group
+  // Ton tour : une petite vibration, pour lever les yeux de la conversation.
+  const myTurn = !!state?.myTurn
+  useEffect(() => {
+    if (myTurn) navigator.vibrate?.(40)
+  }, [myTurn])
 
-  if (party.status === 'ended' || state?.phase === 'ended') {
-    const winner = state?.winner
-    const winnerMember = winner ? group.members.find((m) => m.id === winner) : null
-    return (
-      <FinalView
-        winner={winnerMember ?? null}
-        ranking={state?.ranking ?? []}
-        members={group.members}
-        onExit={() => navigate('/lobby')}
-      />
-    )
+  if (!group || !state || !myId) return null
+  const byId = (id: string | null | undefined) => group.members.find((m) => m.id === id)
+
+  if (group.party.status === 'ended' || state.phase === 'ended') {
+    return <FinalView state={state} members={group.members} myId={myId} onExit={() => navigate('/lobby')} />
   }
 
-  if (!state) {
+  if (state.phase === 'intro') {
     return (
-      <div className="min-h-svh flex items-center justify-center px-6">
-        <p className="text-chalk-soft text-sm">Préparation des cartes…</p>
-      </div>
-    )
-  }
-
-  // Intro: host starts
-  if (party.phase === 'intro') {
-    return (
-      <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top justify-center">
-        <span className="text-6xl mb-4 block text-center">🃏</span>
-        <h1 className="text-3xl font-extrabold shimmer-text text-center mb-6">UNO</h1>
-        <div className="flex flex-col gap-2.5 text-sm text-chalk-muted mb-8 max-w-xs mx-auto text-center">
-          <p>Pose une carte qui match la <b>couleur</b> ou la <b>valeur</b> de la défausse.</p>
-          <p>Avant de poser ton avant-dernière carte, appuie sur <b>UNO !</b></p>
-          <p>Oublié ? Les autres peuvent crier <b>Contre-UNO</b> : tu pioches 2 cartes.</p>
-          <p>Si tu pioches, tu ne peux poser <b>que la carte piochée</b>.</p>
-          <p>Premier à vider sa main <b>gagne</b> 🎉</p>
-          <p>🎨 Joker = change la couleur · +4 Joker = couleur + 4 cartes au suivant</p>
+      <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
+        <p className="kicker text-2xs text-center mb-1">Distribution</p>
+        <h1 className="font-display text-3xl text-chalk text-center mb-6">UNO</h1>
+        <HandFan hand={state.hand} playableIds={[]} active={false} onPlay={() => {}} />
+        <ul className="flex flex-col gap-2 text-sm text-chalk-muted my-6 max-w-xs mx-auto">
+          <li>Même couleur ou même valeur que la défausse.</li>
+          <li>
+            À deux cartes, appuie sur <b className="text-chalk">UNO</b> avant de poser.
+          </li>
+          <li>Oublié ? Les autres crient « Contre-UNO » : tu pioches 2.</li>
+          <li>Après une pioche, seule la carte piochée peut être posée.</li>
+        </ul>
+        <div className="mt-auto">
+          {isHost ? (
+            <Button fullWidth onClick={() => hostAdvance()}>
+              Lancer la partie
+            </Button>
+          ) : (
+            <HostCue action="lance la partie" />
+          )}
         </div>
-        {isHost ? (
-          <Button fullWidth onClick={() => hostAdvance()}>
-            Lancer la partie 🃏
-          </Button>
-        ) : (
-          <p className="text-center text-chalk-faint text-sm">L'hôte va lancer la partie…</p>
-        )}
       </div>
     )
   }
 
-  const handlePlayCard = (card: UnoCard) => {
+  const current = byId(state.currentPlayer?.memberId)
+  const exposed = byId(state.exposed)
+
+  const playCard = (card: UnoCard) => {
     if (card.color === 'wild') {
-      setSelectedCardId(card.id)
-      setShowColorPicker(true)
+      setWildCard(card)
       return
     }
+    play('pop')
     sendAction('play-card', { cardId: card.id })
-    setSelectedCardId(null)
-  }
-
-  const handleConfirmWild = () => {
-    if (selectedCardId && chosenColor) {
-      sendAction('play-card', { cardId: selectedCardId, chosenColor })
-      setSelectedCardId(null)
-      setShowColorPicker(false)
-      setChosenColor(null)
-    }
-  }
-
-  const handleDraw = () => {
-    sendAction(state.hasDrawn ? 'pass' : 'draw-card', {})
-    setSelectedCardId(null)
-  }
-
-  const exposedMember = state.exposed ? group.members.find((m) => m.id === state.exposed) : null
-
-  const handleCallUno = () => {
-    sendAction('call-uno', {})
-    play('vote')
   }
 
   return (
-    <div className="min-h-svh flex flex-col px-4 pt-[4.5rem] pb-4 safe-top">
-      {/* ─── Header: tour actuel + sens ─── */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          {state.currentPlayer && (
-            <>
-              <Avatar
-                pseudo={state.currentPlayer.pseudo}
-                color={state.currentPlayer.color}
-                size={32}
-              />
-              <span className="text-sm font-semibold text-chalk">
-                {state.myTurn ? 'À toi !' : state.currentPlayer.pseudo}
-              </span>
-            </>
+    // `pb-24` : le bouton flottant des réactions occupe le coin bas-droit, la main doit le laisser libre.
+    <div className="min-h-svh flex flex-col px-4 pt-[4.5rem] pb-24 safe-top">
+      {/* Le tour : qui joue, et la carte à couvrir. */}
+      <div className="flex items-center gap-3 mb-4">
+        <Discard state={state} />
+        <div className="flex-1 min-w-0">
+          {state.myTurn ? (
+            <motion.p
+              key="me"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="font-display text-3xl text-spark leading-none"
+            >
+              À toi !
+            </motion.p>
+          ) : (
+            <div className="flex items-center gap-2 min-w-0">
+              {current && <Avatar pseudo={current.pseudo} color={current.color} size={26} photoUrl={current.photoUrl} />}
+              <p className="text-base text-chalk truncate">
+                <b>{current?.pseudo}</b> <span className="text-chalk-soft">joue</span>
+              </p>
+            </div>
           )}
-        </div>
-        <div className="flex items-center gap-2 text-xs text-chalk-faint">
-          <span className={state.direction === 1 ? 'rotate-0' : 'rotate-180'}>↻</span>
-          <span>{state.direction === 1 ? 'Horaire' : 'Anti-horaire'}</span>
-        </div>
-      </div>
-
-      {/* ─── Carte sur la défausse + couleur active ─── */}
-      <div className="flex items-center justify-center gap-4 mb-3">
-        {state.topCard && (
-          <CardBadge card={state.topCard} currentColor={state.currentColor} />
-        )}
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-xs text-chalk-faint uppercase tracking-wider">Couleur</span>
-          <div className={`w-8 h-8 rounded-full ${COLOR_CLASSES[state.currentColor]} shadow-lg`} />
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-xs text-chalk-faint uppercase tracking-wider">Pioche</span>
-          <div className="w-12 h-16 rounded-lg bg-felt-raised border border-line flex items-center justify-center text-xs text-chalk-faint">
-            {state.deckCount}
-          </div>
+          <p className="text-sm text-chalk-soft mt-1.5 flex items-center gap-2">
+            <span className="inline-block w-3 h-3 rounded-full" style={{ background: UNO_HEX[state.currentColor] }} />
+            {COLOR_LABELS[state.currentColor]}
+            <span className="text-chalk-faint">·</span>
+            <span className={clsx('inline-block', state.direction === -1 && '-scale-x-100')}>↻</span>
+            <span className="text-chalk-faint">·</span>
+            {state.deckCount} en pioche
+          </p>
         </div>
       </div>
 
-      {/* ─── Joueurs + compte de cartes ─── */}
-      <div className="flex gap-2 overflow-x-auto mb-3 pb-1">
-        {Object.entries(state.handCounts).map(([pid, count]) => {
-          const member = group.members.find((m) => m.id === pid)
-          if (!member) return null
+      {/* La table : nombre de cartes de chacun, dans l'ordre de jeu. */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 mb-3">
+        {state.order.map((pid) => {
+          const m = byId(pid)
+          if (!m) return null
+          const count = state.handCounts[pid] ?? 0
           const isCurrent = state.currentPlayer?.memberId === pid
-          const calledUno = state.unoSafeIds.includes(pid) && count <= 2
-          const isExposed = state.exposed === pid
+          const safe = state.unoSafeIds.includes(pid) && count <= 2
           return (
             <div
               key={pid}
-              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 border whitespace-nowrap transition-all ${
-                isCurrent
-                  ? 'border-fuchsia-400/50 bg-fuchsia-500/10'
-                  : 'border-line bg-felt-raised'
-              }`}
+              className={clsx(
+                'flex items-center gap-1.5 rounded-chip border pl-1 pr-2.5 py-1 whitespace-nowrap shrink-0',
+                isCurrent ? 'border-spark/60 bg-spark/10' : 'border-line bg-felt',
+              )}
             >
-              <Avatar pseudo={member.pseudo} color={member.color} size={20} />
-              <span className="text-xs font-medium text-chalk-soft">{member.pseudo}</span>
-              <span className={`text-xs font-bold ${isExposed ? 'text-blood' : calledUno ? 'text-amber-300' : 'text-chalk-faint'}`}>
-                {count} carte{count > 1 ? 's' : ''}{calledUno ? ' · UNO' : ''}
+              <Avatar pseudo={m.pseudo} color={m.color} size={18} photoUrl={m.photoUrl} />
+              <span className="text-xs text-chalk-muted">{pid === myId ? 'Toi' : m.pseudo}</span>
+              <span
+                className={clsx(
+                  'text-xs font-bold tabular-nums',
+                  state.exposed === pid ? 'text-blood' : safe ? 'text-brass' : 'text-chalk',
+                )}
+              >
+                {safe ? 'UNO' : count}
               </span>
             </div>
           )
         })}
       </div>
 
-      {/* ─── Bouton UNO ! ─── */}
+      {/* Les deux cris du jeu : annoncer, ou attraper quelqu'un qui a oublié. */}
       <AnimatePresence>
-        {state.mustCallUno && !state.unoCalled && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
+        {state.mustCallUno && (
+          <motion.button
+            key="uno"
+            initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="mb-3"
+            exit={{ opacity: 0, scale: 0.85 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              play('vote')
+              navigator.vibrate?.(60)
+              sendAction('call-uno', {})
+            }}
+            className="mb-3 rounded-card py-4 font-display text-3xl italic text-ink shadow-raised"
+            style={{ background: UNO_HEX.yellow }}
           >
-            <Button
-              fullWidth
-              onClick={handleCallUno}
-              className="bg-gradient-to-r from-amber-500 to-orange-500 border-amber-400 text-white font-extrabold text-lg animate-pulse"
-            >
-              🗨️ UNO !
+            UNO !
+          </motion.button>
+        )}
+        {state.canCatch && exposed && (
+          <motion.div key="catch" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mb-3">
+            <Button fullWidth variant="danger" onClick={() => sendAction('catch-uno', { targetId: exposed.id })}>
+              Contre-UNO ! {exposed.pseudo} n'a rien dit
             </Button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {state.canCatch && exposedMember && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="mb-3"
-          >
-            <Button
-              fullWidth
-              variant="danger"
-              onClick={() => sendAction('catch-uno', { targetId: exposedMember.id })}
-              className="font-extrabold text-lg"
-            >
-              Contre-UNO ! {exposedMember.pseudo} n'a rien dit
-            </Button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ─── Main du joueur (scrollable horizontal) ─── */}
+      {/* Ta main. */}
       <div className="flex-1 flex flex-col justify-end">
-        <p className="text-xs text-chalk-faint uppercase tracking-wider mb-2 text-center">
-          Ta main ({state.hand.length} cartes)
+        <p className="kicker text-2xs text-center mb-2">
+          Ta main · {state.hand.length} carte{state.hand.length > 1 ? 's' : ''}
         </p>
-        <div className="flex gap-2 overflow-x-auto pb-2 px-1 snap-x">
-          {state.hand.length === 0 ? (
-            <p className="text-chalk-faint text-sm w-full text-center py-8">Main vide…</p>
-          ) : (
-            state.hand.map((card, index) => {
-              const playable = state.playableIds.includes(card.id)
-              const isSelected = selectedCardId === card.id
-              return (
-                <motion.div
-                  key={card.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex-shrink-0 snap-center"
-                  style={{ zIndex: isSelected ? 10 : 1 }}
-                >
-                  <CardTile
-                    card={card}
-                    playable={playable}
-                    selected={isSelected}
-                    onClick={() => playable && handlePlayCard(card)}
-                    index={index}
-                  />
-                </motion.div>
-              )
-            })
-          )}
-        </div>
+        <HandFan hand={state.hand} playableIds={state.playableIds} active={state.myTurn} onPlay={playCard} />
 
-        {/* ─── Bouton piocher ─── */}
-        {state.myTurn && (
-          <div className="mt-3">
-            <Button
-              fullWidth
-              variant="secondary"
-              onClick={handleDraw}
-            >
-              {state.hasDrawn ? 'Garder la carte et passer' : 'Piocher une carte'}
+        {state.myTurn ? (
+          <div className="mt-4">
+            <Button fullWidth variant={state.canPlay && !state.hasDrawn ? 'secondary' : 'primary'} onClick={() => sendAction(state.hasDrawn ? 'pass' : 'draw-card', {})}>
+              {state.hasDrawn ? 'Garder et passer' : 'Piocher'}
             </Button>
             <p className="text-center text-xs text-chalk-faint mt-2">
-              {state.hasDrawn
-                ? 'La carte piochée passe : pose-la ou garde-la.'
-                : state.canPlay
-                  ? 'Touche une carte en surbrillance pour la poser.'
-                  : 'Aucune carte ne passe — pioche.'}
+              {state.hasDrawn ? 'La carte piochée passe : pose-la ou garde-la.' : state.canPlay ? 'Touche une carte qui brille.' : 'Rien ne passe : pioche.'}
             </p>
           </div>
-        )}
-
-        {!state.myTurn && state.phase === 'playing' && (
-          <p className="text-center text-chalk-soft text-sm mt-3">
-            {state.currentPlayer?.pseudo} a la main
-          </p>
+        ) : (
+          <div className="mt-4 flex justify-center gap-2">
+            {isHost && (
+              <Button variant="ghost" onClick={() => hostAdvance()} className="!min-h-0 py-2 text-sm">
+                Passer {current?.pseudo ?? 'le joueur'} (absent)
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
-      {/* ─── Color picker modal (pour jokers) ─── */}
+      {/* Joker : choix de la couleur, un geste. */}
       <AnimatePresence>
-        {showColorPicker && (
+        {wildCard && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-6"
-            onClick={() => setShowColorPicker(false)}
+            className="fixed inset-0 z-50 bg-ink/80 flex items-end"
+            onClick={() => setWildCard(null)}
           >
             <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              className="bg-felt-raised rounded-card border border-line p-6 max-w-xs w-full"
+              initial={{ y: 60 }}
+              animate={{ y: 0 }}
+              exit={{ y: 60 }}
+              className="w-full rounded-t-sheet bg-felt-raised border-t border-line-strong px-5 pt-5 pb-8 safe-bottom"
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="text-center text-lg font-bold mb-4">Choisis une couleur</p>
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-4">
+                <img src={cardImage(wildCard)} alt="" className="w-12 rounded-md" />
+                <p className="font-display text-xl text-chalk">Quelle couleur ?</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 {PLAYABLE_COLORS.map((color) => (
-                  <button
+                  <motion.button
                     key={color}
-                    onClick={() => setChosenColor(color)}
-                    className={`rounded-xl border-2 p-4 flex flex-col items-center gap-2 transition-all ${
-                      chosenColor === color
-                        ? 'border-white scale-105'
-                        : 'border-transparent opacity-70'
-                    }`}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      play('pop')
+                      sendAction('play-card', { cardId: wildCard.id, chosenColor: color })
+                      setWildCard(null)
+                    }}
+                    className="rounded-card py-6 font-display text-xl text-white shadow-card"
+                    style={{ background: UNO_HEX[color as PlayColor] }}
                   >
-                    <div className={`w-12 h-12 rounded-full ${COLOR_CLASSES[color]}`} />
-                    <span className="text-sm font-medium">{COLOR_EMOJI[color]} {COLOR_LABELS[color]}</span>
-                  </button>
+                    {COLOR_LABELS[color]}
+                  </motion.button>
                 ))}
               </div>
-              <Button fullWidth onClick={handleConfirmWild} disabled={!chosenColor}>
-                Confirmer
-              </Button>
             </motion.div>
           </motion.div>
         )}
@@ -332,114 +261,147 @@ export function UnoController() {
   )
 }
 
-// ─── Sous-composants ─────────────────────────────────────
-
-function CardTile({
-  card,
-  playable,
-  selected,
-  onClick,
-  index,
-}: {
-  card: UnoCard
-  playable: boolean
-  selected: boolean
-  onClick: () => void
-  index: number
-}) {
-  const isWild = card.color === 'wild'
-  const bgClass = COLOR_CLASSES[card.color] ?? COLOR_CLASSES.wild
-  const displayValue = typeof card.value === 'number' ? String(card.value) : (VALUE_LABELS[card.value] ?? '?')
-
+function Discard({ state }: { state: UnoClientState }) {
+  const top = state.topCard
+  if (!top) return null
+  const tint = top.color === 'wild' ? state.currentColor : null
   return (
-    <button
-      onClick={onClick}
-      disabled={!playable}
-      className={`relative w-16 h-24 rounded-xl border-2 flex flex-col items-center justify-center transition-all ${
-        bgClass
-      } ${
-        playable
-          ? 'cursor-pointer hover:scale-110 hover:-translate-y-2 active:scale-95 border-white/60 shadow-lg'
-          : 'opacity-50 border-line'
-      } ${selected ? '-translate-y-4 scale-110 shadow-2xl' : ''}`}
-      style={{ marginLeft: index > 0 ? '-8px' : '0' }}
-    >
-      <span className="text-2xl font-extrabold text-white drop-shadow-md leading-none">
-        {displayValue}
-      </span>
-      <span className="absolute top-1 left-1 text-xs font-bold text-white/80">
-        {displayValue}
-      </span>
-      <span className="absolute bottom-1 right-1 text-xs font-bold text-white/80 rotate-180">
-        {displayValue}
-      </span>
-      {isWild && (
-        <span className="absolute inset-0 rounded-xl border-2 border-white/40" />
-      )}
-    </button>
+    <AnimatePresence mode="popLayout">
+      <motion.img
+        key={top.id}
+        src={cardImage(top, tint)}
+        alt=""
+        initial={{ y: -30, rotate: -12, opacity: 0 }}
+        animate={{ y: 0, rotate: -4, opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="w-16 shrink-0 rounded-lg shadow-raised"
+        style={{ boxShadow: `0 0 0 3px ${UNO_HEX[state.currentColor]}55, 0 8px 22px rgba(0,0,0,0.5)` }}
+      />
+    </AnimatePresence>
   )
 }
 
-function CardBadge({ card, currentColor: _currentColor }: { card: UnoCard; currentColor: string }) {
-  const bgClass = COLOR_CLASSES[card.color] ?? COLOR_CLASSES.wild
-  const displayValue = typeof card.value === 'number' ? String(card.value) : (VALUE_LABELS[card.value] ?? '?')
+const COLOR_ORDER: Record<string, number> = { red: 0, yellow: 1, green: 2, blue: 3, wild: 4 }
+const VALUE_ORDER = (v: UnoCard['value']) => (typeof v === 'number' ? v : { skip: 10, reverse: 11, draw2: 12, wild: 13, wild4: 14 }[v])
+const CARD_W = 88
+const CARD_H = 132
+const MIN_STEP = 28
+
+/** La main, triée par couleur puis par valeur, qui tient toujours dans la largeur de l'écran. */
+function HandFan({
+  hand,
+  playableIds,
+  active,
+  onPlay,
+}: {
+  hand: UnoCard[]
+  playableIds: string[]
+  active: boolean
+  onPlay: (card: UnoCard) => void
+}) {
+  const box = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(340)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const update = () => setWidth(el.clientWidth)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const sorted = useMemo(
+    () => [...hand].sort((a, b) => COLOR_ORDER[a.color] - COLOR_ORDER[b.color] || VALUE_ORDER(a.value) - VALUE_ORDER(b.value)),
+    [hand],
+  )
+  // Une rangée tant que le chevauchement laisse voir l'index de chaque carte, sinon deux.
+  const fitStep = (n: number) => (n <= 1 ? 0 : Math.min(CARD_W + 6, (width - CARD_W) / (n - 1)))
+  const rows = fitStep(sorted.length) >= MIN_STEP ? [sorted] : [sorted.slice(0, Math.ceil(sorted.length / 2)), sorted.slice(Math.ceil(sorted.length / 2))]
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="text-xs text-chalk-faint uppercase tracking-wider">Défausse</span>
-      <div className={`w-16 h-24 rounded-xl border-2 border-white/40 flex flex-col items-center justify-center ${bgClass} shadow-xl`}>
-        <span className="text-3xl font-extrabold text-white drop-shadow-md leading-none">
-          {displayValue}
-        </span>
-      </div>
+    <div ref={box} className="flex flex-col gap-2">
+      {rows.map((row, r) => {
+        const step = fitStep(row.length)
+        const total = row.length > 0 ? CARD_W + step * (row.length - 1) : 0
+        return (
+          <div key={r} className="relative mx-auto" style={{ width: total, height: CARD_H + 14 }}>
+            <AnimatePresence>
+              {row.map((card, i) => {
+                const playable = active && playableIds.includes(card.id)
+                return (
+                  <motion.button
+                    key={card.id}
+                    layout
+                    initial={{ opacity: 0, y: 40 }}
+                    animate={{ opacity: active && !playable ? 0.45 : 1, y: playable ? 0 : 14 }}
+                    exit={{ opacity: 0, y: -60, scale: 0.8 }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                    whileTap={playable ? { scale: 0.94, y: -6 } : undefined}
+                    disabled={!playable}
+                    onClick={() => onPlay(card)}
+                    className="absolute top-0"
+                    data-testid="uno-card"
+                    data-playable={playable ? 'true' : 'false'}
+                    style={{ left: i * step, width: CARD_W, zIndex: i }}
+                    aria-label={`${card.color} ${card.value}`}
+                  >
+                    <img
+                      src={cardImage(card)}
+                      alt=""
+                      draggable={false}
+                      className="w-full rounded-lg"
+                      style={{
+                        boxShadow: playable
+                          ? '0 0 0 2px #FF3D7F, 0 0 18px rgba(255,61,127,0.55), 0 6px 14px rgba(0,0,0,0.5)'
+                          : '0 6px 14px rgba(0,0,0,0.5)',
+                      }}
+                    />
+                  </motion.button>
+                )
+              })}
+            </AnimatePresence>
+          </div>
+        )
+      })}
+      {hand.length === 0 && <div style={{ height: CARD_H + 14 }} />}
     </div>
   )
 }
 
-function FinalView({
-  winner,
-  ranking,
-  members,
-  onExit,
-}: {
-  winner: Member | null
-  ranking: { memberId: string; cardsLeft: number }[]
-  members: Member[]
-  onExit: () => void
-}) {
+function FinalView({ state, members, myId, onExit }: { state: UnoClientState; members: Member[]; myId: string; onExit: () => void }) {
+  const winner = members.find((m) => m.id === state.winner)
   return (
     <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="text-center mb-6"
-      >
+      <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} className="text-center mb-6">
         <p className="kicker text-2xs mb-3">Main vidée</p>
         {winner && (
           <div className="flex flex-col items-center gap-2">
             <Avatar pseudo={winner.pseudo} color={winner.color} size={64} photoUrl={winner.photoUrl} />
-            <span className="font-display text-2xl text-chalk">{winner.pseudo} gagne</span>
+            <p className="font-display text-2xl text-chalk">{winner.id === myId ? 'Tu gagnes !' : `${winner.pseudo} gagne`}</p>
           </div>
         )}
       </motion.div>
-
-      <div className="flex flex-col gap-2.5 mb-6">
-        {ranking.map((r, i) => {
+      <div className="flex flex-col gap-2 mb-6">
+        {(state.ranking ?? []).map((r, i) => {
           const m = members.find((x) => x.id === r.memberId)
           if (!m) return null
           return (
-            <div key={m.id} className="flex items-center gap-3 rounded-card bg-felt-raised border border-line p-3">
-              <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
-              <Avatar pseudo={m.pseudo} color={m.color} size={36} photoUrl={m.photoUrl} />
-              <span className="flex-1 font-semibold text-chalk">{m.pseudo}</span>
-              <span className="text-sm text-chalk-soft">
-                {r.cardsLeft === 0 ? 'Vainqueur' : `${r.cardsLeft} carte${r.cardsLeft > 1 ? 's' : ''}`}
-              </span>
+            <div
+              key={m.id}
+              className={clsx('flex items-center gap-3 rounded-control border px-3 py-2.5', m.id === myId ? 'bg-felt-raised border-spark/40' : 'bg-felt border-line')}
+            >
+              <span className="w-5 text-sm text-chalk-soft tabular-nums">{i + 1}</span>
+              <Avatar pseudo={m.pseudo} color={m.color} size={28} photoUrl={m.photoUrl} />
+              <span className="flex-1 text-sm text-chalk truncate">{m.pseudo}</span>
+              <span className="text-sm text-chalk-soft">{r.cardsLeft === 0 ? 'Vainqueur' : `${r.cardsLeft} carte${r.cardsLeft > 1 ? 's' : ''}`}</span>
             </div>
           )
         })}
       </div>
-      <Button fullWidth onClick={onExit}>Retour au salon</Button>
+      <Button fullWidth onClick={onExit} className="mt-auto">
+        Retour au salon
+      </Button>
     </div>
   )
 }

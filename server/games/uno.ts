@@ -69,7 +69,12 @@ interface UnoState {
   lastEvent: UnoEvent | null
   eventSeq: number
   cardIdCounter: number
+  /** Couleur annoncée sur chaque joker posé : la défausse 3D les teinte. */
+  wildColors?: Record<string, PlayColor>
 }
+
+/** Cartes visibles du haut de la défausse, envoyées à tous (elles sont sur la table). */
+const RECENT_DISCARDS = 10
 
 const HAND_SIZE = 7
 const PLAY_XP = 1
@@ -99,6 +104,7 @@ function clone(state: UnoState): UnoState {
     discardPile: [...state.discardPile],
     hands: Object.fromEntries(Object.entries(state.hands).map(([id, h]) => [id, [...h]])),
     unoSafe: { ...state.unoSafe },
+    wildColors: { ...(state.wildColors ?? {}) },
   }
 }
 
@@ -322,6 +328,7 @@ export const uno: GameModule = {
       s.hands[memberId] = s.hands[memberId].filter((c) => c.id !== card.id)
       s.discardPile.push(card)
       s.currentColor = card.color === 'wild' ? chosen! : card.color
+      if (card.color === 'wild') s.wildColors = { ...(s.wildColors ?? {}), [card.id]: chosen! }
       emit(s, { type: 'play', memberId, cardId: card.id })
       const xpAwards: XpAward[] = [{ memberId, amount: PLAY_XP, statIncrements: { 'uno.cardsPlayed': 1 }, reason: 'A posé une carte' }]
 
@@ -448,6 +455,11 @@ export const uno: GameModule = {
       mustCallUno: !!me && s.phase === 'playing' && !s.unoSafe[me] && (hand.length === 1 || (hand.length === 2 && myTurn)),
       canCatch: !!me && !!s.exposed && s.exposed !== me,
       deckCount: s.deck.length,
+      // Haut de la défausse (du plus ancien au plus récent), jokers avec leur couleur annoncée.
+      recentDiscards: s.discardPile.slice(-RECENT_DISCARDS).map((c) => ({
+        ...c,
+        chosenColor: c.color === 'wild' ? (s.wildColors?.[c.id] ?? null) : null,
+      })),
       lastEvent: s.lastEvent,
       ranking: s.phase === 'ended' ? finalRanking(s) : null,
     }

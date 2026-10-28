@@ -142,22 +142,24 @@ test.describe('Nouveaux jeux — jouables et étanches', () => {
     for (let i = 0; i < 12; i++) {
       const p = await firstWhere(t.phones, async (x) => (await bodyText(x)).includes('À toi'))
       if (!p) continue
-      const playable = p.locator('button.w-16.h-24:not([disabled])')
+      const playable = p.locator('[data-testid="uno-card"][data-playable="true"]')
       if (await playable.count()) {
-        await playable.first().click()
-        if ((await bodyText(p)).includes('Choisis une couleur')) {
-          await p.getByRole('button', { name: /Bleu/ }).click()
-          await p.getByRole('button', { name: /^Confirmer$/ }).click()
+        // La main se chevauche : on touche la tranche visible de la carte, comme un doigt.
+        await playable.first().click({ position: { x: 12, y: 40 } })
+        if ((await bodyText(p)).includes('Quelle couleur')) {
+          await p.getByRole('button', { name: /^Bleu$/ }).click()
         }
         played++
       } else {
-        const draw = p.getByRole('button', { name: /Piocher une carte|Garder la carte et passer/ })
+        const draw = p.getByRole('button', { name: /^Piocher$|Garder et passer/ })
         await draw.click()
       }
       await p.waitForTimeout(400)
     }
     expect(played).toBeGreaterThan(3)
-    await expect(t.tv.locator('body')).toContainText(/\d+ cartes?/)
+    // La TV montre la table 3D (canevas WebGL) et son habillage : à qui le tour, quelle couleur.
+    await expect(t.tv.locator('canvas')).toHaveCount(1)
+    await expect(t.tv.locator('body')).toContainText(/Couleur|Victoire/)
     expect(t.errors).toEqual([])
   })
 
