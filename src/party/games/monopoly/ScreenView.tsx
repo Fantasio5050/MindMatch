@@ -106,8 +106,8 @@ function Hud({ state, members, phase, shown, busy, cashShown }: { state: MonoCli
 
   return (
     <div className="pointer-events-none absolute inset-0" style={{ padding: 'var(--tv-gutter-y) var(--tv-gutter-x)', paddingTop: 'var(--tv-gutter-top)' }}>
-      {/* Bandeau des joueurs : pion, nom, fortune. */}
-      {phase !== 'intro' && (
+      {/* Bandeau des joueurs : pion, nom, fortune (en fin de partie, le classement le remplace). */}
+      {phase === 'turn' && (
         <div className="absolute flex flex-col gap-2.5" style={{ left: 'var(--tv-gutter-x)', top: 'var(--tv-gutter-top)', width: 'calc(30 * var(--tv-unit))' }}>
           {state.players.map((p) => {
             const m = byId(p.id)
