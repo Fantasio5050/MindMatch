@@ -221,7 +221,7 @@ function Board({ state, participants }: { state: PetitsChevauxClientState; parti
   })
 
   return (
-    <div className="relative shrink-0 rounded-2xl bg-[#0e0a17] border border-line shadow-2xl" style={{ width: 'min(72vh, 660px)', height: 'min(72vh, 660px)' }}>
+    <div className="relative shrink-0 rounded-2xl bg-[#0e0a17] border border-line shadow-2xl" style={{ width: 520, height: 520 }}>
       {/* Tracé de la croix + colonnes d'arrivée (sous les cases) */}
       <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
         <polygon
@@ -254,7 +254,7 @@ function Board({ state, participants }: { state: PetitsChevauxClientState; parti
             boxShadow: `0 0 22px ${c.color.hex}55, inset 0 0 22px rgba(0,0,0,0.28)`,
           }}
         >
-          <span className="text-[4vw]" style={{ filter: 'drop-shadow(0 3px 3px rgba(0,0,0,0.55))' }}>🐎</span>
+          <span className="text-[52px]" style={{ filter: 'drop-shadow(0 3px 3px rgba(0,0,0,0.55))' }}>🐎</span>
         </div>
       ))}
 
@@ -296,7 +296,7 @@ function Board({ state, participants }: { state: PetitsChevauxClientState; parti
           <polygon points="0,100 0,0 50,50" fill={PC_HORSE_COLORS[3].hex} />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-[3.2vw]" style={{ filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))' }}>🏆</span>
+          <span className="text-[40px]" style={{ filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))' }}>🏆</span>
         </div>
       </div>
 

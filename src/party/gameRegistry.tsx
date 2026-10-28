@@ -1,81 +1,123 @@
-import type { ComponentType } from 'react'
-import { WhoIsMostLikelyController } from './games/whoIsMostLikely/ControllerView'
-import { WhoIsMostLikelyScreen } from './games/whoIsMostLikely/ScreenView'
-import { DilemmasController } from './games/dilemmas/ControllerView'
-import { DilemmasScreen } from './games/dilemmas/ScreenView'
-import { PyramidController } from './games/pyramid/ControllerView'
-import { PyramidScreen } from './games/pyramid/ScreenView'
-import { SecretProfileController } from './games/secretProfile/ControllerView'
-import { SecretProfileScreen } from './games/secretProfile/ScreenView'
-import { PartyCardsController } from './games/partyCards/ControllerView'
-import { PartyCardsScreen } from './games/partyCards/ScreenView'
-import { WhoWroteItController } from './games/whoWroteIt/ControllerView'
-import { WhoWroteItScreen } from './games/whoWroteIt/ScreenView'
-import { GuessMyAnswerController } from './games/guessMyAnswer/ControllerView'
-import { GuessMyAnswerScreen } from './games/guessMyAnswer/ScreenView'
-import { PalmierController } from './games/palmier/ControllerView'
-import { PalmierScreen } from './games/palmier/ScreenView'
-import { AutorouteController } from './games/autoroute/ControllerView'
-import { AutorouteScreen } from './games/autoroute/ScreenView'
-import { PmuController } from './games/pmu/ControllerView'
-import { PmuScreen } from './games/pmu/ScreenView'
-import { WheelController } from './games/wheel/ControllerView'
-import { WheelScreen } from './games/wheel/ScreenView'
-import { RussianRouletteController } from './games/russianRoulette/ControllerView'
-import { RussianRouletteScreen } from './games/russianRoulette/ScreenView'
-import { BlackjackController } from './games/blackjack/ControllerView'
-import { BlackjackScreen } from './games/blackjack/ScreenView'
-import { BlancController } from './games/blanc/ControllerView'
-import { BlancScreen } from './games/blanc/ScreenView'
-import { PetitsChevauxController } from './games/petitsChevaux/ControllerView'
-import { PetitsChevauxScreen } from './games/petitsChevaux/ScreenView'
-import { CoupDeCrayonController } from './games/coupDeCrayon/ControllerView'
-import { CoupDeCrayonScreen } from './games/coupDeCrayon/ScreenView'
-import { IntrusController } from './games/intrus/ControllerView'
-import { IntrusScreen } from './games/intrus/ScreenView'
-import { OneWordStoryController } from './games/oneWordStory/ControllerView'
-import { OneWordStoryScreen } from './games/oneWordStory/ScreenView'
-import { TruthOrDareController } from './games/truthOrDare/ControllerView'
-import { TruthOrDareScreen } from './games/truthOrDare/ScreenView'
-import { LoupGarouController } from './games/loupGarou/ControllerView'
-import { LoupGarouScreen } from './games/loupGarou/ScreenView'
-import { TimesUpController } from './games/timesUp/ControllerView'
-import { TimesUpScreen } from './games/timesUp/ScreenView'
-import { QuiproquoController } from './games/quiproquo/ControllerView'
-import { QuiproquoScreen } from './games/quiproquo/ScreenView'
-import { UnoController } from './games/uno/ControllerView'
-import { UnoScreen } from './games/uno/ScreenView'
-import { PokerController } from './games/poker/ControllerView'
-import { PokerScreen } from './games/poker/ScreenView'
+import { lazy, type ComponentType, type LazyExoticComponent } from 'react'
+
+/**
+ * Registre client des jeux, chargés à la demande.
+ *
+ * Les 24 manettes et les 24 écrans TV étaient importés d'office : chaque téléphone téléchargeait
+ * le code de toutes les scènes TV qu'il n'affichera jamais, et de tous les jeux qu'on ne lancera
+ * pas ce soir. Chaque vue est désormais un module séparé, chargé au lancement du jeu (le
+ * `Suspense` vit dans `PartyGameShell`).
+ */
+type View = LazyExoticComponent<ComponentType>
+
+function view<M>(load: () => Promise<M>, name: keyof M): View {
+  return lazy(() => load().then((m) => ({ default: m[name] as ComponentType })))
+}
 
 interface ClientGameEntry {
-  Controller: ComponentType
-  Screen: ComponentType
+  Controller: View
+  Screen: View
+  /** Écran TV conçu à l'échelle de scène (`Stage`, `text-tv-*`, ou plein écran 3D). Les autres
+   * sont posés dans la scène virtuelle 1280 × 720 de `TvViewport`, qui les fait remplir l'écran. */
+  nativeTv?: boolean
 }
 
 export const CLIENT_GAME_REGISTRY: Record<string, ClientGameEntry> = {
-  'who-is-most-likely': { Controller: WhoIsMostLikelyController, Screen: WhoIsMostLikelyScreen },
-  dilemmas: { Controller: DilemmasController, Screen: DilemmasScreen },
-  pyramid: { Controller: PyramidController, Screen: PyramidScreen },
-  'secret-profile': { Controller: SecretProfileController, Screen: SecretProfileScreen },
-  'party-cards': { Controller: PartyCardsController, Screen: PartyCardsScreen },
-  'who-wrote-it': { Controller: WhoWroteItController, Screen: WhoWroteItScreen },
-  'guess-my-answer': { Controller: GuessMyAnswerController, Screen: GuessMyAnswerScreen },
-  palmier: { Controller: PalmierController, Screen: PalmierScreen },
-  autoroute: { Controller: AutorouteController, Screen: AutorouteScreen },
-  pmu: { Controller: PmuController, Screen: PmuScreen },
-  wheel: { Controller: WheelController, Screen: WheelScreen },
-  'russian-roulette': { Controller: RussianRouletteController, Screen: RussianRouletteScreen },
-  blackjack: { Controller: BlackjackController, Screen: BlackjackScreen },
-  blanc: { Controller: BlancController, Screen: BlancScreen },
-  'petits-chevaux': { Controller: PetitsChevauxController, Screen: PetitsChevauxScreen },
-  'coup-de-crayon': { Controller: CoupDeCrayonController, Screen: CoupDeCrayonScreen },
-  intrus: { Controller: IntrusController, Screen: IntrusScreen },
-  'one-word-story': { Controller: OneWordStoryController, Screen: OneWordStoryScreen },
-  'truth-or-dare': { Controller: TruthOrDareController, Screen: TruthOrDareScreen },
-  'loup-garou': { Controller: LoupGarouController, Screen: LoupGarouScreen },
-  'times-up': { Controller: TimesUpController, Screen: TimesUpScreen },
-  quiproquo: { Controller: QuiproquoController, Screen: QuiproquoScreen },
-  uno: { Controller: UnoController, Screen: UnoScreen },
-  poker: { Controller: PokerController, Screen: PokerScreen },
+  'who-is-most-likely': {
+    Controller: view(() => import('./games/whoIsMostLikely/ControllerView'), 'WhoIsMostLikelyController'),
+    Screen: view(() => import('./games/whoIsMostLikely/ScreenView'), 'WhoIsMostLikelyScreen'),
+  },
+  dilemmas: {
+    Controller: view(() => import('./games/dilemmas/ControllerView'), 'DilemmasController'),
+    Screen: view(() => import('./games/dilemmas/ScreenView'), 'DilemmasScreen'),
+  },
+  pyramid: {
+    Controller: view(() => import('./games/pyramid/ControllerView'), 'PyramidController'),
+    Screen: view(() => import('./games/pyramid/ScreenView'), 'PyramidScreen'),
+  },
+  'secret-profile': {
+    Controller: view(() => import('./games/secretProfile/ControllerView'), 'SecretProfileController'),
+    Screen: view(() => import('./games/secretProfile/ScreenView'), 'SecretProfileScreen'),
+  },
+  'party-cards': {
+    Controller: view(() => import('./games/partyCards/ControllerView'), 'PartyCardsController'),
+    Screen: view(() => import('./games/partyCards/ScreenView'), 'PartyCardsScreen'),
+  },
+  'who-wrote-it': {
+    Controller: view(() => import('./games/whoWroteIt/ControllerView'), 'WhoWroteItController'),
+    Screen: view(() => import('./games/whoWroteIt/ScreenView'), 'WhoWroteItScreen'),
+  },
+  'guess-my-answer': {
+    Controller: view(() => import('./games/guessMyAnswer/ControllerView'), 'GuessMyAnswerController'),
+    Screen: view(() => import('./games/guessMyAnswer/ScreenView'), 'GuessMyAnswerScreen'),
+  },
+  palmier: {
+    Controller: view(() => import('./games/palmier/ControllerView'), 'PalmierController'),
+    Screen: view(() => import('./games/palmier/ScreenView'), 'PalmierScreen'),
+  },
+  autoroute: {
+    Controller: view(() => import('./games/autoroute/ControllerView'), 'AutorouteController'),
+    Screen: view(() => import('./games/autoroute/ScreenView'), 'AutorouteScreen'),
+  },
+  pmu: {
+    Controller: view(() => import('./games/pmu/ControllerView'), 'PmuController'),
+    Screen: view(() => import('./games/pmu/ScreenView'), 'PmuScreen'),
+  },
+  wheel: {
+    Controller: view(() => import('./games/wheel/ControllerView'), 'WheelController'),
+    Screen: view(() => import('./games/wheel/ScreenView'), 'WheelScreen'),
+  },
+  'russian-roulette': {
+    Controller: view(() => import('./games/russianRoulette/ControllerView'), 'RussianRouletteController'),
+    Screen: view(() => import('./games/russianRoulette/ScreenView'), 'RussianRouletteScreen'),
+  },
+  blackjack: {
+    Controller: view(() => import('./games/blackjack/ControllerView'), 'BlackjackController'),
+    Screen: view(() => import('./games/blackjack/ScreenView'), 'BlackjackScreen'),
+  },
+  blanc: {
+    Controller: view(() => import('./games/blanc/ControllerView'), 'BlancController'),
+    Screen: view(() => import('./games/blanc/ScreenView'), 'BlancScreen'),
+  },
+  'petits-chevaux': {
+    Controller: view(() => import('./games/petitsChevaux/ControllerView'), 'PetitsChevauxController'),
+    Screen: view(() => import('./games/petitsChevaux/ScreenView'), 'PetitsChevauxScreen'),
+  },
+  'coup-de-crayon': {
+    Controller: view(() => import('./games/coupDeCrayon/ControllerView'), 'CoupDeCrayonController'),
+    Screen: view(() => import('./games/coupDeCrayon/ScreenView'), 'CoupDeCrayonScreen'),
+  },
+  intrus: {
+    Controller: view(() => import('./games/intrus/ControllerView'), 'IntrusController'),
+    Screen: view(() => import('./games/intrus/ScreenView'), 'IntrusScreen'),
+    nativeTv: true,
+  },
+  'one-word-story': {
+    Controller: view(() => import('./games/oneWordStory/ControllerView'), 'OneWordStoryController'),
+    Screen: view(() => import('./games/oneWordStory/ScreenView'), 'OneWordStoryScreen'),
+  },
+  'truth-or-dare': {
+    Controller: view(() => import('./games/truthOrDare/ControllerView'), 'TruthOrDareController'),
+    Screen: view(() => import('./games/truthOrDare/ScreenView'), 'TruthOrDareScreen'),
+  },
+  'loup-garou': {
+    Controller: view(() => import('./games/loupGarou/ControllerView'), 'LoupGarouController'),
+    Screen: view(() => import('./games/loupGarou/ScreenView'), 'LoupGarouScreen'),
+  },
+  'times-up': {
+    Controller: view(() => import('./games/timesUp/ControllerView'), 'TimesUpController'),
+    Screen: view(() => import('./games/timesUp/ScreenView'), 'TimesUpScreen'),
+  },
+  quiproquo: {
+    Controller: view(() => import('./games/quiproquo/ControllerView'), 'QuiproquoController'),
+    Screen: view(() => import('./games/quiproquo/ScreenView'), 'QuiproquoScreen'),
+  },
+  uno: {
+    Controller: view(() => import('./games/uno/ControllerView'), 'UnoController'),
+    Screen: view(() => import('./games/uno/ScreenView'), 'UnoScreen'),
+  },
+  poker: {
+    Controller: view(() => import('./games/poker/ControllerView'), 'PokerController'),
+    Screen: view(() => import('./games/poker/ScreenView'), 'PokerScreen'),
+  },
 }

@@ -27,9 +27,13 @@ export interface ManagedRenderer {
 
 function pixelRatioFor(container: HTMLElement): number {
   const area = Math.max(1, container.clientWidth * container.clientHeight)
-  // Plafonné à 1 : une TV est vue à distance du canapé, l'échantillonnage "retina" n'y apporte
-  // rien de visible mais double ou triple le travail de remplissage du GPU.
-  return Math.max(0.5, Math.min(window.devicePixelRatio || 1, 1, Math.sqrt(MAX_RENDER_PIXELS / area)))
+  // Agrandissement visuel du conteneur : une scène posée dans `TvViewport` est mise en page en
+  // 1280 × 720 puis agrandie par transform. Sans ce facteur, le canevas serait rendu en 1280 px
+  // puis étiré à 1920 : flou. `clientWidth` ignore les transforms, le rectangle affiché non.
+  const visual = container.clientWidth > 0 ? container.getBoundingClientRect().width / container.clientWidth : 1
+  // Plafonné à 1 pixel rendu par pixel affiché : une TV est vue à distance du canapé,
+  // l'échantillonnage "retina" n'y apporte rien de visible mais double le travail du GPU.
+  return Math.max(0.5, Math.min(Math.min(window.devicePixelRatio || 1, 1) * visual, Math.sqrt(MAX_RENDER_PIXELS / area)))
 }
 
 /** Certains navigateurs de TV bas de gamme n'exposent WebGL qu'à moitié (contexte non

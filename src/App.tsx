@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from './store/useAppStore'
@@ -9,15 +9,19 @@ import { BottomNav } from './components/BottomNav'
 import { AmbientBackground } from './components/AmbientBackground'
 import { AudioControls } from './components/AudioControls'
 import { HomePage } from './pages/HomePage'
-import { QuizPage } from './pages/QuizPage'
-import { ProfilePage } from './pages/ProfilePage'
-import { GroupPage } from './pages/GroupPage'
-import { DebatesPage } from './pages/DebatesPage'
 import { LobbyPage } from './pages/LobbyPage'
 import { PlayPage } from './pages/PlayPage'
-import { ScreenPage } from './pages/ScreenPage'
-import { SoireePage } from './pages/SoireePage'
-import { PlatinePage } from './pages/PlatinePage'
+
+// Pages chargées à la demande : la TV, la platine et le mode soirée ne concernent qu'un appareil
+// de la pièce, le test et le profil ne servent qu'une fois. Le salon et la manette restent dans le
+// bundle principal — c'est le chemin que prend un invité qui scanne le QR code.
+const QuizPage = lazy(() => import('./pages/QuizPage').then((m) => ({ default: m.QuizPage })))
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })))
+const GroupPage = lazy(() => import('./pages/GroupPage').then((m) => ({ default: m.GroupPage })))
+const DebatesPage = lazy(() => import('./pages/DebatesPage').then((m) => ({ default: m.DebatesPage })))
+const ScreenPage = lazy(() => import('./pages/ScreenPage').then((m) => ({ default: m.ScreenPage })))
+const SoireePage = lazy(() => import('./pages/SoireePage').then((m) => ({ default: m.SoireePage })))
+const PlatinePage = lazy(() => import('./pages/PlatinePage').then((m) => ({ default: m.PlatinePage })))
 
 function Splash() {
   return (
@@ -100,6 +104,7 @@ function AnimatedRoutes() {
   return (
     <div className="app-shell flex-1 flex flex-col">
       <div className={showNav ? 'flex-1 pb-28' : 'flex-1'}>
+        <Suspense fallback={<Splash />}>
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<HomePage />} />
@@ -165,6 +170,7 @@ function AnimatedRoutes() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AnimatePresence>
+        </Suspense>
       </div>
       {showNav && <BottomNav />}
     </div>

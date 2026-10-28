@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { usePartyStore } from '../store/usePartyStore'
 import { CLIENT_GAME_REGISTRY } from './gameRegistry'
 import { GAME_META } from '../data/gameMeta'
@@ -7,6 +8,7 @@ import { joinUrl } from '../lib/joinUrl'
 import { Surface } from '../components/Card'
 import { Player } from '../components/Player'
 import { Stage, PlayerRail } from './primitives'
+import { TvViewport } from './primitives/TvViewport'
 import { SurfaceContext } from './surface'
 import { GameIcon } from '../components/icons'
 import type { Group } from '../types'
@@ -54,7 +56,9 @@ export function PartyGameShell({ mode }: { mode: 'controller' | 'screen' }) {
     }
     return (
       <SurfaceContext.Provider value="phone">
-        <entry.Controller />
+        <Suspense fallback={<GameLoading />}>
+          <entry.Controller />
+        </Suspense>
       </SurfaceContext.Provider>
     )
   }
@@ -62,10 +66,27 @@ export function PartyGameShell({ mode }: { mode: 'controller' | 'screen' }) {
   return (
     <SurfaceContext.Provider value="tv">
       <div className="relative">
-        <entry.Screen />
+        <Suspense fallback={<GameLoading tv />}>
+          {entry.nativeTv ? (
+            <entry.Screen />
+          ) : (
+            <TvViewport>
+              <entry.Screen />
+            </TvViewport>
+          )}
+        </Suspense>
         <RoomCodeBadge code={group.code} />
       </div>
     </SurfaceContext.Provider>
+  )
+}
+
+/** Le temps de charger le module du jeu (quelques centaines de ms, une fois par partie). */
+function GameLoading({ tv = false }: { tv?: boolean }) {
+  return (
+    <div className="min-h-svh flex items-center justify-center">
+      <span className={`kicker ${tv ? 'text-tv-xs' : 'text-2xs'} animate-pulse`}>On distribue…</span>
+    </div>
   )
 }
 
