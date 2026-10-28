@@ -82,6 +82,7 @@ export const petitsChevaux: GameModule = {
   name: 'Petits Chevaux',
   icon: '🐴',
   minPlayers: 2,
+  adult: true,
 
   canStart(group: Group) {
     if (!group.adultModeEnabled) return 'Active le mode 18+ pour lancer les Petits Chevaux (jeu à boire).'

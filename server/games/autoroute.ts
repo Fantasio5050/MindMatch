@@ -161,6 +161,7 @@ export const autoroute: GameModule = {
   name: 'Autoroute',
   icon: '🛣️',
   minPlayers: 2,
+  adult: true,
 
   initRound(_group, session, config) {
     const state = getState(session)

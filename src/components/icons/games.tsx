@@ -1,7 +1,7 @@
 import { Icon, type IconProps } from './Icon'
 
 /**
- * Les 17 marques de jeu.
+ * Les marques de jeu.
  *
  * Règle de dessin : une idée par icône, lisible à 16 px. Quand un jeu se raconte par son OBJET
  * (une roue, un fer à cheval, un barillet), on dessine l'objet ; quand il se raconte par sa
@@ -169,6 +169,74 @@ export const IconRevolver = (p: IconProps) => (
   </Icon>
 )
 
+/** Lancer de dés — le dé, sur sa face cinq. */
+export const IconDice = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="4" />
+    <circle cx="8.2" cy="8.2" r="1.25" fill="currentColor" stroke="none" />
+    <circle cx="15.8" cy="8.2" r="1.25" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.25" fill="currentColor" stroke="none" />
+    <circle cx="8.2" cy="15.8" r="1.25" fill="currentColor" stroke="none" />
+    <circle cx="15.8" cy="15.8" r="1.25" fill="currentColor" stroke="none" />
+  </Icon>
+)
+
+/** One Word Story — des lignes qui s'écrivent, un mot à la fois. */
+export const IconStory = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 6.5h16M4 11.5h11M4 16.5h6" />
+    <path d="M14 15v4" />
+  </Icon>
+)
+
+/** Action ou Vérité — la question et le défi. */
+export const IconTruthDare = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 8.5a3 3 0 115 2.2c-.9.6-1.5 1.2-1.5 2.3" />
+    <circle cx="8.5" cy="16.6" r=".8" fill="currentColor" stroke="none" />
+    <path d="M17 5v8" />
+    <circle cx="17" cy="16.6" r=".8" fill="currentColor" stroke="none" />
+  </Icon>
+)
+
+/** Loup-Garou — la lune des nuits du village. */
+export const IconMoon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M19.5 14.5A8 8 0 019.5 4.5a8 8 0 1010 10z" />
+  </Icon>
+)
+
+/** Time's Up — le sablier. */
+export const IconHourglass = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M6.5 3.5h11M6.5 20.5h11" />
+    <path d="M7.5 3.5c0 4.5 4.5 5.5 4.5 8.5s-4.5 4-4.5 8.5M16.5 3.5c0 4.5-4.5 5.5-4.5 8.5s4.5 4 4.5 8.5" />
+  </Icon>
+)
+
+/** Quiproquo — deux bulles qui ne se disent pas la même chose. */
+export const IconQuiproquo = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M3.5 5.5h10v6h-6l-3 2.5v-2.5h-1z" />
+    <path d="M10.5 14.5v2h6l3 2.5v-2.5h1v-6h-4" />
+  </Icon>
+)
+
+/** UNO — deux cartes en éventail. */
+export const IconUno = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="4" y="5" width="9" height="14" rx="1.8" transform="rotate(-12 8.5 12)" />
+    <rect x="11" y="5" width="9" height="14" rx="1.8" transform="rotate(10 15.5 12)" />
+  </Icon>
+)
+
+/** Poker — le pique. */
+export const IconSpade = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 3.5c3 3.3 7 5.8 7 9.3a3.6 3.6 0 01-6.2 2.5L13.5 20h-3l.7-4.7A3.6 3.6 0 015 12.8c0-3.5 4-6 7-9.3z" />
+  </Icon>
+)
+
 /** Le test de personnalité — pas un jeu, mais il a sa marque : le radar des traits. */
 export const IconProfile = (p: IconProps) => (
   <Icon {...p}>
@@ -206,6 +274,14 @@ const GAME_ICON: Record<string, (p: IconProps) => React.ReactElement> = {
   pmu: IconHorseshoe,
   wheel: IconWheel,
   'russian-roulette': IconRevolver,
+  'lancer-de-des': IconDice,
+  'one-word-story': IconStory,
+  'truth-or-dare': IconTruthDare,
+  'loup-garou': IconMoon,
+  'times-up': IconHourglass,
+  quiproquo: IconQuiproquo,
+  uno: IconUno,
+  poker: IconSpade,
 }
 
 /** Marque d'un jeu par son id, avec une repli neutre pour un module inconnu. */

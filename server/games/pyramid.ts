@@ -153,6 +153,7 @@ export const pyramid: GameModule = {
   name: 'Pyramide',
   icon: '🍻',
   minPlayers: 2,
+  adult: true,
 
   initRound(group, session) {
     const state = getState(session)

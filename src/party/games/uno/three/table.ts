@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { createManagedRenderer, makeFrameGate, disposeScene, type ManagedRenderer } from '../../../lib/threePerf'
 import { CardArt, CARD_H, loadCardFont, makeCardGeometry, UNO_HEX, type PlayColor } from './cardArt'
-import { disposeSprite, ease, makeAvatarTexture, makeGlowTexture, makeTextSprite, Particles, SeatLabel, Tweens } from './fx'
+import { disposeSprite, ease, makeAvatarTexture, makeGlowTexture, makeTextSprite, Particles, SeatLabel, Tweens } from '../../../lib/fx3d'
 import type { UnoCard } from '../types'
 
 /**

@@ -231,6 +231,7 @@ export const palmier: GameModule = {
   name: 'Palmier',
   icon: '🌴',
   minPlayers: 2,
+  adult: true,
 
   initRound(group, session) {
     const state = getState(session)

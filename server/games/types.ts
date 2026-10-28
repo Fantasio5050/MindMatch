@@ -24,6 +24,9 @@ export interface GameModule {
   name: string
   icon: string
   minPlayers: number
+  /** Jeu réservé au mode 18+ (alcool, contenu trash) : refusé au lancement si le groupe ne l'a pas
+   * activé. Le salon grise déjà ces jeux, mais un téléphone peut émettre `party:start` à la main. */
+  adult?: boolean
   /** Extra game-specific eligibility check beyond minPlayers (e.g. "needs 2 players with a
    * finished MindMatch profile"). Return an error message to block starting, or null/undefined
    * to allow it. */

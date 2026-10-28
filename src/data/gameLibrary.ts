@@ -46,5 +46,6 @@ export const GAME_LIBRARY: GameLibraryEntry[] = [
   { id: 'autoroute', name: 'Autoroute', tagline: 'Plus haut/bas, rouge/noir… et des péages', hue: '#f97316', minPlayers: 2, adult: true, config: 'autoroute' },
   { id: 'pmu', name: 'PMU', tagline: 'Pariez vos gorgées, la course se joue en 3D', hue: '#22c55e', minPlayers: 2, adult: true, tvOptimized: true, badge: '3D TV' },
   { id: 'wheel', name: 'Roue Infernale', tagline: 'Swipe, gages, gorgées, immunités', hue: '#8b5cf6', minPlayers: 2, adult: true, tvOptimized: true, badge: '3D TV' },
+  { id: 'lancer-de-des', name: 'Lancer de dés', tagline: 'Un dé en 3D, chacun son tour — tu bois ce que tu fais', hue: '#f5a524', minPlayers: 2, adult: true, tvOptimized: true, badge: '3D TV' },
   { id: 'russian-roulette', name: 'Roulette russe', tagline: 'Barillet, probas qui montent, gages hardcore', hue: '#ef4444', minPlayers: 2, adult: true, badge: 'HARDCORE' },
 ]

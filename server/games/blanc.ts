@@ -107,6 +107,7 @@ export const blanc: GameModule = {
   name: 'Le Grand Blanc',
   icon: '🖊️',
   minPlayers: MIN_PLAYERS,
+  adult: true,
 
   canStart(group: Group) {
     if (!group.adultModeEnabled) return 'Active le mode 18+ pour lancer Le Grand Blanc.'

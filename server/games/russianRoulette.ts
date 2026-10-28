@@ -74,6 +74,7 @@ export const russianRoulette: GameModule = {
   name: 'Roulette russe',
   icon: '🔫',
   minPlayers: 2,
+  adult: true,
 
   initRound(_group, session) {
     const state = getState(session)

@@ -139,6 +139,7 @@ export const pmu: GameModule = {
   name: 'PMU',
   icon: '🏇',
   minPlayers: 2,
+  adult: true,
 
   initRound(_group, session) {
     const state = getState(session)

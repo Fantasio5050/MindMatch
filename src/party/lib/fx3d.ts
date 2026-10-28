@@ -1,5 +1,9 @@
 import * as THREE from 'three'
 
+/** Briques partagées des scènes 3D de la TV (UNO, Lancer de dés…) : interpolations pilotées par la
+ * boucle de rendu, particules, textes « plateau télé », avatars et étiquettes de siège. Importé
+ * uniquement par les chunks lazy des scènes, jamais par le bundle des téléphones. */
+
 // ─── Animations ─────────────────────────────────────────────────────────────
 
 export const ease = {
@@ -349,7 +353,7 @@ export function makeAvatarTexture(name: string, color: string, photoUrl: string 
   return tex
 }
 
-/** Étiquette de siège : pseudo + nombre de cartes (+ badge UNO / à toi). Redessinée sur place. */
+/** Étiquette de siège : pseudo + compteur (cartes, gorgées…) ou badge UNO / « ! ». Redessinée sur place. */
 export class SeatLabel {
   readonly sprite: THREE.Sprite
   private canvas: HTMLCanvasElement
@@ -367,7 +371,7 @@ export class SeatLabel {
     this.sprite.renderOrder = 15
   }
 
-  draw(name: string, count: number, opts: { active: boolean; uno: boolean; exposed: boolean }) {
+  draw(name: string, count: number, opts: { active: boolean; uno?: boolean; exposed?: boolean }) {
     const key = `${name}|${count}|${opts.active}|${opts.uno}|${opts.exposed}`
     if (key === this.last) return
     this.last = key
@@ -394,7 +398,7 @@ export class SeatLabel {
     ctx.textBaseline = 'middle'
     ctx.fillStyle = '#F2EFE9'
     ctx.fillText(name, x0 + 32, 82, 360)
-    // Badge du nombre de cartes.
+    // Badge du compteur.
     const bx = x0 + 32 + nameW + 18
     roundRectPath(ctx, bx, 36, badgeW, 88, 44)
     ctx.fillStyle = opts.uno ? '#F7C623' : opts.exposed ? '#E5322D' : '#F2EFE9'
