@@ -237,6 +237,15 @@ export const IconSpade = (p: IconProps) => (
   </Icon>
 )
 
+/** Monopoly — la maison qu'on pose sur sa rue. */
+export const IconHouse = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 11.5L12 4.5l8 7" />
+    <path d="M6.5 9.8v9.7h11V9.8" />
+    <path d="M10.2 19.5v-5h3.6v5" />
+  </Icon>
+)
+
 /** Le test de personnalité — pas un jeu, mais il a sa marque : le radar des traits. */
 export const IconProfile = (p: IconProps) => (
   <Icon {...p}>
@@ -282,6 +291,7 @@ const GAME_ICON: Record<string, (p: IconProps) => React.ReactElement> = {
   quiproquo: IconQuiproquo,
   uno: IconUno,
   poker: IconSpade,
+  monopoly: IconHouse,
 }
 
 /** Marque d'un jeu par son id, avec une repli neutre pour un module inconnu. */

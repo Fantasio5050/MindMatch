@@ -37,6 +37,7 @@ export const GAME_LIBRARY: GameLibraryEntry[] = [
   { id: 'times-up', name: "Time's Up", tagline: 'Décris, un mot, mime — 3 rounds de plus en plus hard', hue: '#f59e0b', minPlayers: 4, tvOptimized: true, badge: 'NOUVEAU' },
   { id: 'quiproquo', name: 'Quiproquo', tagline: 'Contraintes secrètes — démasque les autres', hue: '#8b5cf6', minPlayers: 4, tvOptimized: true, badge: 'NOUVEAU' },
   { id: 'uno', name: 'UNO', tagline: 'Pose tes cartes, crie UNO, flingue tes potes', hue: '#ef4444', minPlayers: 2, tvOptimized: true, badge: 'NOUVEAU' },
+  { id: 'monopoly', name: 'Monopoly', tagline: 'Achète Paris, construis, ruine tes potes — en 3D sur la TV', hue: '#d4a017', minPlayers: 2, tvOptimized: true, badge: '3D TV' },
   { id: 'poker', name: 'Poker Texas Hold\'em', tagline: 'Bluff, jetons — mode assisté pour débutants', hue: '#22c55e', minPlayers: 2, tvOptimized: true, badge: 'NOUVEAU' },
   // --- 18+ ---
   { id: 'blanc', name: 'Le Grand Blanc', tagline: 'Cartes à trous trash — votez la plus drôle', hue: '#e2e8f0', minPlayers: 3, adult: true, tvOptimized: true },

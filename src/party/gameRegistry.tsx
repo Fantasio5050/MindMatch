@@ -121,6 +121,11 @@ export const CLIENT_GAME_REGISTRY: Record<string, ClientGameEntry> = {
     Controller: view(() => import('./games/poker/ControllerView'), 'PokerController'),
     Screen: view(() => import('./games/poker/ScreenView'), 'PokerScreen'),
   },
+  monopoly: {
+    Controller: view(() => import('./games/monopoly/ControllerView'), 'MonopolyController'),
+    Screen: view(() => import('./games/monopoly/ScreenView'), 'MonopolyScreen'),
+    nativeTv: true,
+  },
   'lancer-de-des': {
     Controller: view(() => import('./games/dice/ControllerView'), 'DiceController'),
     Screen: view(() => import('./games/dice/ScreenView'), 'DiceScreen'),

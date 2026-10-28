@@ -57,6 +57,12 @@ function payloads(r: () => number, ids: string[], view: unknown): unknown[] {
     { guess: pick(['', 'pomme', 42]) }, { guesses: { [id()]: any() } }, { index: pick([0, 1, 99, -1, 'a']) },
     { assisted: pick([true, false]) }, { heal: true }, { optionId: any() }, { constraintId: any() },
     { horse: pick([0, 1, 7, 'x']), amount: pick([1, 3, 100]) }, { pawnId: any() }, { count: pick([1, 2, 99]) },
+    { square: pick([0, 1, 3, 5, 12, 39, -1, 40, 'x', null]) },
+    {
+      to: id(),
+      give: { cash: pick([0, 50, 1e9, -5, NaN]), squares: [pick([1, 3, 5, 99, -1])], jailCards: pick([0, 1, -1]) },
+      get: pick([undefined, { cash: 10, squares: [], jailCards: 0 }, 'x']),
+    },
   ]
 }
 

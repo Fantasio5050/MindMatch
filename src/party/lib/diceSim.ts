@@ -366,15 +366,18 @@ export function planRoll(
   make: (attempt: number) => DieInit[],
   arena: DiceArena,
   size = 1,
-  maxTries = 80,
+  opts: { maxTries?: number; accept?: (sim: SimResult) => boolean } = {},
 ): RollPlan {
-  let best: { sim: SimResult; ok: boolean[] } | null = null
+  let best: { sim: SimResult; ok: boolean[]; score: number } | null = null
   const n = new THREE.Vector3()
+  const maxTries = opts.maxTries ?? 80
   for (let attempt = 0; attempt < maxTries; attempt++) {
     const sim = simulateDice(make(attempt), arena, size)
     const ok = values.map((v, i) => n.copy(FACE_NORMALS[v] ?? FACE_NORMALS[1]).applyQuaternion(skins[i]).dot(sim.upAxis[i]) > 0.99)
-    const score = ok.filter(Boolean).length
-    if (!best || score > best.ok.filter(Boolean).length) best = { sim, ok }
+    // Un lancer refusé (ex. : un dé qui rebondit sur une paroi invisible) ne compte que s'il n'y a
+    // rien de mieux.
+    const score = ok.filter(Boolean).length + (opts.accept && !opts.accept(sim) ? -0.5 - values.length : 0)
+    if (!best || score > best.score) best = { sim, ok, score }
     if (score === values.length) break
   }
   const { sim, ok } = best!

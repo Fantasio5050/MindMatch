@@ -210,4 +210,29 @@ test.describe('Nouveaux jeux — jouables et étanches', () => {
     await expect(t.host.locator('body')).toContainText(/Le village se réveille|chasseur/i)
     expect(t.errors).toEqual([])
   })
+  test('Monopoly : on lance, on achète ou on passe, la main tourne', async ({ browser }) => {
+    const t = await openTable(browser, ['Hote', 'J2'])
+    await launch(t, 'Monopoly')
+    await t.host.getByRole('button', { name: /C'est parti/ }).click()
+    const rollButton = (p: Page) => p.getByRole('button', { name: /Lancer les dés/ })
+    await expect.poll(async () => !!(await firstWhere(t.phones, (p) => rollButton(p).isVisible())), { timeout: 8000 }).toBe(true)
+    const player = (await firstWhere(t.phones, (p) => rollButton(p).isVisible()))!
+    await rollButton(player).click()
+    // Selon la case : acheter, lire une carte, relancer après un double… jusqu'à la fin du tour.
+    for (let i = 0; i < 8 && !(await player.getByRole('button', { name: /Fin du tour/ }).isVisible()); i++) {
+      await player.waitForTimeout(700)
+      for (const name of [/^Acheter/, /^OK$/, /Tenter un double/, /Lancer les dés/]) {
+        const b = player.getByRole('button', { name })
+        if ((await b.isVisible()) && (await b.isEnabled())) {
+          await b.click()
+          break
+        }
+      }
+    }
+    await player.getByRole('button', { name: /Fin du tour/ }).click()
+    const other = t.phones.find((p) => p !== player)!
+    await expect(rollButton(other)).toBeVisible({ timeout: 8000 })
+    await expect(t.tv.locator('canvas')).toHaveCount(1)
+    expect(t.errors).toEqual([])
+  })
 })

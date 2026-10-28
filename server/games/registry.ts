@@ -24,6 +24,7 @@ import { quiproquo } from './quiproquo'
 import { uno } from './uno'
 import { poker } from './poker'
 import { dice } from './dice'
+import { monopoly } from './monopoly'
 
 export const GAME_REGISTRY: Record<string, GameModule> = {
   [whoIsMostLikely.id]: whoIsMostLikely,
@@ -51,6 +52,7 @@ export const GAME_REGISTRY: Record<string, GameModule> = {
   [uno.id]: uno,
   [poker.id]: poker,
   [dice.id]: dice,
+  [monopoly.id]: monopoly,
 }
 
 export function getGame(gameId: string): GameModule | null {
