@@ -7,7 +7,7 @@ Plateforme de soirée entre amis, à héberger toi-même. Crée une salle, parta
 - **Test de personnalité** — questionnaire (3 niveaux), profil + archétype, radar de 7 traits, comparaisons de groupe et débats auto-générés.
 - **Soirée multijoueur** — salle live, XP/niveaux/badges, historique des parties, mode 18+ (contenu trash + jeux à boire), écran partagé TV, ambiance sonore et visuelle.
 - **Mode Soirée (la platine partagée)** 🎶 — file musicale collective : chacun ajoute des morceaux depuis son téléphone (recherche intégrée), la file est **équitable** (round-robin), avec vote-pour-passer et fondu enchaîné. Une « platine » (`/platine/:code`) branchée à l'enceinte lit le son. Source **YouTube** prête à l'emploi ; **Spotify** en option (voir config).
-- **11 jeux** — Qui est le plus ? · Dilemmes & Débats · Profil secret · Devine ma réponse · Qui a écrit ça ? · Cartes de soirée · Coup de Crayon (dessin) · Pyramide 🍻 · Palmier 🍻 · Autoroute 🍻 · PMU / Roue Infernale / Petits chevaux / Blackjack (jeux à boire 18+).
+- **26 jeux** — Qui est le plus ? · Dilemmes & Débats · Profil secret · Devine ma réponse · Qui a écrit ça ? · Cartes de soirée · Coup de Crayon · L'Intrus · One Word Story · Action ou Vérité · Loup-Garou · Time's Up · Quiproquo · Blackjack · Poker · **UNO** et **Monopoly** en 3D sur la TV · et en 18+ : Le Grand Blanc · Petits Chevaux · Pyramide 🍻 · Palmier 🍻 · Autoroute 🍻 · PMU · Roue Infernale · Roulette russe · **Lancer de dés** (3D).
 
 ## Stack
 
