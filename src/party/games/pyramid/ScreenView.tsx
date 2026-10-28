@@ -262,7 +262,7 @@ function FinalPodium({ members, totals }: { members: Member[]; totals: Record<st
             <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={48} photoUrl={m.photoUrl} />
             <span className="flex-1 text-xl font-semibold text-left">{m.pseudo}</span>
-            <span className="text-lg text-chalk-soft tabular-nums">{totals[m.id] ?? 0} gorgées</span>
+            <span className="text-lg text-chalk-soft tabular-nums">{totals[m.id] ?? 0} gorgée{(totals[m.id] ?? 0) > 1 ? 's' : ''}</span>
           </PodiumRow>
         ))}
       </div>

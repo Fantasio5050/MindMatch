@@ -61,10 +61,10 @@ export function PlayPage() {
               {copied ? 'Copié' : code}
             </button>
           )}
+          <EmoteBar />
         </div>
         <PartyGameShell mode="controller" />
         <EmoteOverlay />
-        <EmoteBar />
       </div>
     </PageTransition>
   )

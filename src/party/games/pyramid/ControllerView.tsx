@@ -291,7 +291,7 @@ function MatchingView({
   const canDistribute = slotsLeft > 0
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-6 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Carte {state.currentIndex + 1} / {state.pyramid.length}
       </p>
@@ -478,7 +478,7 @@ function RecitationView({
   }
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-6 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Récitation finale</p>
       <h1 className="text-xl font-extrabold text-center mb-4">🧠 Récite tes cartes, dans l'ordre</h1>
 
@@ -649,7 +649,7 @@ function FinalResults({
             <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-chalk-soft">{totals[m.id] ?? 0} gorgées</span>
+            <span className="text-sm text-chalk-soft">{totals[m.id] ?? 0} gorgée{(totals[m.id] ?? 0) > 1 ? 's' : ''}</span>
           </Card>
         ))}
       </div>

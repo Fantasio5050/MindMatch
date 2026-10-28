@@ -94,8 +94,7 @@ export function UnoController() {
   }
 
   return (
-    // `pb-24` : le bouton flottant des réactions occupe le coin bas-droit, la main doit le laisser libre.
-    <div className="min-h-svh flex flex-col px-4 pt-[4.5rem] pb-24 safe-top">
+    <div className="min-h-svh flex flex-col px-4 pt-[4.5rem] pb-8 safe-top">
       {/* Le tour : qui joue, et la carte à couvrir. */}
       <div className="flex items-center gap-3 mb-4">
         <Discard state={state} />

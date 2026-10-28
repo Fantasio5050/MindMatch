@@ -144,7 +144,7 @@ function AnsweringView({
   const total = state.order.length
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-6 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">
         Manche {state.roundsPlayed + 1} / {state.totalRounds}
       </p>
@@ -206,7 +206,7 @@ function VotingView({
   const voted = state.yourVote !== null && state.yourVote !== undefined
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-6 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-2">Vote pour la plus drôle</p>
       {state.currentPrompt && <PromptBar text={state.currentPrompt.text} />}
 
@@ -275,7 +275,7 @@ function ResultsView({
   const last = state.roundsPlayed >= state.totalRounds
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-8 pb-6 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-6 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-3">Résultat de la manche</p>
 
       {winner ? (

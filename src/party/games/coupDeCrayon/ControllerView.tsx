@@ -154,7 +154,7 @@ function DrawingView({
   }, [state.drawingStartedAt, state.drawSeconds])
 
   return (
-    <div className="min-h-svh flex flex-col px-5 pt-6 pb-6 safe-top">
+    <div className="min-h-svh flex flex-col px-5 pt-[4.5rem] pb-6 safe-top">
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs uppercase tracking-widest text-chalk-faint">
           Manche {state.roundsPlayed + 1}/{state.totalRounds}
@@ -228,7 +228,7 @@ function VotingView({
   const total = state.order.length
 
   return (
-    <div className="min-h-svh flex flex-col px-5 pt-8 pb-6 safe-top">
+    <div className="min-h-svh flex flex-col px-5 pt-[4.5rem] pb-6 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-1">Vote — « {state.results?.word ?? state.currentWord} »</p>
       <p className="text-center text-sm text-chalk-soft mb-4">
         Choisis le <b>🏆 mieux réussi</b> et le <b>🤣 plus drôle</b>
@@ -332,7 +332,7 @@ function ResultsView({
     )
 
   return (
-    <div className="min-h-svh flex flex-col px-5 pt-8 pb-6 safe-top">
+    <div className="min-h-svh flex flex-col px-5 pt-[4.5rem] pb-6 safe-top">
       <p className="text-xs uppercase tracking-widest text-chalk-faint text-center mb-3">
         Résultats — « {r.word} »
       </p>

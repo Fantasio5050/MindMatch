@@ -90,7 +90,7 @@ export function DiceController() {
   const mine = (state.totalSips[myId] ?? 0) - (rolling && last?.memberId === myId ? last.value : 0)
 
   return (
-    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-24 safe-top">
+    <div className="min-h-svh flex flex-col px-6 pt-[4.5rem] pb-10 safe-top">
       {/* Le dernier lancer, pour tout le monde. */}
       <div className="flex flex-col items-center text-center">
         <p className="kicker text-2xs mb-8">{last ? `Lancer n° ${last.n}` : 'Premier lancer'}</p>

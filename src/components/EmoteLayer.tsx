@@ -69,23 +69,35 @@ function FloatingEmote({ emoji, pseudo, big }: { emoji: string; pseudo: string; 
   )
 }
 
-/** Collapsible emoji picker for the phone controller — a floating 😀 button that expands into the
- * reaction row. Hidden for spectators (they have no member identity to react as). */
+/** Sélecteur de réactions de la manette : un bouton 😀 dans la barre du haut, qui déplie la rangée
+ * de réactions vers le bas. Il vivait en bas à droite, par-dessus le bouton principal de la moitié
+ * des écrans (« Retour au salon », « Manche suivante »…). */
 export function EmoteBar() {
   const sendEmote = usePartyStore((s) => s.sendEmote)
   const { play } = useSound()
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
+    <div className="relative">
+      <motion.button
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setOpen((o) => !o)}
+        className="w-9 h-9 rounded-chip bg-felt-raised border border-line flex items-center justify-center text-chalk-muted"
+        aria-label="Réactions"
+        aria-expanded={open}
+      >
+        {/* Le bouton est une icône ; ce qu'il ouvre reste des emojis. C'est exactement la
+            frontière posée par le socle : l'interface est dessinée, l'expression est humaine. */}
+        {open ? <IconClose size={17} /> : <IconSmile size={18} />}
+      </motion.button>
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="glass-card rounded-2xl p-2 grid grid-cols-4 gap-1"
+            className="absolute left-0 top-full mt-2 glass-card rounded-2xl p-2 grid grid-cols-4 gap-1 origin-top-left"
           >
             {EMOTES.map((emoji) => (
               <button
@@ -102,16 +114,6 @@ export function EmoteBar() {
           </motion.div>
         )}
       </AnimatePresence>
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setOpen((o) => !o)}
-        className="w-11 h-11 rounded-chip glass-card flex items-center justify-center text-chalk-muted"
-        aria-label="Réactions"
-      >
-        {/* Le bouton est une icône ; ce qu'il ouvre reste des emojis. C'est exactement la
-            frontière posée par le socle : l'interface est dessinée, l'expression est humaine. */}
-        {open ? <IconClose size={19} /> : <IconSmile size={20} />}
-      </motion.button>
     </div>
   )
 }

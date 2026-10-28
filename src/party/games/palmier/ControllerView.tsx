@@ -249,7 +249,7 @@ function FinalPodium({
             <span className="text-lg font-bold w-6 text-center text-chalk-soft">{i + 1}</span>
             <Avatar pseudo={m.pseudo} color={m.color} size={36} />
             <span className="flex-1 font-semibold">{m.pseudo}</span>
-            <span className="text-sm text-chalk-soft">{totals[m.id] ?? 0} gorgées</span>
+            <span className="text-sm text-chalk-soft">{totals[m.id] ?? 0} gorgée{(totals[m.id] ?? 0) > 1 ? 's' : ''}</span>
           </Card>
         ))}
       </div>
