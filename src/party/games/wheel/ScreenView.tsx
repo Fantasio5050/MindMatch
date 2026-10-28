@@ -203,8 +203,8 @@ function FinalPodium({ members, state }: { members: Member[]; state: WheelClient
       <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">
         Roue Infernale — {state.spinsDone} lancer{state.spinsDone > 1 ? 's' : ''}
       </p>
-      <h1 className="text-6xl font-extrabold shimmer-text mb-12">🎡 Classement final</h1>
-      <div className="flex flex-col gap-4 items-center">
+      <h1 className="text-6xl font-extrabold shimmer-text mb-8">🎡 Classement final</h1>
+      <div className="ranking-list">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={480} loserEmoji="🍺">
             <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>

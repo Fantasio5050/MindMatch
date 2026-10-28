@@ -112,7 +112,7 @@ export function QuiproquoScreen() {
           className="tv-frame flex flex-col items-center justify-center gap-6"
         >
           <p className="text-3xl font-extrabold">Résultats du round {state.round}</p>
-          <div className="flex flex-col gap-4 max-w-2xl">
+          <div className="ranking-list">
             {state.results.map(r => {
               const m = members.find(mm => mm.id === r.memberId)
               const constraint = state.allConstraints.find(c => c.id === r.constraintId)
@@ -121,7 +121,7 @@ export function QuiproquoScreen() {
                   key={r.memberId}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className={`flex items-center gap-4 rounded-2xl border p-4 ${r.guessedCorrectly ? 'border-pink-400/30 bg-pink-500/10' : 'border-emerald-400/30 bg-emerald-500/10'}`}
+                  className={`flex items-center gap-4 rounded-2xl border px-4 py-3 w-[34rem] max-w-full ${r.guessedCorrectly ? 'border-pink-400/30 bg-pink-500/10' : 'border-emerald-400/30 bg-emerald-500/10'}`}
                 >
                   <Avatar pseudo={m?.pseudo ?? '?'} color={m?.color ?? '#fff'} size={48} photoUrl={m?.photoUrl} />
                   <div className="text-left flex-1">
@@ -147,9 +147,9 @@ function FinalPodium({ members, scores }: { members: Member[]; scores: Record<st
   const ranked = [...members].sort((a, b) => (scores[b.id] ?? 0) - (scores[a.id] ?? 0))
   return (
     <div className="tv-frame flex flex-col items-center justify-center gap-8">
-      <span className="text-7xl">🎭</span>
+      <span className="text-6xl">🎭</span>
       <p className="text-4xl font-extrabold shimmer-text">Classement final</p>
-      <div className="flex flex-col gap-4">
+      <div className="ranking-list !items-start">
         {ranked.map((m, i) => (
           <div key={m.id} className="flex items-center gap-4">
             <span className="text-3xl font-bold w-10 text-center">{i + 1}</span>

@@ -274,14 +274,17 @@ body {
   --tv-avatar-focus: clamp(34px, 7 * var(--tv-unit), 176px);
   --tv-avatar-stage: clamp(52px, 11 * var(--tv-unit), 280px);
   --tv-qr: clamp(84px, 17 * var(--tv-unit), 400px);
-  --text-2xs: clamp(9px, 1.02 * var(--tv-unit), 22px);
-  --text-xs: clamp(10px, 1.16 * var(--tv-unit), 25px);
-  --text-sm: clamp(11px, 1.3 * var(--tv-unit), 28px);
-  --text-base: clamp(12px, 1.48 * var(--tv-unit), 32px);
-  --text-lg: clamp(13px, 1.67 * var(--tv-unit), 36px);
-  --text-xl: clamp(15px, 2.04 * var(--tv-unit), 44px);
-  --text-2xl: clamp(18px, 2.59 * var(--tv-unit), 56px);
-  --text-3xl: clamp(22px, 3.33 * var(--tv-unit), 72px);
+  /* Échelle téléphone : retour aux valeurs nominales. Les boîtes, avatars et marges de ces vues
+   * sont en pixels fixes et grandissent avec la scène ; le texte doit garder le même rapport avec
+   * elles qu'à l'écran de référence 1080p (un `text-xl` de 22 px dans une ligne de 500 px). */
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.78125rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
 }
 .tv-viewport .tv-frame,
 .tv-viewport .min-h-svh,
@@ -302,4 +305,26 @@ body {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--color-chalk-faint);
+}
+
+/* Classement final : une colonne jusqu'à 6 joueurs ; au-delà, deux colonnes lues de haut en bas
+ * (1-4 à gauche, 5-8 à droite). Huit lignes empilées dépassaient les 720 px de la scène et
+ * poussaient le titre hors de l'écran. Sans `:has()` (vieux navigateurs de TV), reste en colonne. */
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+.ranking-list:has(> :nth-child(7)) {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(4, auto);
+  column-gap: 1.5rem;
+}
+.ranking-list:has(> :nth-child(9)) {
+  grid-template-rows: repeat(5, auto);
+}
+.ranking-list:has(> :nth-child(11)) {
+  grid-template-rows: repeat(6, auto);
 }

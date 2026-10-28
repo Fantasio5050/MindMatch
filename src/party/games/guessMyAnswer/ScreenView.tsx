@@ -137,8 +137,8 @@ function FinalPodium({ members }: { members: Member[] }) {
   return (
     <div className="text-center">
       <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Partie terminée</p>
-      <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏆 Classement final</h1>
-      <div className="flex flex-col gap-4 items-center">
+      <h1 className="text-6xl font-extrabold shimmer-text mb-8">🏆 Classement final</h1>
+      <div className="ranking-list">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={420}>
             <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>

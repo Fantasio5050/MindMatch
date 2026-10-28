@@ -113,8 +113,8 @@ export function PetitsChevauxScreen() {
       <div className="tv-frame text-center">
         <Confetti trigger={confetti} />
         <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">Petits Chevaux — course terminée</p>
-        <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏆 Classement final</h1>
-        <div className="flex flex-col gap-4 items-center">
+        <h1 className="text-6xl font-extrabold shimmer-text mb-8">🏆 Classement final</h1>
+        <div className="ranking-list">
           {rankPlayers(participants, state).map((m, i, arr) => (
             <PodiumRow key={m.id} rank={i} total={arr.length} width={520} loserEmoji="🍺">
               <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>

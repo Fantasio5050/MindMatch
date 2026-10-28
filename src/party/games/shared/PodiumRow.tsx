@@ -52,7 +52,7 @@ export function PodiumRow({
       initial={reduce ? { opacity: 0 } : { opacity: 0, y: 22, scale: isWinner ? 0.8 : 1 }}
       animate={animate}
       transition={{ delay, duration: isLoser ? 0.55 : 0.45, ...(isWinner && !reduce ? { type: 'spring', stiffness: 320, damping: 16 } : {}) }}
-      className={`relative flex items-center gap-4 glass-card rounded-2xl px-8 py-4 ${
+      className={`relative flex items-center gap-4 glass-card rounded-2xl px-7 py-2.5 ${
         isWinner ? 'ring-2 ring-amber-300/70' : ''
       } ${className}`}
       style={width ? { width } : undefined}

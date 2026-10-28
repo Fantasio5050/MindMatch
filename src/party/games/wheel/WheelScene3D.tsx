@@ -183,8 +183,10 @@ export default function WheelScene3D({ segments, spin, restAngle }: SceneProps) 
     scene.add(pointer)
 
     const clock = new THREE.Clock()
-    const camPos = new THREE.Vector3(0, WHEEL_Y + 0.6, 18)
-    const camTarget = new THREE.Vector3(0, WHEEL_Y - 0.2, 0)
+    // Cadrage : la roue entière tient entre la bannière du tour (en haut) et le bandeau des joueurs
+    // (en bas). À 18 unités, le bandeau masquait le bas de la roue — donc les segments du bas.
+    const camPos = new THREE.Vector3(0, WHEEL_Y + 0.6, 20.5)
+    const camTarget = new THREE.Vector3(0, WHEEL_Y - 0.55, 0)
     // Réutilisée via .set() au lieu de `new THREE.Vector3()` à chaque frame — évite la pression
     // GC à 60 fps sur les GPU/CPU faibles.
     const wantedPos = new THREE.Vector3()
@@ -220,7 +222,7 @@ export default function WheelScene3D({ segments, spin, restAngle }: SceneProps) 
       // Caméra : léger balancement au repos, travelling avant pendant la décélération.
       // Amorti compensé par le temps réel, identique à 30 comme à 60 fps.
       const push = spinningProgress !== null ? spinningProgress * 1.6 : 0
-      wantedPos.set(Math.sin(t * 0.25) * 1.6, WHEEL_Y + 0.6 + Math.sin(t * 0.4) * 0.3, 18 - push)
+      wantedPos.set(Math.sin(t * 0.25) * 1.6, WHEEL_Y + 0.6 + Math.sin(t * 0.4) * 0.3, 20.5 - push)
       camPos.lerp(wantedPos, 1 - Math.pow(1 - 0.04, dtFrames))
       camera.position.copy(camPos)
       camera.lookAt(camTarget)

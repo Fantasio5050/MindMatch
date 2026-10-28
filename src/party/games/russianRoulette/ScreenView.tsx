@@ -114,9 +114,10 @@ export function RussianRouletteScreen() {
         </motion.div>
       )}
 
-      {/* Compteur de gorgées, toujours visible */}
+      {/* Compteur de gorgées, toujours visible. Dans le flux, sous la scène : en position absolue il
+          se posait sur le texte du gage dès que celui-ci prenait deux lignes. */}
       {phase !== 'intro' && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-wrap gap-4 justify-center max-w-5xl">
+        <div className="relative z-30 mt-10 flex flex-wrap gap-3 justify-center max-w-5xl">
           {participants.map((m) => (
             <div key={m.id} className="glass-card rounded-2xl px-4 py-2 bg-ink/40 flex items-center gap-2">
               <Avatar pseudo={m.pseudo} color={m.color} size={26} photoUrl={m.photoUrl} />
@@ -162,8 +163,8 @@ function FinalPodium({ members, state }: { members: Member[]; state: RussianRoul
       <p className="text-chalk-faint text-xl uppercase tracking-widest mb-4">
         Roulette russe — {state.barrelsUsed} barillet{state.barrelsUsed > 1 ? 's' : ''}
       </p>
-      <h1 className="text-6xl font-extrabold shimmer-text mb-12">🏆 Survivants</h1>
-      <div className="flex flex-col gap-4 items-center">
+      <h1 className="text-6xl font-extrabold shimmer-text mb-8">🏆 Survivants</h1>
+      <div className="ranking-list">
         {ranked.map((m, i) => (
           <PodiumRow key={m.id} rank={i} total={ranked.length} width={520} loserEmoji="🍺">
             <span className="text-2xl font-bold w-8 text-chalk-soft">{i === 0 ? '🏆' : i + 1}</span>
