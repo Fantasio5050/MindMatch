@@ -12,7 +12,10 @@
 export const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined
 export const spotifyEnabled = !!SPOTIFY_CLIENT_ID
 
-const SCOPES = 'streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state'
+// `playlist-modify-private` : en fin de soirée, la platine peut enregistrer la playlist de la soirée
+// sur le compte connecté. Un compte connecté avant cet ajout ne l'a pas : on le détecte (voir
+// `spotifyCanCreatePlaylists`) et on propose de se reconnecter, sinon on donne la liste des liens.
+const SCOPES = 'streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state playlist-modify-private'
 const TOKEN_KEY = 'mindmatch-spotify-token'
 const VERIFIER_KEY = 'mindmatch-spotify-verifier'
 const RETURN_KEY = 'mindmatch-spotify-return'
@@ -21,6 +24,8 @@ interface TokenSet {
   accessToken: string
   refreshToken: string
   expiresAt: number
+  /** Droits réellement accordés par l'utilisateur (absent sur les jetons enregistrés avant). */
+  scope?: string
 }
 
 function redirectUri(): string {
@@ -107,8 +112,8 @@ export async function handleSpotifyRedirect(): Promise<void> {
         body,
       })
       if (res.ok) {
-        const data = (await res.json()) as { access_token: string; refresh_token: string; expires_in: number }
-        writeToken({ accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: Date.now() + data.expires_in * 1000 })
+        const data = (await res.json()) as { access_token: string; refresh_token: string; expires_in: number; scope?: string }
+        writeToken({ accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: Date.now() + data.expires_in * 1000, scope: data.scope })
       }
     } catch {
       /* échec silencieux — l'utilisateur pourra réessayer */
@@ -141,11 +146,12 @@ export async function getSpotifyToken(): Promise<string | null> {
         disconnectSpotify()
         return null
       }
-      const data = (await res.json()) as { access_token: string; refresh_token?: string; expires_in: number }
+      const data = (await res.json()) as { access_token: string; refresh_token?: string; expires_in: number; scope?: string }
       t = {
         accessToken: data.access_token,
         refreshToken: data.refresh_token ?? t.refreshToken,
         expiresAt: Date.now() + data.expires_in * 1000,
+        scope: data.scope ?? t.scope,
       }
       writeToken(t)
     } catch {
@@ -276,4 +282,57 @@ export async function playSpotifyTrack(deviceId: string, trackId: string, positi
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ uris: [`spotify:track:${trackId}`], position_ms: Math.max(0, Math.round(positionMs)) }),
   }).catch(() => {})
+}
+// ---- Playlist de fin de soirée ----
+
+/** Le compte connecté a-t-il accordé le droit de créer des playlists ? */
+export function spotifyCanCreatePlaylists(): boolean {
+  return !!readToken()?.scope?.includes('playlist-modify')
+}
+
+export type PlaylistResult = { ok: true; url: string } | { ok: false; reason: 'auth' | 'scope' | 'api' }
+
+async function spotifyApi(token: string, method: string, path: string, body?: unknown): Promise<Response | null> {
+  try {
+    return await fetch(`https://api.spotify.com/v1${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Crée la playlist de la soirée sur le compte connecté de la platine.
+ *
+ * L'API a bougé en février 2026 : la création passe par `POST /me/playlists` et l'ajout de titres
+ * par `/playlists/{id}/items`. On tente ces chemins d'abord, puis les anciens
+ * (`/users/{id}/playlists`, `/playlists/{id}/tracks`) — et si rien ne passe, l'appelant retombe
+ * sur la liste des liens, qui marche toujours.
+ */
+export async function createSpotifyPlaylist(name: string, description: string, trackIds: string[]): Promise<PlaylistResult> {
+  const token = await getSpotifyToken()
+  if (!token) return { ok: false, reason: 'auth' }
+  const payload = { name, description, public: false }
+  let created = await spotifyApi(token, 'POST', '/me/playlists', payload)
+  if (created && (created.status === 404 || created.status === 405)) {
+    const me = await spotifyApi(token, 'GET', '/me')
+    const id = me?.ok ? ((await me.json()) as { id?: string }).id : null
+    created = id ? await spotifyApi(token, 'POST', `/users/${encodeURIComponent(id)}/playlists`, payload) : null
+  }
+  if (!created) return { ok: false, reason: 'api' }
+  if (created.status === 401 || created.status === 403) return { ok: false, reason: 'scope' }
+  if (!created.ok) return { ok: false, reason: 'api' }
+  const playlist = (await created.json()) as { id?: string; external_urls?: { spotify?: string } }
+  if (!playlist.id) return { ok: false, reason: 'api' }
+  const uris = trackIds.filter((id) => /^[A-Za-z0-9]{22}$/.test(id)).map((id) => `spotify:track:${id}`)
+  for (let i = 0; i < uris.length; i += 100) {
+    const chunk = { uris: uris.slice(i, i + 100) }
+    let added = await spotifyApi(token, 'POST', `/playlists/${playlist.id}/items`, chunk)
+    if (added && (added.status === 404 || added.status === 405)) added = await spotifyApi(token, 'POST', `/playlists/${playlist.id}/tracks`, chunk)
+    if (!added?.ok) return { ok: false, reason: added && (added.status === 401 || added.status === 403) ? 'scope' : 'api' }
+  }
+  return { ok: true, url: playlist.external_urls?.spotify ?? `https://open.spotify.com/playlist/${playlist.id}` }
 }

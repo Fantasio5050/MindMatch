@@ -245,7 +245,7 @@ function Platine({ code, platineKey }: { code: string; platineKey: string | null
   }
 
   if (!music) return <PlatineWaiting code={code} onQuit={quit} />
-  if (music.endedAt) return <PlatineRecap code={code} onQuit={quit} />
+  if (music.endedAt) return <PlatineRecap onQuit={quit} />
 
   const youtube = music.source === 'youtube'
   if (!youtube && !spotifyEnabled) {

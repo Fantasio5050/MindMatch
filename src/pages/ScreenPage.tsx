@@ -177,7 +177,7 @@ export function ScreenPage() {
       {!inGame && music && roomCode ? (
         <>
           <CoverBackdrop cover={music.endedAt ? music.recap?.topTracks[0]?.thumbnail : music.current?.thumbnail} strength="stage" />
-          <TvViewport>{music.endedAt ? <SoireeTvRecap code={roomCode} /> : <SoireeStage code={roomCode} />}</TvViewport>
+          <TvViewport>{music.endedAt ? <SoireeTvRecap /> : <SoireeStage code={roomCode} />}</TvViewport>
           <ReactionRain size="stage" />
         </>
       ) : (
