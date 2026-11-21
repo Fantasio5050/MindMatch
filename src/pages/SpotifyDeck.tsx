@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/Button'
 import { usePartyStore } from '../store/usePartyStore'
-import { orderedQueue, formatDuration, totalDurationMs } from '../lib/jukebox'
+import { orderedQueue, peekNext, formatDuration, totalDurationMs } from '../lib/jukebox'
 import {
   spotifyEnabled,
   isSpotifyConnected,
@@ -98,15 +98,27 @@ function fmt(ms: number): string {
 export function SpotifyDeck({ code }: { code: string }) {
   const navigate = useNavigate()
   const disconnect = usePartyStore((s) => s.disconnect)
-  const platineClaim = usePartyStore((s) => s.platineClaim)
-  const platineEnded = usePartyStore((s) => s.platineEnded)
-  const reportPosition = usePartyStore((s) => s.reportPosition)
-  const musicAction = usePartyStore((s) => s.musicAction)
+  const claimPlatine = usePartyStore((s) => s.claimPlatine)
+  const platineSend = usePartyStore((s) => s.platineSend)
+  const platineActive = usePartyStore((s) => s.platineActive)
+  const platineClaim = (id: string) => void claimPlatine({ platineId: id, kind: 'device' })
+  const platineEnded = (_id: string, trackId: string) => {
+    const session = usePartyStore.getState().group?.music
+    platineSend('ended', { trackId, nextTrackId: session ? (peekNext(session)?.id ?? null) : null })
+  }
+  const reportPosition = (pos: { positionMs: number; durationMs: number | null; isPlaying: boolean }) => {
+    const cur = usePartyStore.getState().group?.music?.current
+    if (cur) platineSend('position', { trackId: cur.id, positionMs: pos.positionMs, durationMs: pos.durationMs, playing: pos.isPlaying })
+  }
+  // La platine n'a pas de compte : elle pilote la lecture par son propre canal.
+  const musicAction = (type: string, payload?: { isPlaying?: boolean }) => {
+    if (type === 'setPlayback') platineSend('playback', { playing: !!payload?.isPlaying })
+    else if (type === 'hostSkip') platineSend('skip')
+  }
 
   const music = usePartyStore((s) => s.group?.music ?? null)
   const current = music?.current ?? null
   const isPlaying = music?.isPlaying ?? false
-  const platineOwner = music?.platineId ?? null
 
   const [platineId] = useState(makePlatineId)
   const [connected, setConnected] = useState(isSpotifyConnected())
@@ -148,7 +160,7 @@ export function SpotifyDeck({ code }: { code: string }) {
   const transitionRef = useRef(transition)
   transitionRef.current = transition
 
-  const isActive = !platineOwner || platineOwner === platineId
+  const isActive = platineActive
   const isActiveRef = useRef(isActive)
   isActiveRef.current = isActive
 
@@ -387,7 +399,7 @@ export function SpotifyDeck({ code }: { code: string }) {
       lastDurRef.current = state.duration
     }, 500)
     return () => clearInterval(id)
-  }, [ready, started, platineId, reportPosition, seeking])
+  }, [ready, started, platineId, seeking])
 
   // ---- Cleanup ----
   useEffect(() => () => {

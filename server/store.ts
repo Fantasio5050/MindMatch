@@ -5,6 +5,7 @@ import type { Group, Member, PartySession } from '../src/types'
 import { computeScores, getArchetypeId } from '../src/lib/scoring'
 import { questions } from '../src/data/questions'
 import { getGame } from './games/registry'
+import { sanitizeMusicSession } from '../src/lib/jukebox'
 
 const MEMBER_COLORS = ['#f472b6', '#60a5fa', '#fb923c', '#34d399', '#a78bfa', '#fbbf24', '#38bdf8', '#f87171']
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -189,10 +190,15 @@ function sanitizeParty(group: StoredGroup, requestingMemberId: string | null): P
 }
 
 export function sanitizeGroup(group: StoredGroup, requestingMemberId: string | null): Group {
+  const music = group.music
+  // Le secret du lien de la platine ne part que chez l'hôte (de la salle ou de la soirée).
+  const musicHost =
+    !!music && !!requestingMemberId && (group.party.hostMemberId === requestingMemberId || music.hostMemberId === requestingMemberId)
   return {
     ...group,
     members: group.members.map((m) => sanitizeMember(m, m.id === requestingMemberId)),
     party: sanitizeParty(group, requestingMemberId),
+    music: music ? sanitizeMusicSession(music, musicHost) : null,
   }
 }
 

@@ -14,6 +14,8 @@ services:
       # Recherche Spotify côté serveur (le secret ne quitte jamais le serveur) — depuis ./.env
       - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-}
       - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-}
+      # Recherche YouTube côté serveur (facultatif : sans clé, instances publiques + collage de lien)
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY:-}
     volumes:
       - ./data:/app/data
     ports:

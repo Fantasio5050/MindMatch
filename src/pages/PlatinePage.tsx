@@ -5,7 +5,7 @@ import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 import { usePartyStore } from '../store/usePartyStore'
 import { loadYouTubeApi, type YTPlayer } from '../lib/youtube'
-import { orderedQueue, formatDuration, totalDurationMs } from '../lib/jukebox'
+import { orderedQueue, peekNext, formatDuration, totalDurationMs } from '../lib/jukebox'
 import { SpotifyDeck } from './SpotifyDeck'
 
 function makePlatineId(): string {
@@ -102,16 +102,25 @@ function PlatinePlayer({ code }: { code: string }) {
   const navigate = useNavigate()
   const connectAsSpectator = usePartyStore((s) => s.connectAsSpectator)
   const disconnect = usePartyStore((s) => s.disconnect)
-  const platineClaim = usePartyStore((s) => s.platineClaim)
-  const platineEnded = usePartyStore((s) => s.platineEnded)
-  const reportPosition = usePartyStore((s) => s.reportPosition)
+  const claimPlatine = usePartyStore((s) => s.claimPlatine)
+  const platineSend = usePartyStore((s) => s.platineSend)
+  const platineActive = usePartyStore((s) => s.platineActive)
   const partyError = usePartyStore((s) => s.error)
+  const platineClaim = (id: string) => void claimPlatine({ platineId: id, kind: 'device' })
+  // La fin d'un morceau annonce le suivant que la platine a lancé (le serveur avance vers LUI).
+  const platineEnded = (_id: string, trackId: string, nextTrackId?: string | null) => {
+    const session = usePartyStore.getState().group?.music
+    platineSend('ended', { trackId, nextTrackId: nextTrackId ?? (session ? peekNext(session)?.id : null) ?? null })
+  }
+  const reportPosition = (pos: { positionMs: number; durationMs: number | null; isPlaying: boolean }) => {
+    const cur = usePartyStore.getState().group?.music?.current
+    if (cur) platineSend('position', { trackId: cur.id, positionMs: pos.positionMs, durationMs: pos.durationMs, playing: pos.isPlaying })
+  }
 
   const music = usePartyStore((s) => s.group?.music ?? null)
   const source = music?.source ?? null
   const current = music?.current ?? null
   const isPlaying = music?.isPlaying ?? false
-  const platineOwner = music?.platineId ?? null
 
   const [platineId] = useState(makePlatineId)
   const [started, setStarted] = useState(false)
@@ -147,7 +156,7 @@ function PlatinePlayer({ code }: { code: string }) {
   const tickCurrent = useRef<string | null>(null)
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const isActive = !platineOwner || platineOwner === platineId
+  const isActive = platineActive
 
   // ---- helpers audio (impératifs, pilotés par refs) ----
   function setVol(deck: number, v: number) {
@@ -212,7 +221,7 @@ function PlatinePlayer({ code }: { code: string }) {
   }
   /** Démarre un fondu enchaîné vers `nextSourceId` sur le deck inactif, et avance la file côté
    * serveur (le "en lecture" des téléphones bascule pendant que le son se croise). */
-  function startCrossfade(nextSourceId: string, ms: number) {
+  function startCrossfade(nextSourceId: string, nextTrackId: string, ms: number) {
     if (crossfading.current) return
     const session = usePartyStore.getState().group?.music
     if (!session?.current) return
@@ -224,7 +233,7 @@ function PlatinePlayer({ code }: { code: string }) {
     deckLoaded.current[to] = nextSourceId
     try { setVol(to, 0); player.loadVideoById(nextSourceId) } catch { crossfading.current = false; return }
     activeDeck.current = to
-    platineEnded(platineId, session.current.id)
+    platineEnded(platineId, session.current.id, nextTrackId)
     animateCrossfade(from, to, ms, () => {
       crossfading.current = false
       try { players.current[from]?.pauseVideo() } catch { /* pas prêt */ }
@@ -354,7 +363,7 @@ function PlatinePlayer({ code }: { code: string }) {
       if (!player || !ready.current[active]) return
       const session = usePartyStore.getState().group?.music
       if (!session) return
-      if (session.platineId && session.platineId !== platineId) return
+      if (!usePartyStore.getState().platineActive) return
       let ct = 0, dur = 0, state = -1
       try { ct = player.getCurrentTime(); dur = player.getDuration(); state = player.getPlayerState() } catch { return }
       reportPosition({ positionMs: Math.round(ct * 1000), durationMs: dur ? Math.round(dur * 1000) : null, isPlaying: state === 1 })
@@ -382,14 +391,14 @@ function PlatinePlayer({ code }: { code: string }) {
         const windowSec = Math.min(cf, dur * 0.45, dur - 1.5)
         const remaining = dur - ct
         if (windowSec > 0.5 && remaining > 0.4 && remaining <= windowSec) {
-          const next = orderedQueue(session)[0]
-          if (next) startCrossfade(next.sourceId, Math.max(1200, Math.round(windowSec * 1000)))
+          const next = peekNext(session)
+          if (next) startCrossfade(next.sourceId, next.id, Math.max(1200, Math.round(windowSec * 1000)))
         }
       }
     }, 500)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [started, platineId, reportPosition])
+  }, [started, platineId])
 
   if (partyError) {
     return (

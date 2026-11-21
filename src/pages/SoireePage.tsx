@@ -8,8 +8,8 @@ import { Avatar } from '../components/Avatar'
 import { useAppStore } from '../store/useAppStore'
 import { usePartyStore } from '../store/usePartyStore'
 import { useSound } from '../hooks/useSound'
-import { orderedQueue, skipThreshold, parseYouTubeId, youtubeThumb, formatDuration, totalDurationMs } from '../lib/jukebox'
-import { fetchYouTubeMeta, searchYouTubeHybrid, type YouTubeSearchResult } from '../lib/youtube'
+import { orderedQueue, skipStatus, anchorPosition, parseYouTubeId, youtubeThumb, formatDuration, totalDurationMs } from '../lib/jukebox'
+import { fetchYouTubeMeta, searchYouTube, type YouTubeSearchResult } from '../lib/youtube'
 import { searchSpotify, fetchAlbumTracks, fetchArtistTracks, type SpotifySearchResult } from '../lib/spotify'
 import type { Member, MusicSession, MusicTrack } from '../types'
 
@@ -47,7 +47,8 @@ export function SoireePage() {
 
   const memberById = (id: string): Member | undefined => group.members.find((m) => m.id === id)
   const queue = orderedQueue(music)
-  const threshold = skipThreshold(group.members.length)
+  const onlineIds = usePartyStore.getState().onlinePlayerIds
+  const { needed: threshold } = skipStatus(music, onlineIds, group.members.length)
   const myId = identity.memberId
 
   const handleEnd = () => {
@@ -220,7 +221,7 @@ function NowPlaying({
   onHostSkip: () => void
   onVoteSkip: () => void
 }) {
-  const musicPosition = usePartyStore((s) => s.musicPosition)
+  const serverNow = usePartyStore((s) => s.serverNow)
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 500)
@@ -237,9 +238,9 @@ function NowPlaying({
     )
   }
 
-  const durationMs = musicPosition?.durationMs ?? current.durationMs ?? null
-  const baseMs = musicPosition?.positionMs ?? 0
-  const elapsedMs = musicPosition?.isPlaying ? baseMs + (now - musicPosition.at) : baseMs
+  const durationMs = current.durationMs ?? null
+  void now
+  const elapsedMs = anchorPosition(music.anchor, serverNow(), durationMs)
   const progress = durationMs ? Math.min(1, Math.max(0, elapsedMs / durationMs)) : 0
 
   const iVoted = music.skipVotes.includes(myId)
@@ -365,7 +366,7 @@ function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type
     setSearched(true)
     setLocalError(null)
     try {
-      setResults(await searchYouTubeHybrid(query.trim()))
+      setResults(await searchYouTube(query.trim()))
     } catch {
       setResults([])
       setLocalError('Recherche indisponible pour le moment — bascule sur « Lien » et colle une URL YouTube.')

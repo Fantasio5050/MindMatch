@@ -2,12 +2,12 @@
  * Thin wrapper around the free YouTube IFrame Player API (no API key, no login needed to *play*).
  * The platine page uses this to host the actual player; phones only ever send video ids.
  *
- * Search and rich metadata are optional niceties: metadata comes from the keyless oEmbed endpoint,
- * and search only lights up when a YouTube Data API key is provided at build time
- * (VITE_YOUTUBE_API_KEY). Without a key, users add songs by pasting a link — which always works.
+ * La recherche et les métadonnées passent par NOTRE serveur (`/api/youtube/*`, voir
+ * server/youtube.ts) : clé officielle facultative, instances publiques interrogées côté serveur, et
+ * cache partagé par tous les téléphones. Le collage d'un lien, lui, ne dépend de rien.
  */
 
-import { youtubeThumb } from './jukebox'
+import { tidyYouTubeTitle, youtubeThumb } from './jukebox'
 
 export interface YTPlayer {
   playVideo(): void
@@ -77,19 +77,41 @@ export interface YouTubeMeta {
   artist: string
 }
 
-/** Keyless title/author lookup via YouTube's oEmbed endpoint. Best-effort — returns null on any
- * failure (offline, CORS, deleted video), and callers fall back to a placeholder title. */
+async function fetchWithTimeout(url: string, ms: number, signal?: AbortSignal): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), ms)
+  const onAbort = () => controller.abort()
+  signal?.addEventListener('abort', onAbort)
+  try {
+    return await fetch(url, { signal: controller.signal })
+  } finally {
+    clearTimeout(timeout)
+    signal?.removeEventListener('abort', onAbort)
+  }
+}
+
+/** Titre et chaîne d'une vidéo (lien collé). Le serveur d'abord (cache, oEmbed côté serveur), sinon
+ * l'oEmbed public directement depuis le navigateur. Best-effort : null en cas d'échec, l'appelant
+ * retombe sur un titre générique. */
 export async function fetchYouTubeMeta(videoId: string): Promise<YouTubeMeta | null> {
   try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 4000)
-    const res = await fetch(
+    const res = await fetchWithTimeout(`/api/youtube/meta?id=${encodeURIComponent(videoId)}`, 5000)
+    if (res.ok) {
+      const data = (await res.json()) as { title?: string; artist?: string }
+      if (data.title) return { title: data.title, artist: data.artist ?? '' }
+    }
+  } catch {
+    /* on tente le navigateur */
+  }
+  try {
+    const res = await fetchWithTimeout(
       `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`,
-      { signal: controller.signal },
-    ).finally(() => clearTimeout(timeout))
+      4000,
+    )
     if (!res.ok) return null
     const data = (await res.json()) as { title?: string; author_name?: string }
-    return { title: data.title ?? '', artist: data.author_name ?? '' }
+    if (!data.title) return null
+    return tidyYouTubeTitle(data.title, data.author_name ?? '')
   } catch {
     return null
   }
@@ -105,92 +127,14 @@ export interface YouTubeSearchResult {
   durationMs: number | null
 }
 
-function splitEnv(value: unknown, fallback: string[]): string[] {
-  if (typeof value !== 'string' || !value.trim()) return fallback
-  return value.split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean)
-}
-
-/** Instances publiques (open-source) qui exposent une recherche YouTube en JSON, sans clé. Ces
- * instances vont et viennent — surchargeables via VITE_PIPED_INSTANCES / VITE_INVIDIOUS_INSTANCES. */
-const PIPED_INSTANCES = splitEnv(import.meta.env.VITE_PIPED_INSTANCES, [
-  'https://pipedapi.kavin.rocks',
-  'https://pipedapi.adminforge.de',
-  'https://api.piped.private.coffee',
-])
-const INVIDIOUS_INSTANCES = splitEnv(import.meta.env.VITE_INVIDIOUS_INSTANCES, [
-  'https://invidious.fdn.fr',
-  'https://inv.nadeko.net',
-  'https://invidious.nerdvpn.de',
-])
-
-async function fetchJson(url: string, ms = 5000): Promise<unknown | null> {
-  try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), ms)
-    const res = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timeout))
-    if (!res.ok) return null
-    return await res.json()
-  } catch {
-    return null
-  }
-}
-
-interface PipedItem { url?: string; title?: string; uploaderName?: string; duration?: number; thumbnail?: string }
-async function searchViaPiped(query: string): Promise<YouTubeSearchResult[] | null> {
-  for (const base of PIPED_INSTANCES) {
-    const data = await fetchJson(`${base}/search?q=${encodeURIComponent(query)}&filter=videos`)
-    const items = (data as { items?: PipedItem[] } | null)?.items
-    if (!Array.isArray(items) || items.length === 0) continue
-    const results = items
-      .map((it): YouTubeSearchResult | null => {
-        const q = it.url?.split('?')[1]
-        const videoId = q ? new URLSearchParams(q).get('v') ?? '' : ''
-        if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return null
-        return {
-          videoId,
-          title: it.title ?? 'Vidéo YouTube',
-          artist: it.uploaderName ?? '',
-          thumbnail: it.thumbnail || youtubeThumb(videoId),
-          durationMs: typeof it.duration === 'number' && it.duration > 0 ? it.duration * 1000 : null,
-        }
-      })
-      .filter((r): r is YouTubeSearchResult => r !== null)
-    if (results.length) return results.slice(0, 15)
-  }
-  return null
-}
-
-interface InvidiousItem { videoId?: string; title?: string; author?: string; lengthSeconds?: number; videoThumbnails?: { url?: string }[] }
-async function searchViaInvidious(query: string): Promise<YouTubeSearchResult[] | null> {
-  for (const base of INVIDIOUS_INSTANCES) {
-    const data = await fetchJson(`${base}/api/v1/search?q=${encodeURIComponent(query)}&type=video`)
-    if (!Array.isArray(data) || data.length === 0) continue
-    const results = (data as InvidiousItem[])
-      .map((it): YouTubeSearchResult | null => {
-        const videoId = it.videoId ?? ''
-        if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return null
-        return {
-          videoId,
-          title: it.title ?? 'Vidéo YouTube',
-          artist: it.author ?? '',
-          thumbnail: it.videoThumbnails?.[0]?.url || youtubeThumb(videoId),
-          durationMs: typeof it.lengthSeconds === 'number' && it.lengthSeconds > 0 ? it.lengthSeconds * 1000 : null,
-        }
-      })
-      .filter((r): r is YouTubeSearchResult => r !== null)
-    if (results.length) return results.slice(0, 15)
-  }
-  return null
-}
-
-/** Official YouTube Data API search — only when a key is configured. No duration (that needs a
- * second contentDetails call), so durationMs stays null here. */
-async function searchViaOfficialApi(query: string): Promise<YouTubeSearchResult[]> {
+/** Dernier recours, seulement si une clé est fournie au build (VITE_YOUTUBE_API_KEY) : l'API
+ * officielle depuis le navigateur. Sans durée (il faudrait un second appel). */
+async function searchViaOfficialApi(query: string, signal?: AbortSignal): Promise<YouTubeSearchResult[]> {
   if (!YOUTUBE_API_KEY) throw new Error('YouTube search is not configured')
   const url =
-    `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=12` +
+    `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=12` +
     `&q=${encodeURIComponent(query)}&key=${YOUTUBE_API_KEY}`
-  const res = await fetch(url)
+  const res = await fetchWithTimeout(url, 6000, signal)
   if (!res.ok) throw new Error('La recherche YouTube a échoué.')
   const data = (await res.json()) as {
     items: { id: { videoId: string }; snippet: { title: string; channelTitle: string; thumbnails: { medium?: { url: string }; default?: { url: string } } } }[]
@@ -199,23 +143,27 @@ async function searchViaOfficialApi(query: string): Promise<YouTubeSearchResult[
     .filter((it) => it.id?.videoId)
     .map((it) => ({
       videoId: it.id.videoId,
-      title: it.snippet.title,
-      artist: it.snippet.channelTitle,
+      ...tidyYouTubeTitle(it.snippet.title, it.snippet.channelTitle),
       thumbnail: it.snippet.thumbnails.medium?.url ?? it.snippet.thumbnails.default?.url ?? youtubeThumb(it.id.videoId),
       durationMs: null,
     }))
 }
 
 /**
- * Recherche YouTube "hybride" : on tente d'abord une instance publique sans clé (Piped puis
- * Invidious), et on retombe sur l'API officielle si une clé est configurée. Les joueurs n'ont
- * ainsi jamais à coller de lien ni à configurer quoi que ce soit.
+ * Recherche YouTube : le serveur d'abord (il essaie la clé officielle puis les instances publiques,
+ * et met les réponses en cache pour toute la soirée), puis l'API officielle depuis le navigateur si
+ * une clé a été fournie au build. Sinon : erreur, et l'interface propose de coller un lien.
  */
-export async function searchYouTubeHybrid(query: string): Promise<YouTubeSearchResult[]> {
-  const piped = await searchViaPiped(query)
-  if (piped && piped.length) return piped
-  const invidious = await searchViaInvidious(query)
-  if (invidious && invidious.length) return invidious
-  if (YOUTUBE_API_KEY) return searchViaOfficialApi(query)
+export async function searchYouTube(query: string, signal?: AbortSignal): Promise<YouTubeSearchResult[]> {
+  try {
+    const res = await fetchWithTimeout(`/api/youtube/search?q=${encodeURIComponent(query)}`, 12_000, signal)
+    if (res.ok) {
+      const data = (await res.json()) as { results?: YouTubeSearchResult[] }
+      return data.results ?? []
+    }
+  } catch (e) {
+    if (signal?.aborted) throw e
+  }
+  if (YOUTUBE_API_KEY) return searchViaOfficialApi(query, signal)
   throw new Error('Recherche indisponible pour le moment — colle un lien YouTube.')
 }

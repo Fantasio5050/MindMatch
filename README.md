@@ -22,11 +22,12 @@ npm run dev:full   # frontend (Vite :5173) + API (:3001) ensemble
 
 ## Configuration optionnelle (musique)
 
-Le Mode Soirée marche **sans rien configurer** en YouTube (recherche via instances publiques, ou collage de lien). Variables facultatives (au build du frontend / sur le serveur), voir `.env.example` :
+Le Mode Soirée marche **sans rien configurer** en YouTube (recherche faite par le serveur via des instances publiques, ou collage de lien). Variables facultatives (au build du frontend / sur le serveur), voir `.env.example` :
 
 | Variable | Effet |
 | --- | --- |
-| `VITE_YOUTUBE_API_KEY` | Recherche YouTube plus fiable (sinon : instances publiques + collage de lien). |
+| `YOUTUBE_API_KEY` | Recherche YouTube plus fiable, avec les durées — côté serveur, jamais exposée (sinon : instances publiques + collage de lien). |
+| `VITE_YOUTUBE_API_KEY` | Ancien réglage côté navigateur, utilisé seulement si la recherche du serveur échoue. |
 | `VITE_SPOTIFY_CLIENT_ID` | Active Spotify côté platine (bouton « Se connecter », lecture SDK — **Premium requis**). |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Recherche Spotify côté serveur (le secret ne quitte jamais le serveur). |
 

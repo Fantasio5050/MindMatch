@@ -3,7 +3,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Database, StoredGroup, StoredMember, GameHistoryEntry } from './types'
-import type { PartyStatus } from '../src/types'
+import type { MusicSession, PartyStatus } from '../src/types'
+import { normalizeMusicSession } from '../src/lib/jukebox'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DB_PATH = process.env.MINDMATCH_DB_PATH || path.join(__dirname, 'data', 'db.sqlite3')
@@ -150,7 +151,9 @@ function rowToGroup(row: GroupRow, members: StoredMember[]): StoredGroup {
       roundData: row.party_round_data ? JSON.parse(row.party_round_data) : null,
       participantIds: JSON.parse(row.party_participant_ids),
     },
-    music: row.music ? JSON.parse(row.music) : null,
+    // Migration douce : une session du Mode Soirée enregistrée avant un nouveau champ est complétée
+    // ici, à la lecture, plutôt que par une migration de schéma (c'est un blob JSON).
+    music: row.music ? normalizeMusicSession(JSON.parse(row.music)) : null,
   }
 }
 
@@ -273,6 +276,26 @@ const writeTx = sqlite.transaction((db: Database) => {
 
 export function writeDb(db: Database): void {
   writeTx(db)
+}
+
+const selectMusic = sqlite.prepare('SELECT music FROM groups WHERE id = ?')
+const updateMusic = sqlite.prepare('UPDATE groups SET music = ? WHERE id = ?')
+
+/**
+ * Lecture / écriture de la SEULE session musicale d'un groupe.
+ *
+ * Le battement de la platine (position de lecture) et les réactions arrivent plusieurs fois par
+ * minute : relire puis réécrire tout le groupe — membres et photos compris — pour changer quelques
+ * octets de la colonne `music` serait du gâchis. Tout est synchrone (better-sqlite3) : aucune action
+ * ne peut s'intercaler entre la lecture et l'écriture.
+ */
+export function readMusic(groupId: string): MusicSession | null {
+  const row = selectMusic.get(groupId) as { music: string | null } | undefined
+  return row?.music ? normalizeMusicSession(JSON.parse(row.music)) : null
+}
+
+export function writeMusic(groupId: string, music: MusicSession | null): void {
+  updateMusic.run(music ? JSON.stringify(music) : null, groupId)
 }
 
 const deleteMemberStmt = sqlite.prepare('DELETE FROM members WHERE id = ?')

@@ -3,7 +3,18 @@ import type { Server as HttpServer } from 'node:http'
 import { readDb } from './db'
 import { findAuthorizedMember, sanitizeGroup, isApiError, kickMember } from './store'
 import { startGame, submitAction, hostAdvance, endGame, setAdultMode } from './party'
-import { startMusic, stopMusic, musicAction, claimPlatine, platineTrackEnded } from './music'
+import {
+  startMusic,
+  stopMusic,
+  musicAction,
+  claimPlatine,
+  platineEvent,
+  platineStatus,
+  releasePlatineSocket,
+  recheckSkip,
+  type MusicResult,
+} from './music'
+import { readMusic } from './db'
 import { EMOTES } from '../src/data/emotes'
 import type { MusicSource } from '../src/types'
 
@@ -42,10 +53,25 @@ function guarded<A extends unknown[]>(socket: PartySocket, event: string, handle
   }
 }
 
+/** Réponse d'accusé de réception d'un événement (`socket.emit(…, payload, ack)`), facultative. */
+type Ack = ((response: unknown) => void) | undefined
+
 export function attachRealtime(httpServer: HttpServer): { broadcastRoom: (groupId: string) => void } {
   const io = new Server<AnyHandlerMap, AnyHandlerMap, Record<string, never>, SocketData>(httpServer, {
     cors: { origin: '*' },
   })
+
+  function onlineMemberIds(groupId: string): string[] {
+    const room = io.sockets.adapter.rooms.get(groupId)
+    const ids = new Set<string>()
+    if (room) {
+      for (const socketId of room) {
+        const memberId = io.sockets.sockets.get(socketId)?.data.memberId
+        if (memberId) ids.add(memberId)
+      }
+    }
+    return Array.from(ids)
+  }
 
   function broadcastRoom(groupId: string): void {
     const room = io.sockets.adapter.rooms.get(groupId)
@@ -53,20 +79,49 @@ export function attachRealtime(httpServer: HttpServer): { broadcastRoom: (groupI
     const group = readDb({ groupId }).groups[0]
     if (!group) return
 
-    const onlinePlayerIds = new Set<string>()
-    for (const socketId of room) {
-      const memberId = io.sockets.sockets.get(socketId)?.data.memberId
-      if (memberId) onlinePlayerIds.add(memberId)
-    }
+    const onlinePlayerIds = onlineMemberIds(groupId)
+    // L'état vivant de la platine (en ligne ou non) et l'horloge serveur, qui permet à chaque appareil
+    // d'extrapoler la position de lecture ancrée sans que la platine la diffuse en continu.
+    const platine = platineStatus(groupId)
+    const serverNow = Date.now()
 
     for (const socketId of room) {
       const socket = io.sockets.sockets.get(socketId)
       if (!socket) continue
       socket.emit('room:update', {
         group: sanitizeGroup(group, socket.data.memberId),
-        onlinePlayerIds: Array.from(onlinePlayerIds),
+        onlinePlayerIds,
+        platine,
+        serverNow,
       })
     }
+  }
+
+  /** Applique le résultat d'une opération du Mode Soirée : diffusion, réaction, platine délogée. */
+  function settleMusic(socket: PartySocket, groupId: string, result: MusicResult, ack: Ack): void {
+    if (isApiError(result)) {
+      if (typeof ack === 'function') ack({ ok: false, error: result.error })
+      else socket.emit('party:error', { error: result.error })
+      return
+    }
+    if (result.displacedSocketId && result.displacedSocketId !== socket.id) {
+      io.sockets.sockets.get(result.displacedSocketId)?.emit('music:platine-released')
+    }
+    if (result.broadcast === 'room') broadcastRoom(groupId)
+    else if (result.broadcast === 'anchor') {
+      // Battement de la platine : seule l'ancre voyage, pas l'état complet de la salle.
+      const music = readMusic(groupId)
+      if (music?.current) {
+        io.to(groupId).emit('music:anchor', {
+          trackId: music.current.id,
+          anchor: music.anchor,
+          durationMs: music.current.durationMs,
+          serverNow: Date.now(),
+        })
+      }
+    }
+    if (result.reaction) io.to(groupId).emit('music:reaction', result.reaction)
+    if (typeof ack === 'function') ack({ ok: true, trackId: result.trackId })
   }
 
   io.on('connection', (socket: PartySocket) => {
@@ -85,37 +140,26 @@ export function attachRealtime(httpServer: HttpServer): { broadcastRoom: (groupI
       socket.join(group.id)
       broadcastRoom(group.id)
 
-      // Platine (jukebox playback device): a read-only spectator page can claim the single
-      // playback-authority role and report when a track ends, so the server advances the queue.
-      socket.on('music:platine', guarded(socket, 'music:platine', (payload: { type?: string; platineId?: string; trackId?: string }) => {
-        const platineId = payload?.platineId
-        if (!platineId) return
-        const result =
-          payload?.type === 'claim'
-            ? claimPlatine(group.id, platineId)
-            : payload?.type === 'ended'
-              ? platineTrackEnded(group.id, platineId, payload?.trackId ?? '')
-              : null
-        if (!result) return
-        if (isApiError(result)) {
-          socket.emit('party:error', { error: result.error })
-          return
-        }
-        broadcastRoom(group.id)
+      // Platine (jukebox playback device) : une page spectatrice (`/platine` ou la TV) peut revendiquer
+      // le rôle d'unique lecteur. Il est lié à CETTE connexion : seule elle peut ensuite signaler une fin
+      // de morceau, une position ou une pause (voir server/music.ts).
+      socket.on('music:platine', guarded(socket, 'music:platine', (payload: { type?: string } & Record<string, unknown>, ack?: Ack) => {
+        const type = payload?.type ?? ''
+        const result = type === 'claim'
+          ? claimPlatine(group.id, socket.id, payload as { platineId?: unknown; key?: unknown; kind?: unknown })
+          : platineEvent(group.id, socket.id, type, payload)
+        settleMusic(socket, group.id, result, ack)
       }))
 
-      // Live playback position — pure ambiance for the phones' now-playing bar, so it's a
-      // fire-and-forget broadcast (no db write, no full room snapshot) like the emotes.
-      socket.on('music:position', guarded(socket, 'music:position', (payload: { positionMs?: number; durationMs?: number; isPlaying?: boolean }) => {
-        io.to(group.id).emit('music:position', {
-          positionMs: typeof payload?.positionMs === 'number' ? payload.positionMs : 0,
-          durationMs: typeof payload?.durationMs === 'number' ? payload.durationMs : null,
-          isPlaying: !!payload?.isPlaying,
-        })
+      // La platine qui tombe (onglet fermé, réseau coupé) libère sa place : tout le monde le voit, et
+      // une autre platine — ou la même, à son retour — peut reprendre.
+      socket.on('disconnect', guarded(socket, 'disconnect', () => {
+        const released = releasePlatineSocket(socket.id)
+        if (released) broadcastRoom(released)
       }))
 
       // Où en est l'animation de la TV dans les événements de la partie : les téléphones attendent
-      // que le pion ait atterri à l'écran pour dévoiler la case. Relais pur, comme la position.
+      // que le pion ait atterri à l'écran pour dévoiler la case. Relais pur, comme les émotes.
       socket.on('screen:progress', guarded(socket, 'screen:progress', (payload: { game?: string; seq?: number }) => {
         const game = typeof payload?.game === 'string' ? payload.game.slice(0, 40) : ''
         const seq = Number(payload?.seq)
@@ -238,37 +282,29 @@ export function attachRealtime(httpServer: HttpServer): { broadcastRoom: (groupI
     }))
 
     // ---- Mode Soirée (jukebox) ----
-    socket.on('music:start', guarded(socket, 'music:start', (payload: { source?: string }) => {
+    socket.on('music:start', guarded(socket, 'music:start', (payload: { source?: string }, ack?: Ack) => {
       if (!socket.data.memberId) return
       const result = startMusic(groupId, socket.data.memberId, memberToken, (payload?.source ?? 'youtube') as MusicSource)
-      if (isApiError(result)) {
-        socket.emit('party:error', { error: result.error })
-        return
-      }
-      broadcastRoom(groupId)
+      settleMusic(socket, groupId, result, ack)
     }))
 
-    socket.on('music:stop', guarded(socket, 'music:stop', () => {
+    socket.on('music:stop', guarded(socket, 'music:stop', (_payload?: unknown, ack?: Ack) => {
       if (!socket.data.memberId) return
       const result = stopMusic(groupId, socket.data.memberId, memberToken)
-      if (isApiError(result)) {
-        socket.emit('party:error', { error: result.error })
-        return
-      }
-      broadcastRoom(groupId)
+      settleMusic(socket, groupId, result, ack)
     }))
 
-    socket.on('music:action', guarded(socket, 'music:action', (payload: { type?: string; payload?: unknown }) => {
+    socket.on('music:action', guarded(socket, 'music:action', (payload: { type?: string; payload?: unknown }, ack?: Ack) => {
       if (!socket.data.memberId) return
-      const result = musicAction(groupId, socket.data.memberId, memberToken, payload?.type ?? '', payload?.payload)
-      if (isApiError(result)) {
-        socket.emit('party:error', { error: result.error })
-        return
-      }
-      broadcastRoom(groupId)
+      const result = musicAction(groupId, socket.data.memberId, memberToken, payload?.type ?? '', payload?.payload, {
+        onlineIds: onlineMemberIds(groupId),
+      })
+      settleMusic(socket, groupId, result, ack)
     }))
 
     socket.on('disconnect', guarded(socket, 'disconnect', () => {
+      // Un votant de moins : le seuil du vote pour passer suit la salle connectée.
+      recheckSkip(groupId, onlineMemberIds(groupId), readDb({ groupId }).groups[0]?.members.length ?? 0)
       broadcastRoom(groupId)
     }))
   })
