@@ -74,6 +74,14 @@ async function firstWhere(pages: Page[], predicate: (p: Page) => Promise<boolean
 }
 
 test.describe('Nouveaux jeux — jouables et étanches', () => {
+  // Chaque table ouvre plusieurs pages qui restent connectées : minuteurs de jeu (« Histoire à un
+  // mot » enchaîne ses tours toute seule), scènes 3D de la TV. Sans fermeture, elles tournent pendant
+  // tous les tests suivants et finissent par affamer le navigateur — une carte d'UNO ne passait plus
+  // jamais « stable » et le clic expirait.
+  test.afterEach(async ({ browser }) => {
+    await Promise.all(browser.contexts().map((c) => c.close()))
+  })
+
   test('Histoire à un mot : un seul joueur écrit, l’histoire s’affiche en direct', async ({ browser }) => {
     const t = await openTable(browser, ['Hote', 'J2', 'J3'])
     await launch(t, 'One Word Story')
@@ -145,7 +153,15 @@ test.describe('Nouveaux jeux — jouables et étanches', () => {
       const playable = p.locator('[data-testid="uno-card"][data-playable="true"]')
       if (await playable.count()) {
         // La main se chevauche : on touche la tranche visible de la carte, comme un doigt.
-        await playable.first().click({ position: { x: 12, y: 40 } })
+        // La carte qu'on vient de poser s'efface encore (animation de sortie) en gardant un instant
+        // `data-playable` : après un +2 à deux joueurs, la main revient aussitôt et le clic pouvait la
+        // viser, la voir disparaître, puis attendre jusqu'à l'expiration du test. Un clic raté ne
+        // bloque plus la boucle : le tour suivant regarde la main à jour.
+        const ok = await playable
+          .first()
+          .click({ position: { x: 12, y: 40 }, timeout: 3000 })
+          .then(() => true, () => false)
+        if (!ok) continue
         if ((await bodyText(p)).includes('Quelle couleur')) {
           await p.getByRole('button', { name: /^Bleu$/ }).click()
         }

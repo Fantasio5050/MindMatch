@@ -75,7 +75,7 @@ export function TvPlatine() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[min(92vw,34rem)]"
+            className="fixed bottom-6 left-6 z-50 w-[min(calc(100vw-3rem),34rem)]"
           >
             <Surface level="floating" className="!p-5 flex items-center gap-4">
               <IconSpeaker size={30} className="text-spark shrink-0" />
