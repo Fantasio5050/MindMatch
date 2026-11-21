@@ -121,3 +121,56 @@ test('Mode Soirée : platine, ajouts par lien, réaction, vote pour passer, mode
 
   expect(errors).toEqual([])
 })
+
+test('Mode Soirée : son bloqué par le navigateur — la vidéo se montre, un appui la lance, rien n’est sauté', async ({ browser }) => {
+  test.setTimeout(90_000)
+  const errors: string[] = []
+  const host = await phone(browser, errors, 'Hote')
+  await host.goto('/')
+  await host.getByRole('button', { name: /Créer un groupe/ }).click()
+  await host.getByPlaceholder('Les Inséparables').fill('E2E Son bloqué')
+  await host.getByPlaceholder('Alex').fill('Hote')
+  await host.getByRole('button', { name: /Créer et commencer/ }).click()
+  await host.waitForURL(/\/lobby/)
+  const code = ((await host.locator('span[class*="tracking-[0.2em]"]').first().textContent()) ?? '').trim()
+  await host.getByRole('button', { name: 'Lancer le Mode Soirée' }).click()
+  await host.getByRole('button', { name: /YouTube/ }).click()
+  await host.waitForURL(/\/soiree/)
+
+  // Un téléphone sert de platine, et son navigateur refuse le son tant qu'on n'a pas touché la vidéo.
+  const platineCtx = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  await installFakeYouTube(platineCtx, { blocked: true })
+  const platine = await platineCtx.newPage()
+  platine.on('pageerror', (e) => {
+    if (!NOISE.test(e.message)) errors.push(`[platine] ${e.message}`)
+  })
+  await platine.goto(`/#/platine/${code}`)
+  await platine.getByRole('button', { name: /Démarrer la platine/ }).click()
+  await expect(platine.getByText('Le son sort ici')).toBeVisible()
+
+  await addByLink(host, `https://youtu.be/${FIRST}`)
+  await addByLink(host, `https://www.youtube.com/watch?v=${SECOND}`)
+  await host.getByRole('button', { name: /^En cours$/ }).click()
+  await expect(host.getByRole('heading', { name: 'Morceau un' })).toBeVisible()
+
+  // Le lecteur, caché en mode pochette, passe au premier plan avec la consigne…
+  const hint = platine.getByText('Touche la vidéo pour lancer le son')
+  await expect(hint).toBeVisible({ timeout: 8000 })
+  // … et le morceau n'est PAS pris pour cassé : toujours là après le délai du chien de garde.
+  await platine.waitForTimeout(13_000)
+  await expect(host.getByRole('heading', { name: 'Morceau un' })).toBeVisible()
+
+  // L'appui sur la vidéo lance le son, la consigne disparaît.
+  await platine.locator(`[data-fake-yt][data-video="${FIRST}"]`).click()
+  await expect(platine.locator(`[data-fake-yt][data-video="${FIRST}"][data-state="1"]`)).toHaveCount(1)
+  await expect(hint).toBeHidden()
+
+  // Fin du morceau : le second lecteur, jamais touché, reste bloqué. La platine se replie sur le
+  // lecteur débloqué, qui enchaîne le suivant sans rien demander.
+  await platine.evaluate('window.__ytPlayers.filter((p) => p.state === 1).forEach((p) => { p.t = p.dur - 6 })')
+  await expect(host.getByRole('heading', { name: 'Morceau deux' })).toBeVisible({ timeout: 15_000 })
+  await expect(platine.locator(`[data-fake-yt][data-video="${SECOND}"][data-state="1"]`)).toHaveCount(1, { timeout: 10_000 })
+  await expect(hint).toBeHidden()
+
+  expect(errors).toEqual([])
+})
