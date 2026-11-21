@@ -250,3 +250,26 @@ export async function spotifyAlbumTracksHandler(req: Request, res: Response): Pr
   }
   res.json({ tracks: (data.items ?? []).filter((t) => t?.id).map(mapTrackItem) })
 }
+
+// ---- Un titre (lien collé) ------------------------------------------------------
+//
+// Un lien `open.spotify.com/track/…` collé sur un téléphone : on retrouve titre, artiste, pochette
+// et durée. L'endpoint d'un titre seul existe toujours (seuls les appels groupés ont disparu).
+
+export async function spotifyTrackHandler(req: Request, res: Response): Promise<void> {
+  const id = typeof req.query.id === 'string' ? req.query.id.trim() : ''
+  if (!/^[A-Za-z0-9]{22}$/.test(id)) {
+    res.status(400).json({ error: 'Identifiant Spotify invalide.' })
+    return
+  }
+  if (!spotifyConfigured) {
+    res.status(503).json({ error: 'Spotify non disponible.' })
+    return
+  }
+  const data = await cached(`track:${id}`, () => spotifyGet<SpotifyApiTrack>('track', `https://api.spotify.com/v1/tracks/${id}?market=FR`))
+  if (!data?.id) {
+    res.status(404).json({ error: 'Titre introuvable.' })
+    return
+  }
+  res.json(mapTrackItem(data))
+}

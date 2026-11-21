@@ -1,755 +1,237 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
+import clsx from 'clsx'
 import { PageTransition } from '../components/PageTransition'
-import { Card } from '../components/Card'
-import { Button } from '../components/Button'
-import { Avatar } from '../components/Avatar'
 import { useAppStore } from '../store/useAppStore'
 import { usePartyStore } from '../store/usePartyStore'
 import { useSound } from '../hooks/useSound'
-import { orderedQueue, skipStatus, anchorPosition, parseYouTubeId, youtubeThumb, formatDuration, totalDurationMs } from '../lib/jukebox'
-import { fetchYouTubeMeta, searchYouTube, type YouTubeSearchResult } from '../lib/youtube'
-import { searchSpotify, fetchAlbumTracks, fetchArtistTracks, type SpotifySearchResult } from '../lib/spotify'
-import type { Member, MusicSession, MusicTrack } from '../types'
+import { formatEta, orderedQueue, ordinal, queueEtas } from '../lib/jukebox'
+import { IconAlert, IconArrowLeft, IconCheck } from '../components/icons'
+import { CoverBackdrop } from '../soiree/ui'
+import { ReactionRain } from '../soiree/reactions'
+import { FeedTicker, GameBanner, PlatineAlert } from '../soiree/widgets'
+import { useIsMusicHost } from '../soiree/hooks'
+import { platineUrl } from '../soiree/links'
+import { NowTab } from '../soiree/phone/NowTab'
+import { AddTab } from '../soiree/phone/AddTab'
+import { QueueTab } from '../soiree/phone/QueueTab'
+import { HostTab } from '../soiree/phone/HostTab'
+import { SoireeRecap } from '../soiree/Recap'
 
+type Tab = 'now' | 'add' | 'queue' | 'host'
+
+interface Toast {
+  id: number
+  text: string
+  tone: 'ok' | 'error'
+}
+
+/**
+ * Mode Soirée, côté téléphone : la fenêtre de chacun sur la platine partagée.
+ *
+ * Quatre onglets — « En cours » (ce qui tourne, réagir, voter), « Ajouter » (recherche au fil de la
+ * frappe, lien collé), « File » (l'ordre de passage, mes morceaux, l'historique) et, pour l'hôte,
+ * « Régie » (la platine pilotée à distance). Au-dessus, en permanence : l'alerte si la platine ne
+ * répond plus, la partie en cours s'il y en a une, et le fil d'activité — un fait à la fois.
+ */
 export function SoireePage() {
   const navigate = useNavigate()
   const identity = useAppStore((s) => s.identity)
-  const leaveGroup = useAppStore((s) => s.leaveGroup)
   const connectAsPlayer = usePartyStore((s) => s.connectAsPlayer)
-  const disconnect = usePartyStore((s) => s.disconnect)
-  const stopMusic = usePartyStore((s) => s.stopMusic)
-  const musicAction = usePartyStore((s) => s.musicAction)
-  const isHost = usePartyStore((s) => s.isHost())
   const group = usePartyStore((s) => s.group)
   const music = usePartyStore((s) => s.group?.music ?? null)
-  const partyError = usePartyStore((s) => s.error)
-  const clearError = usePartyStore((s) => s.clearError)
+  const musicError = usePartyStore((s) => s.musicError)
+  const clearMusicError = usePartyStore((s) => s.clearMusicError)
+  const musicAction = usePartyStore((s) => s.musicAction)
+  const isHost = useIsMusicHost()
   const { play } = useSound()
+  const [tab, setTab] = useState<Tab>('now')
+  const [toast, setToast] = useState<Toast | null>(null)
+  const toastTimer = useRef<number | null>(null)
 
   useEffect(() => {
     connectAsPlayer()
   }, [connectAsPlayer])
 
-  // Le mode soirée s'est terminé (l'hôte a coupé) -> retour au salon.
+  // L'hôte a refermé la soirée → retour au salon.
   useEffect(() => {
     if (group && !music) navigate('/lobby')
   }, [group, music, navigate])
 
+  // Une partie démarre pendant la soirée : comme depuis le salon, tout le monde la rejoint (la
+  // musique, elle, continue). Seulement au DÉMARRAGE : venir ici en pleine partie reste possible.
+  const status = group?.party.status
+  const prevStatus = useRef(status)
+  useEffect(() => {
+    if (prevStatus.current && prevStatus.current !== 'playing' && status === 'playing') navigate('/play')
+    prevStatus.current = status
+  }, [status, navigate])
+
+  const showToast = (text: string, tone: Toast['tone'] = 'ok') => {
+    setToast({ id: Date.now(), text, tone })
+    if (toastTimer.current) window.clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(null), 3800)
+  }
+
+  useEffect(() => {
+    if (!musicError) return
+    setToast({ id: Date.now(), text: musicError, tone: 'error' })
+    if (toastTimer.current) window.clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(null), 3800)
+    clearMusicError()
+  }, [musicError, clearMusicError])
+
+  useEffect(
+    () => () => {
+      if (toastTimer.current) window.clearTimeout(toastTimer.current)
+    },
+    [],
+  )
+
+  // Un non-hôte n'a pas de régie (l'hôte a pu changer).
+  useEffect(() => {
+    if (tab === 'host' && !isHost) setTab('now')
+  }, [tab, isHost])
+
   if (!identity || !group || !music) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <p className="text-chalk-faint text-sm">Connexion au mode soirée…</p>
+        <p className="text-chalk-faint text-sm">On rejoint la platine…</p>
       </div>
     )
   }
 
-  const memberById = (id: string): Member | undefined => group.members.find((m) => m.id === id)
-  const queue = orderedQueue(music)
-  const onlineIds = usePartyStore.getState().onlinePlayerIds
-  const { needed: threshold } = skipStatus(music, onlineIds, group.members.length)
-  const myId = identity.memberId
+  if (music.endedAt) return <SoireeRecap />
 
-  const handleEnd = () => {
-    play('pop')
-    stopMusic()
+  /** « Ajouté — passe dans ~8 min (3ᵉ) » : où atterrit le morceau qu'on vient d'ajouter. */
+  const onAdded = (trackId: string) => {
+    const st = usePartyStore.getState()
+    const m = st.group?.music
+    if (!m) return
+    if (m.current?.id === trackId) return showToast('Ajouté — ça joue maintenant')
+    const idx = orderedQueue(m).findIndex((t) => t.id === trackId)
+    if (idx < 0) return showToast('Ajouté')
+    const eta = queueEtas(m, st.serverNow())[trackId] ?? 0
+    showToast(idx === 0 ? `Ajouté — c’est le prochain, ${formatEta(eta)}` : `Ajouté — passe ${formatEta(eta)} (${ordinal(idx + 1)})`)
   }
-  const handleLeaveRoom = () => {
-    play('pop')
-    disconnect()
-    leaveGroup()
-    navigate('/')
-  }
-  const openPlatine = () => {
-    const url = `${window.location.origin}${window.location.pathname}#/platine/${group.code}`
-    window.open(url, '_blank')
-  }
+
+  const tabs: { key: Tab; label: string; badge?: number }[] = [
+    { key: 'now', label: 'En cours' },
+    { key: 'add', label: 'Ajouter' },
+    { key: 'queue', label: 'File', badge: music.queue.length },
+    ...(isHost ? [{ key: 'host' as const, label: 'Régie' }] : []),
+  ]
+  const openPlatine = () => window.open(platineUrl(group.code, music.platineKey), '_blank')
 
   return (
-    <PageTransition>
-      <div className="px-5 pt-8 pb-16 safe-top max-w-lg mx-auto">
-        {/* Stats : combien de morceaux chaque joueur a fait passer */}
-        {Object.keys(music.playedCounts).length > 0 && (
-          <div className="flex flex-wrap gap-2 justify-center mb-4">
-            {group.members
-              .filter(m => music.playedCounts[m.id])
-              .sort((a, b) => (music.playedCounts[b.id] ?? 0) - (music.playedCounts[a.id] ?? 0))
-              .map(m => (
-                <div key={m.id} className="flex items-center gap-1.5 rounded-full bg-felt-raised border border-line px-2.5 py-1">
-                  <Avatar pseudo={m.pseudo} color={m.color} size={16} photoUrl={m.photoUrl} />
-                  <span className="text-[11px] text-chalk-soft">{m.pseudo}</span>
-                  <span className="text-[11px] font-mono text-emerald-300/80">{music.playedCounts[m.id] ?? 0}</span>
-                </div>
-              ))}
-          </div>
-        )}
-
-        <div className="text-center mb-5">
-          <p className="text-xs uppercase tracking-widest text-chalk-faint">Mode Soirée</p>
-          <h1 className="text-3xl font-extrabold shimmer-text mb-1">🎶 La platine partagée</h1>
-          <p className="text-sm text-chalk-soft">
-            Salle <span className="font-bold tracking-widest text-chalk-muted">{group.code}</span> · file équitable
-          </p>
-          <div className="flex items-center justify-center gap-2 mt-3">
-            {isHost ? (
+    <>
+      <CoverBackdrop cover={music.current?.thumbnail} />
+      <PageTransition>
+        <div className="relative z-10 min-h-svh">
+          {/* L'en-tête reste en place au défilement ; le coin droit est celui des réglages audio. */}
+          <header className="sticky top-0 z-20 bg-ink/90 border-b border-line safe-top">
+            <div className="flex items-center gap-2 pl-4 pr-16 pt-3">
               <button
-                onClick={handleEnd}
-                className="rounded-full bg-pink-500/12 border border-pink-400/30 px-4 py-2 text-xs font-semibold text-pink-200/90 active:bg-pink-500/25"
+                onClick={() => {
+                  play('pop')
+                  navigate('/lobby')
+                }}
+                className="flex items-center gap-1.5 rounded-chip bg-felt-raised border border-line px-3 h-9 text-chalk-muted text-sm shrink-0"
               >
-                ⏹ Terminer la soirée
+                <IconArrowLeft size={15} />
+                Salon
               </button>
-            ) : (
-              <span className="text-xs text-chalk-faint">L'hôte gère la platine</span>
-            )}
-            <button
-              onClick={handleLeaveRoom}
-              className="rounded-full bg-felt-raised border border-line px-4 py-2 text-xs font-semibold text-chalk-soft active:bg-felt-raised"
-            >
-              🚪 Quitter
-            </button>
-          </div>
-        </div>
-
-        {partyError && (
-          <Card className="mb-4 border-pink-500/40">
-            <p className="text-sm text-pink-300">{partyError}</p>
-            <button onClick={clearError} className="text-xs text-chalk-faint mt-1">Fermer</button>
-          </Card>
-        )}
-
-        <NowPlaying
-          music={music}
-          isHost={isHost}
-          myId={myId}
-          threshold={threshold}
-          addedBy={music.current ? memberById(music.current.addedById) : undefined}
-          onTogglePlay={() => musicAction('setPlayback', { isPlaying: !music.isPlaying })}
-          onHostSkip={() => { play('pop'); musicAction('hostSkip') }}
-          onVoteSkip={() => { play('pop'); musicAction('voteSkip') }}
-        />
-
-        <AddSong source={music.source} onAdd={musicAction} />
-
-        {/* File d'attente */}
-        <div className="flex items-baseline justify-between mt-6 mb-2 px-1">
-          <h3 className="text-sm font-bold text-chalk-muted">
-            À suivre ({queue.length}{totalDurationMs(queue) > 0 ? ` · ${formatDuration(totalDurationMs(queue))}` : ''})
-          </h3>
-          <span className="text-[10px] text-chalk-faint">▲ = fais monter dans la file</span>
-        </div>
-        <div className="flex flex-col gap-2">
-          <AnimatePresence initial={false}>
-            {queue.map((track, i) => (
-              <QueueRow
-                key={track.id}
-                track={track}
-                rank={i + 1}
-                addedBy={memberById(track.addedById)}
-                myId={myId}
-                isHost={isHost}
-                onBump={() => { play('tick'); musicAction('bump', { trackId: track.id }) }}
-                onRemove={() => { play('pop'); musicAction('remove', { trackId: track.id }) }}
-              />
-            ))}
-          </AnimatePresence>
-          {queue.length === 0 && (
-            <p className="text-center text-chalk-faint text-sm py-6">
-              File vide — ajoute une musique, elle passera juste après. 🎵
-            </p>
-          )}
-        </div>
-
-        {/* Historique des morceaux joués */}
-        {music.history.length > 0 && (
-          <div className="mt-6">
-            <h3 className="text-sm font-bold text-chalk-muted mb-2 px-1">Récemment joués</h3>
-            <div className="flex flex-col gap-1.5">
-              {music.history.slice(0, 5).map((track, i) => {
-                const adder = memberById(track.addedById)
-                return (
-                  <div key={track.id + '-' + i} className="flex items-center gap-2.5 rounded-xl bg-felt-sunken/60 border border-line/60 p-1.5 opacity-70">
-                    {track.thumbnail ? (
-                      <img src={track.thumbnail} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0 grayscale" />
-                    ) : (
-                      <div className="w-9 h-9 rounded-lg bg-felt-raised flex items-center justify-center shrink-0 text-xs">🎵</div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs truncate">{track.title}</p>
-                      <p className="text-[10px] text-chalk-faint truncate">{track.artist}{adder ? ` · ${adder.pseudo}` : ''}</p>
-                    </div>
-                    <span className="text-[10px] text-chalk-faint shrink-0">✓</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Rappel platine */}
-        <Card className="mt-6 text-center" delay={0.1}>
-          <p className="text-sm font-semibold mb-1">🔊 La platine (lecture du son)</p>
-          <p className="text-xs text-chalk-soft mb-3">
-            Sur l'appareil branché à l'enceinte, ouvre la <b>platine</b> avec le code <b>{group.code}</b>.
-            C'est elle qui joue la musique — les téléphones ne font qu'alimenter la file.
-          </p>
-          <Button variant="secondary" fullWidth onClick={openPlatine} className="!py-2.5 text-sm">
-            Ouvrir la platine (nouvel onglet)
-          </Button>
-        </Card>
-      </div>
-    </PageTransition>
-  )
-}
-
-function NowPlaying({
-  music,
-  isHost,
-  myId,
-  threshold,
-  addedBy,
-  onTogglePlay,
-  onHostSkip,
-  onVoteSkip,
-}: {
-  music: MusicSession
-  isHost: boolean
-  myId: string
-  threshold: number
-  addedBy: Member | undefined
-  onTogglePlay: () => void
-  onHostSkip: () => void
-  onVoteSkip: () => void
-}) {
-  const serverNow = usePartyStore((s) => s.serverNow)
-  const [now, setNow] = useState(Date.now())
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 500)
-    return () => clearInterval(id)
-  }, [])
-
-  const current = music.current
-  if (!current) {
-    return (
-      <Card className="text-center py-8">
-        <span className="text-4xl">🎵</span>
-        <p className="text-chalk-soft text-sm mt-2">Aucune musique en lecture — ajoute la première !</p>
-      </Card>
-    )
-  }
-
-  const durationMs = current.durationMs ?? null
-  void now
-  const elapsedMs = anchorPosition(music.anchor, serverNow(), durationMs)
-  const progress = durationMs ? Math.min(1, Math.max(0, elapsedMs / durationMs)) : 0
-
-  const iVoted = music.skipVotes.includes(myId)
-
-  return (
-    <Card className="overflow-hidden">
-      <div className="flex gap-3">
-        {current.thumbnail ? (
-          <img src={current.thumbnail} alt="" className="w-20 h-20 rounded-xl object-cover shrink-0" />
-        ) : (
-          <div className="w-20 h-20 rounded-xl bg-felt-raised flex items-center justify-center text-2xl shrink-0">🎵</div>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] uppercase tracking-widest text-emerald-300/80 mb-0.5">● En lecture</p>
-          <p className="font-bold leading-tight line-clamp-2">{current.title}</p>
-          {current.artist && <p className="text-chalk-soft text-xs truncate">{current.artist}</p>}
-          {addedBy && (
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <Avatar pseudo={addedBy.pseudo} color={addedBy.color} size={18} photoUrl={addedBy.photoUrl} />
-              <span className={`text-[11px] ${addedBy.id === myId ? 'text-emerald-300 font-semibold' : 'text-chalk-faint'}`}>
-                {addedBy.id === myId ? '★ ajoutée par toi' : `ajoutée par ${addedBy.pseudo}`}
+              <div className="min-w-0 flex-1 pl-1">
+                <p className="kicker text-2xs leading-none">Mode Soirée</p>
+                <p className="font-display text-lg text-chalk leading-tight truncate">La platine</p>
+              </div>
+              <span className="shrink-0 rounded-chip border border-line px-2.5 h-7 flex items-center text-2xs font-semibold tracking-[0.18em] text-brass">
+                {group.code}
               </span>
             </div>
-          )}
-        </div>
-      </div>
-
-      {durationMs != null && (
-        <div className="mt-3 h-1.5 rounded-full bg-felt-raised overflow-hidden">
-          <div className="h-full bg-fuchsia-400/80" style={{ width: `${progress * 100}%` }} />
-        </div>
-      )}
-
-      <div className="flex items-center gap-2 mt-3">
-        {isHost && (
-          <>
-            <button
-              onClick={onTogglePlay}
-              className="rounded-full bg-felt-raised border border-line-strong h-10 px-4 text-sm font-semibold active:bg-felt-raised"
-            >
-              {music.isPlaying ? '⏸ Pause' : '▶ Lecture'}
-            </button>
-            <button
-              onClick={onHostSkip}
-              className="rounded-full bg-felt-raised border border-line-strong h-10 px-4 text-sm font-semibold active:bg-felt-raised"
-            >
-              ⏭ Passer
-            </button>
-          </>
-        )}
-        <button
-          onClick={onVoteSkip}
-          className={`flex-1 rounded-full h-10 px-4 text-sm font-semibold border transition-colors ${
-            iVoted
-              ? 'bg-pink-500/25 border-pink-400/50 text-pink-100'
-              : 'bg-felt-raised border-line text-chalk-muted active:bg-felt-raised'
-          }`}
-        >
-          🚫 Passer ({music.skipVotes.length}/{threshold})
-        </button>
-      </div>
-    </Card>
-  )
-}
-
-function AddSong({ source, onAdd }: { source: MusicTrack['source']; onAdd: (type: string, payload?: unknown) => void }) {
-  const { play } = useSound()
-  const [mode, setMode] = useState<'search' | 'link'>('search')
-  const [link, setLink] = useState('')
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<YouTubeSearchResult[]>([])
-  const [busy, setBusy] = useState(false)
-  const [searched, setSearched] = useState(false)
-  const [localError, setLocalError] = useState<string | null>(null)
-
-  if (source === 'spotify') {
-    return <SpotifyAddSong onAdd={onAdd} />
-  }
-
-  const addYouTube = async (
-    videoId: string,
-    title?: string,
-    artist?: string,
-    thumbnail?: string,
-    durationMs?: number | null,
-  ) => {
-    setBusy(true)
-    setLocalError(null)
-    let finalTitle = title ?? ''
-    let finalArtist = artist ?? ''
-    if (!finalTitle) {
-      const meta = await fetchYouTubeMeta(videoId)
-      if (meta) {
-        finalTitle = meta.title
-        finalArtist = meta.artist
-      }
-    }
-    onAdd('add', {
-      source: 'youtube',
-      sourceId: videoId,
-      title: finalTitle || 'Vidéo YouTube',
-      artist: finalArtist,
-      thumbnail: thumbnail ?? youtubeThumb(videoId),
-      durationMs: durationMs ?? null,
-    })
-    play('pop')
-    setBusy(false)
-  }
-
-  const submitLink = async () => {
-    const id = parseYouTubeId(link)
-    if (!id) {
-      setLocalError('Lien YouTube non reconnu. Colle une URL youtube.com ou youtu.be.')
-      return
-    }
-    await addYouTube(id)
-    setLink('')
-  }
-
-  const submitSearch = async () => {
-    if (!query.trim()) return
-    setBusy(true)
-    setSearched(true)
-    setLocalError(null)
-    try {
-      setResults(await searchYouTube(query.trim()))
-    } catch {
-      setResults([])
-      setLocalError('Recherche indisponible pour le moment — bascule sur « Lien » et colle une URL YouTube.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Card className="mt-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-chalk-muted">➕ Ajouter une musique</h3>
-        <div className="flex gap-1 text-xs">
-          <TabPill active={mode === 'search'} onClick={() => setMode('search')}>Rechercher</TabPill>
-          <TabPill active={mode === 'link'} onClick={() => setMode('link')}>Lien</TabPill>
-        </div>
-      </div>
-
-      {mode === 'link' ? (
-        <div className="flex gap-2">
-          <input
-            value={link}
-            onChange={(e) => setLink(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submitLink()}
-            placeholder="Colle un lien YouTube…"
-            className="flex-1 rounded-2xl bg-felt-raised border border-line px-3.5 py-3 text-sm text-white placeholder:text-chalk-faint outline-none focus:border-fuchsia-400/60"
-          />
-          <button
-            onClick={submitLink}
-            disabled={busy || !link.trim()}
-            className="rounded-2xl bg-fuchsia-500/80 px-4 text-sm font-bold disabled:opacity-40 active:bg-fuchsia-500"
-          >
-            {busy ? '…' : 'Ajouter'}
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="flex gap-2">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && submitSearch()}
-              placeholder="Titre, artiste…"
-              className="flex-1 rounded-2xl bg-felt-raised border border-line px-3.5 py-3 text-sm text-white placeholder:text-chalk-faint outline-none focus:border-fuchsia-400/60"
-            />
-            <button
-              onClick={submitSearch}
-              disabled={busy || !query.trim()}
-              className="rounded-2xl bg-fuchsia-500/80 px-4 text-sm font-bold disabled:opacity-40 active:bg-fuchsia-500"
-            >
-              {busy ? '…' : '🔍'}
-            </button>
-          </div>
-          {results.length > 0 && (
-            <div className="flex flex-col gap-1.5 mt-3 max-h-72 overflow-y-auto">
-              {results.map((r) => (
+            <nav className="flex gap-1.5 px-4 pt-3 pb-3" aria-label="Sections du Mode Soirée">
+              {tabs.map((t) => (
                 <button
-                  key={r.videoId}
-                  onClick={() => addYouTube(r.videoId, r.title, r.artist, r.thumbnail, r.durationMs)}
-                  className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised"
+                  key={t.key}
+                  onClick={() => {
+                    play('pop')
+                    setTab(t.key)
+                  }}
+                  aria-current={tab === t.key ? 'page' : undefined}
+                  className={clsx(
+                    'relative flex-1 h-9 rounded-chip text-sm border transition-colors flex items-center justify-center gap-1.5',
+                    tab === t.key ? 'bg-felt-raised border-spark/60 text-chalk' : 'border-line text-chalk-muted',
+                  )}
                 >
-                  <img src={r.thumbnail} alt="" className="w-12 h-9 rounded object-cover shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm truncate">{r.title}</p>
-                    <p className="text-[11px] text-chalk-faint truncate">
-                      {r.artist}{r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}
-                    </p>
-                  </div>
-                  <span className="text-fuchsia-300 text-lg shrink-0">＋</span>
+                  {t.label}
+                  {!!t.badge && (
+                    <span
+                      className={clsx(
+                        'min-w-[1.25rem] h-5 px-1 rounded-chip text-2xs tabular-nums flex items-center justify-center',
+                        tab === t.key ? 'bg-spark text-ink' : 'bg-felt-raised text-chalk-soft',
+                      )}
+                    >
+                      {t.badge}
+                    </span>
+                  )}
                 </button>
               ))}
-            </div>
-          )}
-          {searched && !busy && results.length === 0 && !localError && (
-            <p className="text-[11px] text-chalk-faint mt-2">Aucun résultat.</p>
-          )}
-        </>
-      )}
+            </nav>
+          </header>
 
-      {localError && <p className="text-xs text-pink-300 mt-2">{localError}</p>}
-    </Card>
-  )
-}
+          <main className="px-4 pt-3 pb-14 max-w-lg mx-auto">
+            <PlatineAlert
+              code={group.code}
+              onOpenPlatine={isHost ? openPlatine : undefined}
+              onSoundOnTv={() => void musicAction('settings', { output: 'tv' })}
+              onSoundOnPlatine={() => void musicAction('settings', { output: 'device' })}
+            />
+            <GameBanner />
+            <FeedTicker className="mb-3" idle="File équitable : chacun son tour, personne ne monopolise l’enceinte" />
 
-function QueueRow({
-  track,
-  rank,
-  addedBy,
-  myId,
-  isHost,
-  onBump,
-  onRemove,
-}: {
-  track: MusicTrack
-  rank: number
-  addedBy: Member | undefined
-  myId: string
-  isHost: boolean
-  onBump: () => void
-  onRemove: () => void
-}) {
-  const isMine = track.addedById === myId
-  const iBumped = track.bumpVotes.includes(myId)
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      className="flex items-center gap-2.5 rounded-2xl bg-felt-raised border border-line p-2"
-    >
-      <span className="text-xs text-chalk-faint w-4 text-center shrink-0">{rank}</span>
-      {track.thumbnail ? (
-        <img src={track.thumbnail} alt="" className="w-11 h-11 rounded-lg object-cover shrink-0" />
-      ) : (
-        <div className="w-11 h-11 rounded-lg bg-felt-raised flex items-center justify-center shrink-0">🎵</div>
-      )}
-      <div className="min-w-0 flex-1">
-        <p className="text-sm truncate">{track.title}</p>
-        <div className="flex items-center gap-1.5">
-          {addedBy && <Avatar pseudo={addedBy.pseudo} color={addedBy.color} size={14} photoUrl={addedBy.photoUrl} />}
-          <span className="text-[11px] text-chalk-faint truncate">
-            {addedBy?.pseudo ?? '?'}{track.durationMs ? ` · ${formatDuration(track.durationMs)}` : ''}
-          </span>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={tab}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18 }}
+              >
+                {tab === 'now' && <NowTab onAdd={() => setTab('add')} />}
+                {tab === 'add' && <AddTab onAdded={onAdded} />}
+                {tab === 'queue' && <QueueTab onAdd={() => setTab('add')} onAdded={onAdded} />}
+                {tab === 'host' && isHost && <HostTab code={group.code} />}
+              </motion.div>
+            </AnimatePresence>
+          </main>
         </div>
-      </div>
-      <button
-        onClick={onBump}
-        disabled={isMine}
-        className={`shrink-0 rounded-full h-8 px-2.5 text-xs font-bold border transition-colors ${
-          iBumped
-            ? 'bg-fuchsia-500/30 border-fuchsia-400/50 text-fuchsia-100'
-            : 'bg-felt-raised border-line text-chalk-soft active:bg-felt-raised'
-        } ${isMine ? 'opacity-30' : ''}`}
-        aria-label="Faire monter dans la file"
-      >
-        ▲ {track.bumpVotes.length}
-      </button>
-      {(isMine || isHost) && (
-        <button
-          onClick={onRemove}
-          className="shrink-0 rounded-full h-8 w-8 text-chalk-faint bg-felt-raised border border-line active:bg-felt-raised"
-          aria-label="Retirer de la file"
-        >
-          ✕
-        </button>
-      )}
-    </motion.div>
-  )
-}
+      </PageTransition>
 
-// ---- SpotifyAddSong : recherche + navigation albums/artistes/playlists ----
+      <ReactionRain />
 
-function SpotifyAddSong({ onAdd }: { onAdd: (type: string, payload?: unknown) => void }) {
-  const { play } = useSound()
-  const [tab, setTab] = useState<'search' | 'featured'>('search')
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SpotifySearchResult[]>([])
-  const [featured, setFeatured] = useState<SpotifySearchResult[]>([])
-  const [busy, setBusy] = useState(false)
-  const [searched, setSearched] = useState(false)
-  const [localError, setLocalError] = useState<string | null>(null)
-
-  // État d'expansion : quand on clique sur un album/artiste/playlist, on charge ses morceaux.
-  const [expanded, setExpanded] = useState<SpotifySearchResult | null>(null)
-  const [expandedTracks, setExpandedTracks] = useState<SpotifySearchResult[]>([])
-  const [expanding, setExpanding] = useState(false)
-
-  // Tendances : l'API « featured playlists » n'existe plus (février 2026), on les approxime par
-  // quelques recherches. Chargées à la PREMIÈRE ouverture de l'onglet seulement — au montage,
-  // chaque téléphone de la soirée brûlait 3 requêtes du quota Spotify sans que personne ne regarde.
-  useEffect(() => {
-    if (tab !== 'featured' || featured.length > 0) return
-    const trendQueries = [`Top hits ${new Date().getFullYear()}`, 'Hits du moment', 'Chill mix']
-    const loadTrends = async () => {
-      try {
-        const all = await Promise.all(trendQueries.map((q) => searchSpotify(q).catch(() => [])))
-        const tracks = all.flat()
-          .filter(r => r.kind === 'track' || !r.kind)
-          .filter((r, i, arr) => arr.findIndex(x => x.id === r.id) === i)
-          .slice(0, 15)
-        setFeatured(tracks)
-      } catch { /* erreur silencieuse */ }
-    }
-    loadTrends()
-  }, [tab, featured.length])
-
-  const submit = async () => {
-    if (!query.trim()) return
-    setBusy(true)
-    setSearched(true)
-    setLocalError(null)
-    setExpanded(null)
-    try {
-      setResults(await searchSpotify(query.trim()))
-    } catch {
-      setResults([])
-      setLocalError('Recherche Spotify indisponible pour le moment.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const add = (r: SpotifySearchResult) => {
-    onAdd('add', { source: 'spotify', sourceId: r.id, title: r.title, artist: r.artist, thumbnail: r.thumbnail, durationMs: r.durationMs })
-    play('pop')
-  }
-
-  // Cliquer sur un album/artiste/playlist → charger ses morceaux
-  const expand = async (r: SpotifySearchResult) => {
-    if (!r.kind || r.kind === 'track') { add(r); return }
-    setExpanding(true)
-    setExpanded(r)
-    setExpandedTracks([])
-    try {
-      let tracks: SpotifySearchResult[]
-      if (r.kind === 'album') {
-        // Les morceaux d'un album arrivent sans pochette : on leur donne celle de l'album, sinon
-        // la file et la platine affichaient une case vide.
-        tracks = (await fetchAlbumTracks(r.id)).map((t) => ({ ...t, thumbnail: t.thumbnail ?? r.thumbnail }))
-      } else {
-        tracks = await fetchArtistTracks(r.title)
-      }
-      setExpandedTracks(tracks)
-    } catch {
-      setLocalError('Impossible de charger les morceaux pour le moment.')
-      setExpanded(null)
-    } finally {
-      setExpanding(false)
-    }
-  }
-
-  const collapse = () => {
-    setExpanded(null)
-    setExpandedTracks([])
-  }
-
-  return (
-    <Card className="mt-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-chalk-muted">➕ Ajouter une musique</h3>
-        <div className="flex gap-1 text-xs">
-          <TabPill active={tab === 'search'} onClick={() => { setTab('search'); setExpanded(null) }}>Rechercher</TabPill>
-          <TabPill active={tab === 'featured'} onClick={() => setTab('featured')}>À la mode</TabPill>
-        </div>
-      </div>
-
-      {/* Suggestions rapides */}
-      {tab === 'search' && !expanded && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {['Hits', 'Chill', 'Énergie', 'Années 90', 'Rap FR'].map(tag => (
-            <button
-              key={tag}
-              onClick={() => { setQuery(tag); setBusy(true); setSearched(true); setLocalError(null); searchSpotify(tag).then(setResults).catch(() => { setResults([]); setLocalError('Recherche indisponible.') }).finally(() => setBusy(false)) }}
-              className="rounded-full bg-felt-sunken border border-line px-2.5 py-1 text-[11px] text-chalk-soft active:bg-felt-raised"
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            className="fixed bottom-5 inset-x-4 z-50 mx-auto max-w-md safe-bottom"
+            role="status"
+          >
+            <div
+              className={clsx(
+                'flex items-center gap-2.5 rounded-control border bg-felt-raised shadow-float px-4 py-3',
+                toast.tone === 'error' ? 'border-blood/60' : 'border-jade/40',
+              )}
             >
-              {tag}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {tab === 'search' ? (
-        <>
-          {expanded ? (
-            // Vue morceaux d'un album/artiste/playlist
-            <>
-              <div className="flex items-center gap-2 mb-3">
-                <button onClick={collapse} className="text-xs text-chalk-faint hover:text-chalk-soft shrink-0">← Retour</button>
-                <div className="flex items-center gap-2 min-w-0">
-                  {expanded.thumbnail && <img src={expanded.thumbnail} alt="" className="w-7 h-7 rounded object-cover shrink-0" />}
-                  <span className="text-sm font-semibold truncate">{expanded.title}</span>
-                  <span className="text-[10px] uppercase tracking-[0.12em] text-chalk-faint shrink-0">{kindLabel(expanded.kind)}</span>
-                </div>
-              </div>
-              {expanding ? (
-                <p className="text-xs text-chalk-faint text-center py-4">Chargement des morceaux…</p>
-              ) : (
-                <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
-                  {expandedTracks.length > 0 ? expandedTracks.map((t) => (
-                    <button key={t.id} onClick={() => add(t)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised">
-                      {t.thumbnail ? (
-                        <img src={t.thumbnail} alt="" className="w-11 h-11 rounded object-cover shrink-0" />
-                      ) : (
-                        <div className="w-11 h-11 rounded bg-felt-raised flex items-center justify-center shrink-0">🎵</div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm truncate">{t.title}</p>
-                        <p className="text-[11px] text-chalk-faint truncate">
-                          {t.artist}{t.durationMs ? ` · ${formatDuration(t.durationMs)}` : ''}
-                        </p>
-                      </div>
-                      <span className="text-emerald-300 text-lg shrink-0">＋</span>
-                    </button>
-                  )) : <p className="text-[11px] text-chalk-faint text-center py-4">Aucun morceau trouvé.</p>}
-                </div>
-              )}
-            </>
-          ) : (
-            // Vue recherche normale
-            <>
-              <div className="flex gap-2 mb-3">
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && submit()}
-                  placeholder="Titre, artiste…"
-                  className="flex-1 rounded-2xl bg-felt-raised border border-line px-3.5 py-3 text-sm text-white placeholder:text-chalk-faint outline-none focus:border-emerald-400/60"
-                />
-                <button
-                  onClick={submit}
-                  disabled={busy || !query.trim()}
-                  className="rounded-2xl bg-emerald-500/80 px-4 text-sm font-bold disabled:opacity-40 active:bg-emerald-500"
-                >
-                  {busy ? '…' : '🔍'}
-                </button>
-              </div>
-              {results.length > 0 && (
-                <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
-                  {results.map((r) => (
-                    <button key={`${r.kind ?? 'track'}-${r.id}`} onClick={() => expand(r)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised">
-                      {r.thumbnail ? (
-                        <img src={r.thumbnail} alt="" className="w-11 h-11 rounded object-cover shrink-0" />
-                      ) : (
-                        <div className="w-11 h-11 rounded bg-felt-raised flex items-center justify-center shrink-0">🎵</div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm truncate">{r.title}</p>
-                        <p className="text-[11px] text-chalk-faint truncate">
-                          {r.subtitle ?? r.artist}
-                          {r.kind && r.kind !== 'track' ? '' : r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}
-                        </p>
-                      </div>
-                      {r.kind && r.kind !== 'track' ? (
-                        <span className="text-[10px] uppercase tracking-[0.12em] text-chalk-faint shrink-0">{kindLabel(r.kind)} →</span>
-                      ) : (
-                        <span className="text-emerald-300 text-lg shrink-0">＋</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {searched && !busy && results.length === 0 && !localError && <p className="text-[11px] text-chalk-faint mt-2">Aucun résultat.</p>}
-              {localError && <p className="text-xs text-pink-300 mt-2">{localError}</p>}
-            </>
-          )}
-        </>
-      ) : (
-        // Onglet "À la mode" — morceaux tendance (pre-recherche au montage)
-        <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
-          {featured.length > 0 ? featured.map((r) => (
-            <button key={r.id} onClick={() => add(r)} className="flex items-center gap-2.5 text-left rounded-xl p-1.5 active:bg-felt-raised">
-              {r.thumbnail ? (
-                <img src={r.thumbnail} alt="" className="w-11 h-11 rounded object-cover shrink-0" />
-              ) : (
-                <div className="w-11 h-11 rounded bg-felt-raised flex items-center justify-center shrink-0">🎵</div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-sm truncate">{r.title}</p>
-                <p className="text-[11px] text-chalk-faint truncate">
-                  {r.artist}{r.durationMs ? ` · ${formatDuration(r.durationMs)}` : ''}
-                </p>
-              </div>
-              <span className="text-emerald-300 text-lg shrink-0">＋</span>
-            </button>
-          )) : <p className="text-[11px] text-chalk-faint text-center py-4">Chargement des tendances…</p>}
-        </div>
-      )}
-    </Card>
-  )
-}
-
-function kindLabel(kind: SpotifySearchResult['kind']): string {
-  return kind === 'album' ? 'Album' : kind === 'artist' ? 'Artiste' : 'Titre'
-}
-
-function TabPill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-full px-2.5 py-1 font-semibold ${active ? 'bg-fuchsia-500/30 text-white' : 'bg-felt-raised text-chalk-soft'}`}
-    >
-      {children}
-    </button>
+              {toast.tone === 'error' ? <IconAlert size={17} className="text-blood shrink-0" /> : <IconCheck size={17} className="text-jade shrink-0" />}
+              <p className="text-sm text-chalk">{toast.text}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   )
 }

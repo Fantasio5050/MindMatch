@@ -274,10 +274,15 @@ test('ancre de lecture : position, pause, reprise, durée découverte par la pla
   // Une position pour un autre morceau est ignorée.
   ok(platineEvent(room.g, 'sock-1', 'position', { trackId: 'tr-autre', positionMs: 99_000, playing: true }, t + 21_000))
   assert.equal(room.s().anchor?.positionMs, 15_000)
+  // La platine tombe en pleine lecture : la position se fige, les barres s'arrêtent.
+  ok(platineEvent(room.g, 'sock-1', 'position', { trackId: id, positionMs: 15_000, playing: true }, t + 20_000))
+  releasePlatineSocket('sock-1', t + 23_000)
+  assert.deepEqual(room.s().anchor, { positionMs: 18_000, at: t + 23_000, playing: false })
+  assert.equal(anchorPosition(room.s().anchor, t + 90_000), 18_000)
   // Estimation des passages : le reste du morceau en cours, puis les durées des précédents.
   const b = room.add(1)
-  const etas = queueEtas(room.s(), t + 20_000)
-  assert.equal(etas[b], 185_000)
+  const etas = queueEtas(room.s(), t + 30_000)
+  assert.equal(etas[b], 182_000, 'le reste du morceau figé (200 s − 18 s)')
 })
 
 test('réactions : comptées par morceau, plafonnées par personne, gardées pour le récap', () => {

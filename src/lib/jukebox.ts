@@ -201,6 +201,18 @@ export function looksLikeUrl(input: string): boolean {
   return /^(https?:\/\/|www\.|youtu\.?be|m\.youtube|music\.youtube|open\.spotify)/i.test(input.trim())
 }
 
+/** Identifiant d'un titre Spotify depuis un lien collé (`open.spotify.com/track/…`, `spotify:track:…`). */
+export function parseSpotifyTrackId(input: string): string | null {
+  const m = input.trim().match(/(?:open\.spotify\.com\/(?:intl-[a-z]+\/)?track\/|spotify:track:)([a-zA-Z0-9]{22})/)
+  return m ? m[1] : null
+}
+
+/** Les miniatures YouTube (`hqdefault`) sont en 4/3 avec des bandes noires autour d'une vidéo 16/9 :
+ * recadrées en carré ou en rond, il faut zoomer d'un tiers pour que les bandes disparaissent. */
+export function isLetterboxedThumb(url: string | null | undefined): boolean {
+  return !!url && /ytimg\.com\/vi\/[^/]+\/(?:hq|mq|sd)?default/.test(url)
+}
+
 /** Deterministic thumbnail URL for a YouTube video — no API key needed. */
 export function youtubeThumb(videoId: string): string {
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`

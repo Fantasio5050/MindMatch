@@ -168,12 +168,23 @@ export interface SpotifySearchResult {
   uri?: string
 }
 
-export async function searchSpotify(query: string): Promise<SpotifySearchResult[]> {
-  const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(query)}`)
+export async function searchSpotify(query: string, signal?: AbortSignal): Promise<SpotifySearchResult[]> {
+  const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(query)}`, { signal })
   if (!res.ok) throw new Error('Recherche Spotify indisponible.')
   const data = (await res.json()) as { results?: SpotifySearchResult[]; tracks?: SpotifySearchResult[] }
   if (Array.isArray(data.results) && data.results.length > 0) return data.results
   return data.tracks ?? []
+}
+
+/** Un titre retrouvé depuis un lien collé (`open.spotify.com/track/…`), ou null. */
+export async function fetchSpotifyTrack(trackId: string): Promise<SpotifySearchResult | null> {
+  try {
+    const res = await fetch(`/api/spotify/track?id=${encodeURIComponent(trackId)}`)
+    if (!res.ok) return null
+    return (await res.json()) as SpotifySearchResult
+  } catch {
+    return null
+  }
 }
 
 // ---- Morceaux d'un album / d'un artiste (délégués au serveur) ----

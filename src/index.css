@@ -118,9 +118,38 @@ body {
   animation: glow-pulse 2.4s ease-in-out infinite;
 }
 
+/* Mode Soirée — le vinyle tourne tant que la musique joue, et s'arrête net en pause (l'animation est
+   suspendue, pas remise à zéro : le disque reprend là où il s'était arrêté). 33 tours ≈ 1,8 s par
+   tour : à l'écran ça paraît nerveux, on ralentit à 3,6 s. */
+@keyframes vinyl-spin {
+  to { transform: rotate(360deg); }
+}
+.vinyl-spin {
+  animation: vinyl-spin 3.6s linear infinite;
+}
+.vinyl-paused {
+  animation-play-state: paused;
+}
+
+/* Égaliseur de la platine : SYNTHÉTIQUE. Les lecteurs YouTube et Spotify ne donnent pas accès au
+   flux audio, ces barres ne mesurent donc rien — elles dansent quand la musique joue, c'est tout. */
+@keyframes eq-bounce {
+  0%, 100% { transform: scaleY(0.18); }
+  50% { transform: scaleY(1); }
+}
+.eq-bar {
+  transform-origin: bottom;
+  animation: eq-bounce ease-in-out infinite;
+}
+.eq-paused .eq-bar {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .float-bob,
-  .glow-pulse {
+  .glow-pulse,
+  .vinyl-spin,
+  .eq-bar {
     animation: none;
   }
 }

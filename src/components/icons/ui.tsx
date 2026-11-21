@@ -215,3 +215,88 @@ export const IconTable = (p: IconProps) => (
     <circle cx="3.6" cy="12" r="1.6" />
   </Icon>
 )
+
+// ---- Mode Soirée ------------------------------------------------------------
+
+export const IconPause = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="6.5" y="5" width="3.6" height="14" rx="1.2" />
+    <rect x="13.9" y="5" width="3.6" height="14" rx="1.2" />
+  </Icon>
+)
+
+/** La file d'attente. */
+export const IconQueue = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 6.5h11M4 11.5h11M4 16.5h7" />
+    <path d="M15.5 14.5l5 3-5 3z" />
+  </Icon>
+)
+
+/** « Jouer ensuite » : un morceau qui remonte en tête. */
+export const IconPlayNext = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 18.5h16M4 14h10" />
+    <path d="M14 3.5l6 4.5-6 4.5z" />
+  </Icon>
+)
+
+export const IconReplay = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4.5 12a7.5 7.5 0 107.5-7.5H8" />
+    <path d="M10.5 1.8L7.8 4.5l2.7 2.7" />
+  </Icon>
+)
+
+export const IconArrowUp = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 19.5V5M6 11l6-6 6 6" />
+  </Icon>
+)
+
+export const IconLink = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M10 14a4.2 4.2 0 006 0l3-3a4.2 4.2 0 00-6-6l-1 1" />
+    <path d="M14 10a4.2 4.2 0 00-6 0l-3 3a4.2 4.2 0 006 6l1-1" />
+  </Icon>
+)
+
+export const IconExternal = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M13.5 4.5H19.5V10.5M19.5 4.5L11 13" />
+    <path d="M17.5 14v4a2 2 0 01-2 2H6a2 2 0 01-2-2V8.5a2 2 0 012-2h4" />
+  </Icon>
+)
+
+export const IconAlert = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M10.3 4.2L2.8 17.5A2 2 0 004.5 20.5h15a2 2 0 001.7-3L13.7 4.2a2 2 0 00-3.4 0z" />
+    <path d="M12 9.5v4.5" />
+    <circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none" />
+  </Icon>
+)
+
+/** La régie de l'hôte : trois curseurs. */
+export const IconSliders = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 4v16M12 4v16M19 4v16" />
+    <rect x="3" y="13" width="4" height="3.2" rx="1.2" />
+    <rect x="10" y="6.5" width="4" height="3.2" rx="1.2" />
+    <rect x="17" y="11" width="4" height="3.2" rx="1.2" />
+  </Icon>
+)
+
+export const IconMore = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="6" cy="12" r="1.3" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+    <circle cx="18" cy="12" r="1.3" fill="currentColor" stroke="none" />
+  </Icon>
+)
+
+export const IconPin = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 3.5h6l-1 5.5 3.5 3.5h-11L10 9z" />
+    <path d="M12 12.5v8" />
+  </Icon>
+)

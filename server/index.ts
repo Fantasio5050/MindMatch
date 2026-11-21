@@ -19,7 +19,7 @@ import {
 } from './store'
 import { attachRealtime } from './realtime'
 import { readDb, readMemberPhoto, getRecentGameHistory } from './db'
-import { spotifyAlbumTracksHandler, spotifyArtistTracksHandler, spotifyConfigHandler, spotifySearchHandler } from './spotify'
+import { spotifyAlbumTracksHandler, spotifyArtistTracksHandler, spotifyConfigHandler, spotifySearchHandler, spotifyTrackHandler } from './spotify'
 import { youtubeMetaHandler, youtubeSearchHandler } from './youtube'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -138,6 +138,7 @@ api.get('/spotify/config', spotifyConfigHandler)
 api.get('/spotify/search', spotifySearchHandler)
 api.get('/spotify/artist-tracks', spotifyArtistTracksHandler)
 api.get('/spotify/album-tracks', spotifyAlbumTracksHandler)
+api.get('/spotify/track', spotifyTrackHandler)
 
 // Mode Soirée — source YouTube : recherche et métadonnées côté serveur (clé facultative, cache).
 api.get('/youtube/search', youtubeSearchHandler)

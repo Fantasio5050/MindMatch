@@ -229,6 +229,14 @@ function setPlayback(session: MusicSession, playing: boolean, now: number): void
   session.anchor = { positionMs: pos, at: now, playing: playing && !!session.anchor?.playing }
 }
 
+/** Plus personne ne joue : la position se fige là où la platine en était (les barres de progression
+ * des téléphones s'arrêtent au lieu d'avancer dans le vide). */
+function freezeAnchor(session: MusicSession, now: number): void {
+  if (session.anchor?.playing) {
+    session.anchor = { positionMs: anchorPosition(session.anchor, now, session.current?.durationMs), at: now, playing: false }
+  }
+}
+
 function commit(groupId: string, session: MusicSession, now: number): void {
   refreshAutoNext(session, now)
   writeMusic(groupId, session)
@@ -259,6 +267,7 @@ export function releasePlatineSocket(socketId: string, now = Date.now()): string
     const session = readMusic(groupId)
     if (session && !session.endedAt) {
       pushFeed(session, 'platineOff', {}, now)
+      freezeAnchor(session, now)
       commit(groupId, session, now)
     }
     return groupId
@@ -387,6 +396,7 @@ export function platineEvent(groupId: string, socketId: string, type: string, pa
     case 'release': {
       bindings.delete(groupId)
       pushFeed(session, 'platineOff', {}, now)
+      freezeAnchor(session, now)
       commit(groupId, session, now)
       return ROOM
     }
@@ -675,6 +685,7 @@ export function musicAction(
       const bound = bindings.get(groupId)
       if (outputChanged && session.settings.output === 'device' && bound?.kind === 'tv') {
         bindings.delete(groupId)
+        freezeAnchor(session, now)
         result = { ok: true, broadcast: 'room', displacedSocketId: bound.socketId }
       }
       break
