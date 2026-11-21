@@ -1,293 +1,181 @@
-import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
+import clsx from 'clsx'
 import { PageTransition } from '../components/PageTransition'
-import { Card } from '../components/Card'
+import { Surface } from '../components/Card'
 import { Button } from '../components/Button'
+import { QRCode } from '../components/QRCode'
+import { Avatar } from '../components/Avatar'
+import {
+  IconAlert,
+  IconArrowLeft,
+  IconClose,
+  IconFullscreen,
+  IconFullscreenExit,
+  IconPlay,
+  IconSettings,
+  IconSpeaker,
+  IconTurntable,
+} from '../components/icons'
 import { usePartyStore } from '../store/usePartyStore'
-import { loadYouTubeApi, type YTPlayer } from '../lib/youtube'
-import { orderedQueue, peekNext, formatDuration, totalDurationMs } from '../lib/jukebox'
-import { SpotifyDeck } from './SpotifyDeck'
+import { joinUrl } from '../lib/joinUrl'
+import { MAX_CROSSFADE_SEC, orderedQueue } from '../lib/jukebox'
+import { spotifyEnabled, isSpotifyConnected, beginSpotifyAuth, disconnectSpotify } from '../lib/spotify'
+import { TvViewport } from '../party/primitives/TvViewport'
+import { CoverBackdrop, MusicProgress, StatusDot, TrackArt, Vinyl } from '../soiree/ui'
+import { Equalizer } from '../soiree/Equalizer'
+import { ReactionRain } from '../soiree/reactions'
+import { SoireeStage } from '../soiree/stage/SoireeStage'
+import { YouTubeDecks } from '../soiree/engine/YouTubeDecks'
+import { useSpotifyEngine } from '../soiree/engine/useSpotifyEngine'
+import { useMemberLookup } from '../soiree/hooks'
+import { PlatineRecap } from '../soiree/Recap'
+import type { MusicTrack } from '../types'
 
-function makePlatineId(): string {
+const PLATINE_ID_KEY = 'mindmatch-platine-id'
+const VIEW_KEY = 'mindmatch-platine-view'
+type View = 'video' | 'cover'
+
+/** Identifiant de CET onglet-platine : gardé le temps de la session (un rechargement reste « le même
+ * appareil » et reprend sa place), différent d'un onglet à l'autre. */
+function platineIdForTab(): string {
+  try {
+    const saved = sessionStorage.getItem(PLATINE_ID_KEY)
+    if (saved) return saved
+  } catch {
+    /* stockage indisponible */
+  }
   const uuid = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2)
-  return `pl-${uuid}`
+  const id = `pl-${uuid}`
+  try {
+    sessionStorage.setItem(PLATINE_ID_KEY, id)
+  } catch {
+    /* tant pis : nouvelle identité au rechargement */
+  }
+  return id
 }
 
-/** Fondu enchaîné : le morceau suivant démarre et monte pendant que l'actuel descend. Durée
- * réglable par l'utilisateur sur la platine (0 = coupure nette), persistée localement. */
-const DEFAULT_CROSSFADE_SEC = 5
-const MAX_CROSSFADE_SEC = 20
-const CROSSFADE_STORE_KEY = 'mindmatch-platine-crossfade-sec'
-const FADE_IN_MS = 900
-const SKIP_FADE_MS = 500
-const RAMP_STEP_MS = 50
-
-function readCrossfadeSec(): number {
-  if (typeof window === 'undefined') return DEFAULT_CROSSFADE_SEC
-  const raw = Number(window.localStorage.getItem(CROSSFADE_STORE_KEY))
-  if (!Number.isFinite(raw)) return DEFAULT_CROSSFADE_SEC
-  return Math.max(0, Math.min(MAX_CROSSFADE_SEC, raw))
+function readView(): View {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'video' ? 'video' : 'cover'
+  } catch {
+    return 'cover'
+  }
 }
 
-// Plein écran sur un ÉLÉMENT précis (le conteneur des deux decks), pas sur l'iframe YouTube : ainsi
-// les changements de vidéo et les fondus enchaînés restent visibles en plein écran.
-function fullscreenSupported(): boolean {
-  const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void }
-  return typeof el.requestFullscreen === 'function' || typeof el.webkitRequestFullscreen === 'function'
-}
 function fullscreenActive(): boolean {
   const doc = document as Document & { webkitFullscreenElement?: Element | null }
   return !!(doc.fullscreenElement ?? doc.webkitFullscreenElement)
 }
-async function toggleElementFullscreen(el: HTMLElement | null): Promise<void> {
-  if (!el) return
+async function toggleFullscreen(): Promise<void> {
   const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> }
-  const target = el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }
+  const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }
   try {
     if (fullscreenActive()) await (doc.exitFullscreen?.() ?? doc.webkitExitFullscreen?.())
-    else await (target.requestFullscreen?.() ?? target.webkitRequestFullscreen?.())
+    else await (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.())
   } catch {
     /* refusé par le navigateur — sans conséquence */
   }
 }
 
+/** Paysage assez large pour la scène 1280 × 720 ; sinon, mise en page verticale (téléphone-platine). */
+function useLandscape(): boolean {
+  const compute = () => typeof window !== 'undefined' && window.innerWidth >= 720 && window.innerWidth > window.innerHeight * 1.15
+  const [landscape, setLandscape] = useState(compute)
+  useEffect(() => {
+    const onResize = () => setLandscape(compute())
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  return landscape
+}
+
 /**
- * La "platine" : la seule page qui lit réellement le son. On l'ouvre sur l'appareil branché à
- * l'enceinte Bluetooth (téléphone, PC, ou TV). Les téléphones ne font qu'alimenter la file ; la
- * platine obéit à l'état partagé (musique en cours, lecture/pause, passage). Un seul appareil peut
- * être la platine active à la fois — sinon deux sources crachent le son en même temps.
- *
- * Deux "platines" YouTube (deck A / deck B) tournent en alternance pour permettre un vrai fondu
- * enchaîné : quand la piste courante approche de la fin, la suivante démarre en silence sur l'autre
- * deck puis les volumes (et l'image) se croisent en douceur.
+ * La « platine » : la seule page qui lit réellement le son. On l'ouvre sur l'appareil branché à
+ * l'enceinte (portable, téléphone, TV). Les téléphones alimentent la file ; la platine obéit à
+ * l'état partagé, affiche le morceau en grand (vinyle ou vidéo), et invite la pièce à ajouter les
+ * siens (QR code).
  */
 export function PlatinePage() {
   const { code } = useParams<{ code?: string }>()
+  const [params] = useSearchParams()
+  if (!code) return <PlatineCodeEntry />
+  return <Platine code={code.toUpperCase()} platineKey={params.get('cle')} />
+}
+
+function PlatineCodeEntry() {
   const navigate = useNavigate()
   const [input, setInput] = useState('')
-
-  if (!code) {
-    return (
-      <PageTransition>
-        <div className="min-h-svh flex flex-col items-center justify-center px-6">
-          <span className="text-5xl mb-4">🎛️</span>
-          <h1 className="text-2xl font-extrabold mb-2">Platine — Mode Soirée</h1>
-          <p className="text-sm text-chalk-soft text-center mb-6 max-w-xs">
-            À ouvrir sur l'appareil branché à l'enceinte. Entre le code de la salle.
-          </p>
-          <Card className="w-full max-w-sm">
+  return (
+    <PageTransition>
+      <div className="min-h-svh flex flex-col items-center justify-center px-6 relative">
+        <button
+          onClick={() => navigate('/')}
+          className="fixed top-4 left-4 z-40 flex items-center gap-1.5 rounded-chip bg-felt-raised border border-line px-3 h-9 text-chalk-muted text-sm"
+        >
+          <IconArrowLeft size={15} />
+          Accueil
+        </button>
+        <IconTurntable size={34} className="text-chalk-soft mb-3" />
+        <p className="kicker text-2xs mb-2">Mode Soirée</p>
+        <h1 className="font-display text-2xl text-chalk mb-2 text-center">Brancher la musique ici</h1>
+        <p className="text-sm text-chalk-soft text-center mb-6 max-w-xs">
+          À ouvrir sur l’appareil relié à l’enceinte : c’est lui qui jouera la musique de toute la salle.
+        </p>
+        <Surface level="raised" className="w-full max-w-sm">
+          <label className="flex flex-col gap-1.5 text-left mb-4">
+            <span className="text-xs font-medium text-chalk-soft pl-1">Code de la salle</span>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === 'Enter' && input.trim() && navigate(`/platine/${input.trim()}`)}
               placeholder="AB3XZ"
               maxLength={5}
-              className="w-full rounded-2xl bg-felt-raised border border-line px-4 py-3.5 text-base uppercase tracking-widest text-white placeholder:text-chalk-faint outline-none focus:border-fuchsia-400/60 mb-3"
+              className="rounded-control bg-felt border border-line px-4 py-3.5 text-base uppercase tracking-widest text-chalk placeholder:text-chalk-faint outline-none focus:border-spark"
             />
-            <Button fullWidth disabled={!input.trim()} onClick={() => navigate(`/platine/${input.trim()}`)}>
-              Connecter la platine
-            </Button>
-          </Card>
-          <Button variant="ghost" onClick={() => navigate('/')} className="mt-4 !py-2 text-sm">
-            ← Accueil
+          </label>
+          <Button fullWidth disabled={!input.trim()} onClick={() => navigate(`/platine/${input.trim()}`)}>
+            Connecter la platine
           </Button>
-        </div>
-      </PageTransition>
-    )
-  }
-
-  return <PlatinePlayer code={code.toUpperCase()} />
+        </Surface>
+      </div>
+    </PageTransition>
+  )
 }
 
-function PlatinePlayer({ code }: { code: string }) {
+function Platine({ code, platineKey }: { code: string; platineKey: string | null }) {
   const navigate = useNavigate()
   const connectAsSpectator = usePartyStore((s) => s.connectAsSpectator)
   const disconnect = usePartyStore((s) => s.disconnect)
   const claimPlatine = usePartyStore((s) => s.claimPlatine)
-  const platineSend = usePartyStore((s) => s.platineSend)
-  const platineActive = usePartyStore((s) => s.platineActive)
+  const releasePlatine = usePartyStore((s) => s.releasePlatine)
+  const connected = usePartyStore((s) => s.connected)
   const partyError = usePartyStore((s) => s.error)
-  const platineClaim = (id: string) => void claimPlatine({ platineId: id, kind: 'device' })
-  // La fin d'un morceau annonce le suivant que la platine a lancé (le serveur avance vers LUI).
-  const platineEnded = (_id: string, trackId: string, nextTrackId?: string | null) => {
-    const session = usePartyStore.getState().group?.music
-    platineSend('ended', { trackId, nextTrackId: nextTrackId ?? (session ? peekNext(session)?.id : null) ?? null })
-  }
-  const reportPosition = (pos: { positionMs: number; durationMs: number | null; isPlaying: boolean }) => {
-    const cur = usePartyStore.getState().group?.music?.current
-    if (cur) platineSend('position', { trackId: cur.id, positionMs: pos.positionMs, durationMs: pos.durationMs, playing: pos.isPlaying })
-  }
-
   const music = usePartyStore((s) => s.group?.music ?? null)
-  const source = music?.source ?? null
-  const current = music?.current ?? null
-  const isPlaying = music?.isPlaying ?? false
-
-  const [platineId] = useState(makePlatineId)
+  const platine = usePartyStore((s) => s.platine)
+  const active = usePartyStore((s) => s.platineActive)
+  const [platineId] = useState(platineIdForTab)
   const [started, setStarted] = useState(false)
-  const [readyTick, setReadyTick] = useState(0)
-  const [opacity, setOpacity] = useState<[number, number]>([1, 0])
-  const [crossfadeUi, setCrossfadeUi] = useState(false)
+  const [view, setViewState] = useState<View>(readView)
+  const [claimError, setClaimError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [crossfadeNext, setCrossfadeNext] = useState<MusicTrack | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [crossfadeSec, setCrossfadeSec] = useState(readCrossfadeSec)
-  const [skipNotice, setSkipNotice] = useState<string | null>(null)
+  const [spotifyLinked, setSpotifyLinked] = useState(isSpotifyConnected)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const playerZoneRef = useRef<HTMLDivElement | null>(null)
-  const crossfadeSecRef = useRef(crossfadeSec)
-  crossfadeSecRef.current = crossfadeSec
-  const updateCrossfade = (v: number) => {
-    const clamped = Math.max(0, Math.min(MAX_CROSSFADE_SEC, Math.round(v)))
-    setCrossfadeSec(clamped)
-    try { window.localStorage.setItem(CROSSFADE_STORE_KEY, String(clamped)) } catch { /* stockage indispo */ }
-  }
+  const landscape = useLandscape()
 
-  const players = useRef<Array<YTPlayer | null>>([null, null])
-  const ready = useRef<[boolean, boolean]>([false, false])
-  const activeDeck = useRef(0)
-  const deckLoaded = useRef<Array<string | null>>([null, null])
-  const crossfading = useRef(false)
-  const rampTimer = useRef<ReturnType<typeof setInterval> | null>(null)
-  const firstLoad = useRef(true)
-  const deck0Ref = useRef<HTMLDivElement | null>(null)
-  const deck1Ref = useRef<HTMLDivElement | null>(null)
-  // Gestion des vidéos injouables (bloquées par pays/uploader, intégration désactivée, supprimées…).
-  const errorGuard = useRef<string | null>(null)
-  const loadedAt = useRef(0)
-  const everPlayed = useRef(false)
-  const tickCurrent = useRef<string | null>(null)
-  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const isActive = platineActive
-
-  // ---- helpers audio (impératifs, pilotés par refs) ----
-  function setVol(deck: number, v: number) {
-    try { players.current[deck]?.setVolume(Math.max(0, Math.min(100, Math.round(v)))) } catch { /* pas prêt */ }
-  }
-  function clearRamp() {
-    if (rampTimer.current) { clearInterval(rampTimer.current); rampTimer.current = null }
-  }
-  function fadeInDeck(deck: number, ms: number) {
-    clearRamp()
-    const steps = Math.max(1, Math.round(ms / RAMP_STEP_MS))
-    let step = 0
-    setVol(deck, 0)
-    rampTimer.current = setInterval(() => {
-      step++
-      setVol(deck, (100 * step) / steps)
-      if (step >= steps) { clearRamp(); setVol(deck, 100) }
-    }, RAMP_STEP_MS)
-  }
-  function animateCrossfade(fromDeck: number, toDeck: number, ms: number, onDone: () => void) {
-    clearRamp()
-    const steps = Math.max(1, Math.round(ms / RAMP_STEP_MS))
-    let step = 0
-    setVol(fromDeck, 100)
-    setVol(toDeck, 0)
-    setCrossfadeUi(true)
-    rampTimer.current = setInterval(() => {
-      step++
-      const p = step / steps
-      setVol(fromDeck, 100 * (1 - p))
-      setVol(toDeck, 100 * p)
-      setOpacity(toDeck === 0 ? [p, 1 - p] : [1 - p, p])
-      if (step >= steps) {
-        clearRamp()
-        setVol(fromDeck, 0)
-        setVol(toDeck, 100)
-        setOpacity(toDeck === 0 ? [1, 0] : [0, 1])
-        setCrossfadeUi(false)
-        onDone()
-      }
-    }, RAMP_STEP_MS)
-  }
-  function pauseOtherDeck(active: number) {
-    const other = active === 0 ? 1 : 0
-    try { players.current[other]?.pauseVideo(); setVol(other, 0) } catch { /* pas prêt */ }
-  }
-  /** Charge une piste sur le deck actif (premier lancement ou saut manuel), avec fondu d'entrée. */
-  function loadOnActiveDeck(sourceId: string, fadeMs: number, playing: boolean) {
-    const deck = activeDeck.current
-    const player = players.current[deck]
-    if (!player) return
-    crossfading.current = false
-    deckLoaded.current[deck] = sourceId
-    setOpacity(deck === 0 ? [1, 0] : [0, 1])
-    pauseOtherDeck(deck)
-    try {
-      setVol(deck, 0)
-      player.loadVideoById(sourceId)
-    } catch { /* le rendu suivant réappliquera */ }
-    if (playing) fadeInDeck(deck, fadeMs)
-    else { clearRamp(); try { player.pauseVideo() } catch { /* pas prêt */ } }
-  }
-  /** Démarre un fondu enchaîné vers `nextSourceId` sur le deck inactif, et avance la file côté
-   * serveur (le "en lecture" des téléphones bascule pendant que le son se croise). */
-  function startCrossfade(nextSourceId: string, nextTrackId: string, ms: number) {
-    if (crossfading.current) return
-    const session = usePartyStore.getState().group?.music
-    if (!session?.current) return
-    const from = activeDeck.current
-    const to = from === 0 ? 1 : 0
-    const player = players.current[to]
-    if (!player || !ready.current[to]) return
-    crossfading.current = true
-    deckLoaded.current[to] = nextSourceId
-    try { setVol(to, 0); player.loadVideoById(nextSourceId) } catch { crossfading.current = false; return }
-    activeDeck.current = to
-    platineEnded(platineId, session.current.id, nextTrackId)
-    animateCrossfade(from, to, ms, () => {
-      crossfading.current = false
-      try { players.current[from]?.pauseVideo() } catch { /* pas prêt */ }
-      deckLoaded.current[from] = null
-    })
-  }
-  function applyPlayPause(playing: boolean) {
-    const player = players.current[activeDeck.current]
-    if (!player) return
-    try { if (playing) player.playVideo(); else player.pauseVideo() } catch { /* pas prêt */ }
-  }
-  function onDeckEnded(deck: number) {
-    // Un deck qui finit sa "queue" pendant/après un fondu ne doit pas déclencher un second passage.
-    if (crossfading.current || deck !== activeDeck.current) return
-    const cur = usePartyStore.getState().group?.music?.current
-    if (cur) platineEnded(platineId, cur.id)
-  }
-  function flashNotice(msg: string) {
-    setSkipNotice(msg)
-    if (noticeTimer.current) clearTimeout(noticeTimer.current)
-    noticeTimer.current = setTimeout(() => setSkipNotice(null), 3500)
-  }
-  /** Passe la piste courante quand elle est injouable : bloquée par pays/uploader, intégration
-   * désactivée, supprimée/privée (erreur YouTube), OU bloquée sans erreur (watchdog). Garde-fou
-   * anti-boucle : une même piste n'est sautée qu'une fois. */
-  function skipBroken(reason: string) {
-    const cur = usePartyStore.getState().group?.music?.current
-    if (!cur || errorGuard.current === cur.id) return
-    errorGuard.current = cur.id
-    clearRamp()
-    crossfading.current = false
-    flashNotice(reason)
-    platineEnded(platineId, cur.id)
-  }
-  function onDeckError(deck: number) {
-    // On ne saute que si le deck qui plante porte bien la piste en cours (pas un vieux deck en fondu).
-    const cur = usePartyStore.getState().group?.music?.current
-    if (!cur || deckLoaded.current[deck] !== cur.sourceId) return
-    skipBroken('Vidéo indisponible — passage au suivant')
-  }
+  const role = useMemo(() => ({ platineId, key: platineKey, kind: 'device' as const }), [platineId, platineKey])
 
   useEffect(() => {
     connectAsSpectator(code)
-    return () => disconnect()
-  }, [code, connectAsSpectator, disconnect])
+    return () => {
+      releasePlatine()
+      disconnect()
+    }
+  }, [code, connectAsSpectator, disconnect, releasePlatine])
 
-  useEffect(() => () => {
-    clearRamp()
-    if (noticeTimer.current) clearTimeout(noticeTimer.current)
-    for (const p of players.current) { try { p?.destroy() } catch { /* déjà détruit */ } }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Suit l'état réel du plein écran (touche Échap, bouton…) pour garder l'icône juste.
   useEffect(() => {
     const onChange = () => setIsFullscreen(fullscreenActive())
     document.addEventListener('fullscreenchange', onChange)
@@ -298,112 +186,57 @@ function PlatinePlayer({ code }: { code: string }) {
     }
   }, [])
 
-  // Démarrage sur geste utilisateur (indispensable pour l'autoplay audio) + revendication du rôle
-  // de platine active. Crée les DEUX lecteurs YouTube (decks A/B).
-  const startPlatine = async () => {
-    setStarted(true)
-    platineClaim(platineId)
-    if (source !== 'youtube') return
-    const YT = await loadYouTubeApi()
-    const mounts = [deck0Ref.current, deck1Ref.current]
-    mounts.forEach((mount, i) => {
-      if (!mount || players.current[i]) return
-      players.current[i] = new YT.Player(mount, {
-        width: '100%',
-        height: '100%',
-        // fs: 0 retire le bouton plein écran NATIF de YouTube (il ne fullscreen qu'une iframe et
-        // resterait figé sur l'ancienne vidéo lors d'un changement) — on fournit le nôtre à la place.
-        playerVars: { autoplay: 0, controls: 1, playsinline: 1, rel: 0, modestbranding: 1, fs: 0 },
-        events: {
-          onReady: () => { ready.current[i] = true; setReadyTick((t) => t + 1) },
-          onStateChange: (e) => { if (e.data === YT.PlayerState.ENDED) onDeckEnded(i) },
-          onError: () => onDeckError(i),
-        },
-      })
-    })
+  // L'écran de la platine ne doit pas se mettre en veille au milieu de la soirée.
+  useEffect(() => {
+    if (!started) return
+    const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } }
+    let lock: { release: () => Promise<void> } | null = null
+    nav.wakeLock
+      ?.request('screen')
+      .then((l) => (lock = l))
+      .catch(() => {})
+    return () => {
+      void lock?.release().catch(() => {})
+    }
+  }, [started])
+
+  const claim = async () => {
+    const ack = await claimPlatine(role)
+    setClaimError(ack.ok ? null : (ack.error ?? null))
   }
 
-  // Réconcilie le deck actif avec l'état partagé : premier chargement, saut manuel, lecture/pause,
-  // mise en veille si une autre platine prend le relais. Le fondu enchaîné (fin de piste) est géré
-  // séparément par le ticker ci-dessous.
+  const live = !!music && !music.endedAt
+  const output = music?.settings.output
+  // Reprise automatique : une platine démarrée, en veille, reprend la main dès que la place se
+  // libère (l'autre platine a décroché, une nouvelle soirée commence, le son revient de la TV).
   useEffect(() => {
-    if (!started) return
-    const active = activeDeck.current
-    if (!players.current[active] || !ready.current[active]) return
-    if (!isActive) {
-      try { players.current[0]?.pauseVideo(); players.current[1]?.pauseVideo() } catch { /* pas prêt */ }
-      return
-    }
-    if (!current) {
-      try { players.current[0]?.pauseVideo(); players.current[1]?.pauseVideo() } catch { /* pas prêt */ }
-      return
-    }
-    if (deckLoaded.current[active] === current.sourceId) {
-      applyPlayPause(isPlaying)
-      return
-    }
-    // Nouvelle piste inattendue (lancement initial ou saut) : on annule un éventuel fondu en cours.
-    if (crossfading.current) {
-      clearRamp()
-      crossfading.current = false
-      pauseOtherDeck(active)
-    }
-    loadOnActiveDeck(current.sourceId, firstLoad.current ? FADE_IN_MS : SKIP_FADE_MS, isPlaying)
-    firstLoad.current = false
+    if (!started || active || !live || !connected || platine?.online || output !== 'device') return
+    void claim()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [started, readyTick, isActive, current?.sourceId, isPlaying])
+  }, [started, active, live, connected, platine?.online, output])
 
-  // Ticker : remonte la position (barre de progression des téléphones) et déclenche le fondu
-  // enchaîné quand la piste courante arrive vers sa fin.
-  useEffect(() => {
-    if (!started) return
-    const id = setInterval(() => {
-      const active = activeDeck.current
-      const player = players.current[active]
-      if (!player || !ready.current[active]) return
-      const session = usePartyStore.getState().group?.music
-      if (!session) return
-      if (!usePartyStore.getState().platineActive) return
-      let ct = 0, dur = 0, state = -1
-      try { ct = player.getCurrentTime(); dur = player.getDuration(); state = player.getPlayerState() } catch { return }
-      reportPosition({ positionMs: Math.round(ct * 1000), durationMs: dur ? Math.round(dur * 1000) : null, isPlaying: state === 1 })
+  const flash = (text: string) => {
+    setNotice(text)
+    window.setTimeout(() => setNotice((n) => (n === text ? null : n)), 4000)
+  }
+  const setView = (v: View) => {
+    setViewState(v)
+    try {
+      localStorage.setItem(VIEW_KEY, v)
+    } catch {
+      /* stockage indisponible */
+    }
+  }
+  const quit = () => {
+    releasePlatine()
+    disconnect()
+    navigate('/')
+  }
 
-      // Watchdog : si on veut lire mais que rien n'a jamais démarré au bout de 12 s, la vidéo est
-      // sans doute bloquée (certaines n'émettent pas d'erreur exploitable) → on passe.
-      const cur = session.current
-      if (cur && tickCurrent.current !== cur.sourceId) {
-        tickCurrent.current = cur.sourceId
-        loadedAt.current = Date.now()
-        everPlayed.current = false
-      }
-      if (state === 1) everPlayed.current = true
-      if (cur && session.isPlaying && !everPlayed.current && !crossfading.current && Date.now() - loadedAt.current > 12000) {
-        skipBroken('Lecture impossible — passage au suivant')
-        return
-      }
-
-      if (!session.isPlaying || crossfading.current) return
-      const cf = crossfadeSecRef.current
-      // Fondu désactivé (0), durée inconnue, ou piste trop courte → coupure nette gérée par
-      // l'événement "fin de piste". Sinon on borne la fenêtre de fondu pour ne jamais dépasser la
-      // durée réelle de la vidéo (cas d'une vidéo plus courte que le fondu choisi).
-      if (cf >= 1 && dur >= 8) {
-        const windowSec = Math.min(cf, dur * 0.45, dur - 1.5)
-        const remaining = dur - ct
-        if (windowSec > 0.5 && remaining > 0.4 && remaining <= windowSec) {
-          const next = peekNext(session)
-          if (next) startCrossfade(next.sourceId, next.id, Math.max(1200, Math.round(windowSec * 1000)))
-        }
-      }
-    }, 500)
-    return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [started, platineId])
-
-  if (partyError) {
+  if (partyError && !music) {
     return (
       <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center gap-6">
-        <p className="text-pink-300">{partyError}</p>
+        <p className="text-chalk">{partyError}</p>
         <Button variant="secondary" onClick={() => navigate('/platine')}>
           Autre code
         </Button>
@@ -411,182 +244,434 @@ function PlatinePlayer({ code }: { code: string }) {
     )
   }
 
-  if (!music) {
+  if (!music) return <PlatineWaiting code={code} onQuit={quit} />
+  if (music.endedAt) return <PlatineRecap code={code} onQuit={quit} />
+
+  const youtube = music.source === 'youtube'
+  if (!youtube && !spotifyEnabled) {
     return (
-      <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center gap-4">
-        <span className="text-5xl">🎛️</span>
-        <p className="text-chalk-soft">En attente du lancement du Mode Soirée par l'hôte…</p>
-        <p className="text-xs text-chalk-faint">Salle {code}</p>
-        <Button variant="ghost" onClick={() => { disconnect(); navigate('/') }} className="!py-2 text-sm">
-          ← Accueil
+      <Gate onQuit={quit}>
+        <IconAlert size={30} className="text-blood mb-3" />
+        <h1 className="font-display text-2xl text-chalk mb-2">Spotify n’est pas configuré ici</h1>
+        <p className="text-sm text-chalk-soft">Relance le Mode Soirée en choisissant YouTube : ça marche sans compte.</p>
+      </Gate>
+    )
+  }
+  if (!youtube && !spotifyLinked) {
+    return (
+      <Gate onQuit={quit}>
+        <IconSpeaker size={30} className="text-chalk-soft mb-3" />
+        <p className="kicker text-2xs mb-2">Platine Spotify · salle {code}</p>
+        <h1 className="font-display text-2xl text-chalk mb-2">Connecte Spotify</h1>
+        <p className="text-sm text-chalk-soft mb-6">
+          Sur cet appareil relié à l’enceinte, connecte un compte Spotify Premium : c’est lui qui lira la file.
+        </p>
+        <Button fullWidth onClick={() => void beginSpotifyAuth(`#/platine/${code}${platineKey ? `?cle=${platineKey}` : ''}`)}>
+          Se connecter à Spotify
         </Button>
-      </div>
+      </Gate>
     )
   }
 
-  if (source === 'spotify') {
-    return <SpotifyDeck code={code} />
-  }
-
-  const queue = orderedQueue(music)
+  const decks = youtube ? (
+    <YouTubeDecks started={started} active={active} view={view === 'video' ? 'video' : 'hidden'} onCrossfade={setCrossfadeNext} onNotice={flash} />
+  ) : undefined
 
   return (
-    <div className="min-h-svh flex flex-col bg-black relative overflow-hidden">
-      {/* Ambiance : la pochette du morceau en cours, floutée en fond, plutôt qu'un noir plat. */}
-      {current?.thumbnail && (
-        <div className="absolute inset-0 pointer-events-none" aria-hidden>
-          <img src={current.thumbnail} alt="" className="w-full h-full object-cover blur-3xl scale-125 opacity-30" />
-          <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-900/20 via-black/70 to-black/95" />
-        </div>
+    <div className="fixed inset-0 bg-ink overflow-hidden">
+      <CoverBackdrop cover={music.current?.thumbnail} strength="stage" />
+      {landscape ? (
+        <TvViewport>
+          <SoireeStage code={code} media={decks} mediaVisible={youtube && view === 'video'} crossfadeNext={crossfadeNext} />
+        </TvViewport>
+      ) : (
+        <PlatinePortrait code={code} media={decks} mediaVisible={youtube && view === 'video'} />
       )}
-      <div className="relative z-40 flex items-center justify-between px-4 py-3 border-b border-line">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🎛️</span>
-          <span className="font-bold">Platine</span>
-          <span className="text-xs text-chalk-faint">· Salle {code}</span>
-          {isActive ? (
-            <span className="text-[10px] rounded-full bg-emerald-500/20 text-emerald-300 px-2 py-0.5">● active</span>
-          ) : (
-            <span className="text-[10px] rounded-full bg-felt-raised text-chalk-faint px-2 py-0.5">en veille</span>
-          )}
-          {crossfadeUi && (
-            <span className="text-[10px] rounded-full bg-fuchsia-500/20 text-fuchsia-200 px-2 py-0.5">⤫ fondu…</span>
-          )}
-        </div>
-        <div className="relative flex items-center gap-2">
-          <button
-            onClick={() => setSettingsOpen((o) => !o)}
-            className="rounded-full bg-felt-raised h-8 w-8 flex items-center justify-center text-chalk-soft text-sm"
-            aria-label="Réglages de la platine"
-          >
-            ⚙️
-          </button>
-          <button
-            onClick={() => { disconnect(); navigate('/') }}
-            className="rounded-full bg-felt-raised px-3 h-8 text-chalk-soft text-xs"
-          >
-            Quitter
-          </button>
-          {settingsOpen && (
-            <div className="absolute right-0 top-10 z-50 w-64 rounded-2xl border border-line bg-[#171122] p-4 shadow-xl">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-semibold">Fondu enchaîné</span>
-                <span className="text-sm text-fuchsia-300 tabular-nums">{crossfadeSec === 0 ? 'Coupé' : `${crossfadeSec}s`}</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={MAX_CROSSFADE_SEC}
-                step={1}
-                value={crossfadeSec}
-                onChange={(e) => updateCrossfade(Number(e.target.value))}
-                className="w-full accent-fuchsia-400"
-                aria-label="Durée du fondu enchaîné"
-              />
-              <p className="text-[11px] text-chalk-faint mt-1">
-                {crossfadeSec === 0
-                  ? 'Coupure nette entre les morceaux.'
-                  : "Le morceau suivant démarre en douceur avant la fin de l'actuel."}
-              </p>
-            </div>
-          )}
-        </div>
+      {!youtube && <SpotifyEngineHost started={started} active={active} onNotice={flash} />}
+
+      {/* Barre de service, en vrais pixels au-dessus de la scène. */}
+      <div className="fixed top-0 inset-x-0 z-40 flex items-center gap-2 px-4 h-16 bg-gradient-to-b from-ink/85 to-transparent">
+        <IconTurntable size={20} className="text-chalk-soft shrink-0" />
+        <span className="font-display text-lg text-chalk hidden sm:inline">Platine</span>
+        <span className="text-2xs font-semibold tracking-[0.18em] text-brass border border-line rounded-chip px-2 h-6 flex items-center">{code}</span>
+        <span className="flex items-center gap-1.5 text-2xs text-chalk-soft min-w-0">
+          <StatusDot tone={active ? 'live' : started ? 'idle' : 'idle'} />
+          <span className="truncate">{active ? (crossfadeNext ? 'Fondu enchaîné…' : 'Le son sort ici') : started ? 'En veille' : 'Prête'}</span>
+        </span>
+        <div className="flex-1" />
+        {youtube && (
+          <div className="hidden sm:flex rounded-chip border border-line p-0.5 bg-felt/70">
+            {(['cover', 'video'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={clsx('h-7 px-3 rounded-chip text-xs', view === v ? 'bg-felt-raised text-chalk' : 'text-chalk-soft')}
+              >
+                {v === 'cover' ? 'Pochette' : 'Vidéo'}
+              </button>
+            ))}
+          </div>
+        )}
+        <IconButton label="Réglages de la platine" onClick={() => setSettingsOpen((o) => !o)} active={settingsOpen}>
+          <IconSettings size={17} />
+        </IconButton>
+        <IconButton label={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'} onClick={() => void toggleFullscreen()}>
+          {isFullscreen ? <IconFullscreenExit size={17} /> : <IconFullscreen size={17} />}
+        </IconButton>
+        <button onClick={quit} className="rounded-chip bg-felt-raised border border-line px-3 h-9 text-chalk-soft text-xs shrink-0">
+          Quitter
+        </button>
       </div>
 
-      <div className="relative z-10 flex-1 flex flex-col lg:flex-row">
-        <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
-          {/* Zone lecteur : deux decks YouTube superposés (fondu enchaîné). Le plein écran cible CE
-              conteneur (pas l'iframe) pour que les changements de vidéo restent visibles. */}
-          <div
-            ref={playerZoneRef}
-            className={`overflow-hidden bg-[#0c0c12] border-line relative ${
-              isFullscreen ? 'w-screen h-screen max-w-none rounded-none border-0' : 'w-full max-w-3xl aspect-video rounded-2xl border'
-            }`}
+      <AnimatePresence>
+        {settingsOpen && (
+          <PlatineSettings
+            youtube={youtube}
+            view={view}
+            setView={setView}
+            active={active}
+            onClose={() => setSettingsOpen(false)}
+            onSpotifyLogout={
+              youtube
+                ? undefined
+                : () => {
+                    disconnectSpotify()
+                    setSpotifyLinked(false)
+                  }
+            }
+          />
+        )}
+      </AnimatePresence>
+
+      <ReactionRain size="stage" />
+
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 rounded-chip border border-blood/50 bg-felt-raised px-4 py-2 text-sm text-chalk flex items-center gap-2 shadow-float"
           >
-            <div className="absolute inset-0" style={{ opacity: opacity[0], pointerEvents: opacity[0] > 0.5 ? 'auto' : 'none' }}>
-              <div ref={deck0Ref} className="w-full h-full" />
-            </div>
-            <div className="absolute inset-0" style={{ opacity: opacity[1], pointerEvents: opacity[1] > 0.5 ? 'auto' : 'none' }}>
-              <div ref={deck1Ref} className="w-full h-full" />
-            </div>
-            {started && fullscreenSupported() && (
-              <button
-                onClick={() => toggleElementFullscreen(playerZoneRef.current)}
-                className="absolute top-2 right-2 z-40 rounded-full bg-ink/55 hover:bg-ink/75 text-white w-9 h-9 flex items-center justify-center text-sm"
-                aria-label={isFullscreen ? 'Quitter le plein écran' : 'Plein écran du lecteur'}
-              >
-                {isFullscreen ? '🗕' : '⛶'}
-              </button>
-            )}
-            {skipNotice && (
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 rounded-full bg-amber-500/90 text-black text-sm font-semibold px-4 py-1.5 shadow-lg">
-                ⚠️ {skipNotice}
-              </div>
-            )}
-            {!started && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-ink/70 backdrop-blur-sm">
-                <span className="text-5xl">🔊</span>
-                <p className="text-chalk-muted text-sm text-center px-6">
-                  Assure-toi que cet appareil est branché à l'enceinte, puis démarre la platine.
-                </p>
-                <Button onClick={startPlatine}>▶ Démarrer la platine</Button>
-              </div>
-            )}
-            {started && !current && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-6">
-                <span className="text-4xl">🎶</span>
-                <p className="text-chalk-soft text-sm">File d'attente vide — ajoutez des musiques depuis vos téléphones.</p>
-              </div>
-            )}
-            {started && !isActive && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-ink/80 text-center px-6">
-                <p className="text-chalk-muted text-sm">Une autre platine a pris le relais.</p>
-                <Button variant="secondary" onClick={() => platineClaim(platineId)}>Reprendre ici</Button>
-              </div>
-            )}
-          </div>
+            <IconAlert size={16} className="text-blood" />
+            {notice}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          {current && (
-            <div className="mt-4 text-center">
-              <p className="text-lg font-bold">{current.title}</p>
-              {(current.artist || current.durationMs) && (
-                <p className="text-chalk-soft text-sm">
-                  {current.artist}{current.artist && current.durationMs ? ' · ' : ''}
-                  {current.durationMs ? formatDuration(current.durationMs) : ''}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+      {!started ? (
+        <StartGate
+          code={code}
+          othersOnline={!!platine?.online && !platineKey}
+          spotify={!youtube}
+          onStart={() => {
+            setStarted(true)
+            void claim()
+          }}
+        />
+      ) : (
+        !active && (
+          <Standby
+            output={output ?? 'device'}
+            othersOnline={!!platine?.online}
+            canTakeOver={!!platineKey || !platine?.online}
+            error={claimError}
+            onClaim={() => void claim()}
+          />
+        )
+      )}
+    </div>
+  )
+}
 
-        {/* File d'attente + stats */}
-        <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-line p-4 overflow-y-auto max-h-[40svh] lg:max-h-none">
-          <p className="text-xs uppercase tracking-widest text-chalk-faint mb-1">À suivre</p>
-          <p className="text-sm text-chalk-muted mb-3">
-            {queue.length} titre{queue.length > 1 ? 's' : ''}
-            {totalDurationMs(queue) > 0 ? ` · ${formatDuration(totalDurationMs(queue))} en file` : ''}
+/** Le moteur Spotify n'a rien à afficher : un composant sans rendu pour l'appeler à côté de la scène. */
+function SpotifyEngineHost({ started, active, onNotice }: { started: boolean; active: boolean; onNotice: (t: string) => void }) {
+  const { ready, fatal } = useSpotifyEngine({ started, active, onNotice })
+  if (fatal) {
+    return (
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-control border border-blood/50 bg-felt-raised px-4 py-3 text-sm text-chalk flex items-center gap-2 shadow-float">
+        <IconAlert size={16} className="text-blood" />
+        {fatal}
+      </div>
+    )
+  }
+  if (started && !ready) {
+    return (
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-chip bg-felt-raised border border-line px-4 py-2 text-xs text-chalk-soft">
+        Le lecteur Spotify se connecte…
+      </div>
+    )
+  }
+  return null
+}
+
+function IconButton({ label, onClick, active = false, children }: { label: string; onClick: () => void; active?: boolean; children: ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      className={clsx(
+        'w-9 h-9 shrink-0 rounded-chip border flex items-center justify-center',
+        active ? 'bg-felt-raised border-spark/60 text-chalk' : 'bg-felt-raised border-line text-chalk-soft',
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+/** Le geste qui débloque le son (les navigateurs l'exigent) et revendique le rôle de platine. */
+function StartGate({ code, othersOnline, spotify, onStart }: { code: string; othersOnline: boolean; spotify: boolean; onStart: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/75 backdrop-blur-sm px-6">
+      <Surface level="floating" className="w-full max-w-md text-center">
+        <IconSpeaker size={32} className="text-spark mx-auto mb-3" />
+        <p className="kicker text-2xs mb-2">
+          Platine{spotify ? ' Spotify' : ''} · salle {code}
+        </p>
+        <h1 className="font-display text-2xl text-chalk mb-2">Démarrer la musique ici</h1>
+        <p className="text-sm text-chalk-soft mb-5">
+          Relie cet appareil à l’enceinte, puis démarre : c’est lui qui jouera la musique de toute la salle.
+        </p>
+        {othersOnline && (
+          <p className="text-xs text-chalk-soft mb-4 rounded-control border border-line px-3 py-2">
+            Une platine joue déjà : celle-ci restera en veille et prendra le relais si l’autre décroche.
           </p>
-          {queue.length === 0 && <p className="text-chalk-faint text-sm">Rien pour l'instant.</p>}
-          <div className="flex flex-col gap-2">
-            {queue.slice(0, 14).map((t, i) => (
-              <div key={t.id} className="flex items-center gap-2.5">
-                <span className="text-xs text-chalk-faint w-4 text-right">{i + 1}</span>
-                {t.thumbnail ? (
-                  <img src={t.thumbnail} alt="" className="w-10 h-10 rounded object-cover" />
-                ) : (
-                  <div className="w-10 h-10 rounded bg-felt-raised flex items-center justify-center">🎵</div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm truncate">{t.title}</p>
-                  {(t.artist || t.durationMs) && (
-                    <p className="text-[11px] text-chalk-faint truncate">
-                      {t.artist}{t.artist && t.durationMs ? ' · ' : ''}{t.durationMs ? formatDuration(t.durationMs) : ''}
-                    </p>
+        )}
+        <Button fullWidth onClick={onStart} className="flex items-center justify-center gap-2">
+          <IconPlay size={18} />
+          Démarrer la platine
+        </Button>
+      </Surface>
+    </div>
+  )
+}
+
+/** En veille : une autre platine (ou la TV) joue le son. On dit pourquoi, et comment reprendre. */
+function Standby({
+  output,
+  othersOnline,
+  canTakeOver,
+  error,
+  onClaim,
+}: {
+  output: 'device' | 'tv'
+  othersOnline: boolean
+  canTakeOver: boolean
+  error: string | null
+  onClaim: () => void
+}) {
+  const title = output === 'tv' ? 'Le son passe par la TV' : othersOnline ? 'Une autre platine joue le son' : 'On reprend la main…'
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[min(92vw,30rem)]"
+    >
+      <Surface level="floating" className="!p-4 flex items-center gap-4">
+        <StatusDot tone="idle" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-chalk">{title}</p>
+          <p className="text-2xs text-chalk-soft mt-0.5 leading-snug">
+            {error ??
+              (canTakeOver
+                ? 'Cette platine est en veille : elle prend le relais d’elle-même si l’autre décroche.'
+                : 'Pour jouer ici, ouvre le lien de la platine depuis le téléphone de l’hôte (Régie › Copier le lien).')}
+          </p>
+        </div>
+        {canTakeOver && (
+          <Button variant="secondary" className="!min-h-[40px] !px-4 text-sm shrink-0" onClick={onClaim}>
+            Reprendre ici
+          </Button>
+        )}
+      </Surface>
+    </motion.div>
+  )
+}
+
+/** Réglages sur place. Partagés avec la régie de l'hôte : ce qu'on règle ici se voit sur son téléphone. */
+function PlatineSettings({
+  youtube,
+  view,
+  setView,
+  active,
+  onClose,
+  onSpotifyLogout,
+}: {
+  youtube: boolean
+  view: View
+  setView: (v: View) => void
+  active: boolean
+  onClose: () => void
+  onSpotifyLogout?: () => void
+}) {
+  const settings = usePartyStore((s) => s.group?.music?.settings)
+  const platineSend = usePartyStore((s) => s.platineSend)
+  const [draft, setDraft] = useState<{ volume?: number; crossfadeSec?: number }>({})
+  if (!settings) return null
+  const volume = draft.volume ?? settings.volume
+  const crossfade = draft.crossfadeSec ?? settings.crossfadeSec
+  const send = (patch: { volume?: number; crossfadeSec?: number }) => {
+    setDraft((d) => ({ ...d, ...patch }))
+    platineSend('settings', patch)
+  }
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8 }}
+      className="fixed top-16 right-4 z-50 w-[min(92vw,20rem)]"
+    >
+      <Surface level="floating" className="!p-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="kicker text-2xs">Réglages</p>
+          <button onClick={onClose} aria-label="Fermer" className="w-7 h-7 flex items-center justify-center text-chalk-soft">
+            <IconClose size={15} />
+          </button>
+        </div>
+        {!active && (
+          <p className="text-2xs text-chalk-faint mb-3">En veille : les réglages se font depuis la platine active ou la régie de l’hôte.</p>
+        )}
+        <label className="block">
+          <span className="flex justify-between text-sm">
+            <span className="text-chalk">Volume</span>
+            <span className="tabular-nums text-chalk-muted">{volume} %</span>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={volume}
+            disabled={!active}
+            onChange={(e) => send({ volume: Number(e.target.value) })}
+            className="w-full accent-spark mt-1.5 h-6"
+          />
+        </label>
+        <label className="block mt-3">
+          <span className="flex justify-between text-sm">
+            <span className="text-chalk">Fondu enchaîné</span>
+            <span className="tabular-nums text-chalk-muted">{crossfade === 0 ? 'Coupure nette' : `${crossfade} s`}</span>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={MAX_CROSSFADE_SEC}
+            value={crossfade}
+            disabled={!active}
+            onChange={(e) => send({ crossfadeSec: Number(e.target.value) })}
+            className="w-full accent-spark mt-1.5 h-6"
+          />
+        </label>
+        {!youtube && <p className="text-2xs text-chalk-faint mt-1">Spotify lit un morceau à la fois : le son descend puis remonte.</p>}
+        {youtube && (
+          <div className="mt-3">
+            <p className="text-sm text-chalk mb-1.5">Affichage</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {(['cover', 'video'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={clsx(
+                    'h-9 rounded-control border text-xs',
+                    view === v ? 'bg-felt-raised border-spark/60 text-chalk' : 'border-line text-chalk-soft',
                   )}
-                </div>
-                {t.bumpVotes.length > 0 && <span className="text-[11px] text-fuchsia-300">▲{t.bumpVotes.length}</span>}
+                >
+                  {v === 'cover' ? 'Pochette (vinyle)' : 'Vidéo YouTube'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {onSpotifyLogout && (
+          <button onClick={onSpotifyLogout} className="mt-4 text-2xs text-chalk-soft underline">
+            Changer de compte Spotify
+          </button>
+        )}
+      </Surface>
+    </motion.div>
+  )
+}
+
+/** Platine ouverte, salle trouvée, mais l'hôte n'a pas (encore) lancé le Mode Soirée. */
+function PlatineWaiting({ code, onQuit }: { code: string; onQuit: () => void }) {
+  return (
+    <Gate onQuit={onQuit}>
+      <IconTurntable size={32} className="text-chalk-soft mb-3" />
+      <p className="kicker text-2xs mb-2">Platine · salle {code}</p>
+      <h1 className="font-display text-2xl text-chalk mb-2">La platine est branchée</h1>
+      <p className="text-sm text-chalk-soft mb-5">Dès que l’hôte lance le Mode Soirée depuis le salon, la musique de la salle sortira ici.</p>
+      <div className="flex items-center gap-3 rounded-card border border-line bg-felt px-3 py-3 text-left">
+        <QRCode value={joinUrl(code)} size={72} />
+        <p className="text-xs text-chalk-soft">Pas encore dans la salle ? Scanne pour la rejoindre avec ton téléphone.</p>
+      </div>
+    </Gate>
+  )
+}
+
+function Gate({ onQuit, children }: { onQuit: () => void; children: ReactNode }) {
+  return (
+    <PageTransition>
+      <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center">
+        <div className="w-full max-w-sm flex flex-col items-center">{children}</div>
+        <Button variant="ghost" onClick={onQuit} className="mt-6">
+          Quitter la platine
+        </Button>
+      </div>
+    </PageTransition>
+  )
+}
+
+/** Mise en page verticale : un téléphone sert de platine. Même contenu, à l'échelle téléphone. */
+function PlatinePortrait({ code, media, mediaVisible }: { code: string; media?: ReactNode; mediaVisible: boolean }) {
+  const music = usePartyStore((s) => s.group?.music)
+  const platine = usePartyStore((s) => s.platine)
+  const { byId } = useMemberLookup()
+  if (!music) return null
+  const current = music.current
+  const adder = current ? byId(current.addedById) : undefined
+  const spinning = !!current && music.isPlaying && !!music.anchor?.playing && !!platine?.online
+  const next = orderedQueue(music).slice(0, 3)
+  return (
+    <div className="relative z-10 h-full overflow-y-auto">
+      <div className="min-h-full flex flex-col items-center px-5 pt-20 pb-8 text-center max-w-md mx-auto">
+        <div className={clsx('relative', mediaVisible ? 'w-full' : '')}>
+          {media}
+          {!mediaVisible && <Vinyl cover={current?.thumbnail} size="min(68vw, 300px)" spinning={spinning} className={current ? '' : 'opacity-50'} />}
+        </div>
+        {current ? (
+          <>
+            <h1 className="font-display text-2xl text-chalk mt-6 leading-tight line-clamp-2 [overflow-wrap:anywhere]">{current.title}</h1>
+            {current.artist && <p className="text-sm text-chalk-soft mt-1 truncate max-w-full">{current.artist}</p>}
+            <div className="text-xs text-chalk-muted mt-3 flex items-center gap-2">
+              {adder && <Avatar pseudo={adder.pseudo} color={adder.color} size={20} photoUrl={adder.photoUrl} />}
+              Ajouté par {adder?.pseudo ?? 'quelqu’un'}
+            </div>
+            {current.dedication && (
+              <p className="text-sm text-chalk mt-3 rounded-card border border-spark/40 bg-felt/80 px-4 py-2.5">« {current.dedication} »</p>
+            )}
+            <MusicProgress className="mt-5" />
+            <Equalizer playing={spinning} bars={28} className="h-10 w-full mt-2" />
+          </>
+        ) : (
+          <p className="font-display text-2xl text-chalk mt-6">Le premier morceau, c’est vous</p>
+        )}
+        {next.length > 0 && (
+          <div className="w-full mt-6 text-left">
+            <p className="kicker text-2xs mb-2">À suivre</p>
+            {next.map((t) => (
+              <div key={t.id} className="flex items-center gap-3 py-1.5">
+                <TrackArt src={t.thumbnail} size={36} />
+                <p className="text-sm text-chalk truncate flex-1">{t.title}</p>
+                <span className="text-2xs text-chalk-faint">{byId(t.addedById)?.pseudo}</span>
               </div>
             ))}
+          </div>
+        )}
+        <div className="w-full mt-6 flex items-center gap-3 rounded-card border border-line bg-felt/85 p-3 text-left">
+          <QRCode value={joinUrl(code)} size={72} />
+          <div>
+            <p className="kicker text-2xs">Ajoute ta musique</p>
+            <p className="font-stage text-xl text-brass tracking-[0.14em]">{code}</p>
           </div>
         </div>
       </div>

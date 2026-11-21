@@ -12,8 +12,8 @@ import { tidyYouTubeTitle, youtubeThumb } from './jukebox'
 export interface YTPlayer {
   playVideo(): void
   pauseVideo(): void
-  loadVideoById(id: string): void
-  cueVideoById(id: string): void
+  loadVideoById(id: string, startSeconds?: number): void
+  cueVideoById(id: string, startSeconds?: number): void
   getCurrentTime(): number
   getDuration(): number
   getPlayerState(): number

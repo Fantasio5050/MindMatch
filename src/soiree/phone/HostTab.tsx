@@ -150,10 +150,20 @@ export function HostTab({ code }: { code: string }) {
         <p className="kicker text-2xs mb-2">Où sort le son</p>
         <p className="flex items-center gap-2 text-sm text-chalk mb-3">
           <StatusDot tone={platine?.online ? 'live' : 'off'} />
-          {platine?.online ? (platine.kind === 'tv' ? 'La TV joue le son' : 'Platine en ligne') : s.output === 'tv' ? 'La TV attend « Démarrer le son »' : 'Aucune platine en ligne'}
+          {platine?.online
+            ? platine.kind === 'tv'
+              ? 'La TV joue le son'
+              : 'Platine en ligne'
+            : s.output === 'tv'
+              ? 'La TV attend « Démarrer le son »'
+              : 'Aucune platine en ligne'}
         </p>
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" className="!min-h-[44px] text-sm !px-3 flex items-center justify-center gap-1.5" onClick={() => window.open(link, '_blank')}>
+          <Button
+            variant="secondary"
+            className="!min-h-[44px] text-sm !px-3 flex items-center justify-center gap-1.5"
+            onClick={() => window.open(link, '_blank')}
+          >
             <IconExternal size={16} />
             Platine ici
           </Button>

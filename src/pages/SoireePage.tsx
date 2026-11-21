@@ -226,7 +226,11 @@ export function SoireePage() {
                 toast.tone === 'error' ? 'border-blood/60' : 'border-jade/40',
               )}
             >
-              {toast.tone === 'error' ? <IconAlert size={17} className="text-blood shrink-0" /> : <IconCheck size={17} className="text-jade shrink-0" />}
+              {toast.tone === 'error' ? (
+                <IconAlert size={17} className="text-blood shrink-0" />
+              ) : (
+                <IconCheck size={17} className="text-jade shrink-0" />
+              )}
               <p className="text-sm text-chalk">{toast.text}</p>
             </div>
           </motion.div>

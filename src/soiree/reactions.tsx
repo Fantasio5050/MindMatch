@@ -37,7 +37,9 @@ export function ReactionBar({ disabled = false, compact = false }: { disabled?: 
             aria-label={`Réagir ${emoji}`}
           >
             <span className={compact ? 'text-xl leading-none' : 'text-2xl leading-none'}>{emoji}</span>
-            {!compact && <span className={clsx('text-2xs tabular-nums mt-1 leading-none', n ? 'text-chalk-muted' : 'text-transparent')}>{n || 0}</span>}
+            {!compact && (
+              <span className={clsx('text-2xs tabular-nums mt-1 leading-none', n ? 'text-chalk-muted' : 'text-transparent')}>{n || 0}</span>
+            )}
           </motion.button>
         )
       })}
@@ -83,12 +85,7 @@ function Floating({ reaction, pseudo, size }: { reaction: MusicReactionEvent; ps
     >
       <span style={{ fontSize: stage ? 'clamp(40px, 7vh, 96px)' : 38 }}>{reaction.emoji}</span>
       {pseudo && (
-        <span
-          className={clsx(
-            'font-semibold text-chalk-muted bg-ink/55 rounded-chip px-2 py-0.5 mt-0.5',
-            stage ? 'text-tv-xs' : 'text-2xs',
-          )}
-        >
+        <span className={clsx('font-semibold text-chalk-muted bg-ink/55 rounded-chip px-2 py-0.5 mt-0.5', stage ? 'text-tv-xs' : 'text-2xs')}>
           {pseudo}
         </span>
       )}

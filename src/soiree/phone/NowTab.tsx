@@ -28,9 +28,7 @@ export function NowTab({ onAdd }: { onAdd: () => void }) {
         <Vinyl cover={null} size={196} spinning={false} className="opacity-60" />
         <p className="kicker text-2xs mt-6 mb-1">La platine attend</p>
         <h2 className="font-display text-2xl text-chalk mb-2">Lance le premier morceau</h2>
-        <p className="text-sm text-chalk-soft max-w-xs mb-6">
-          Chacun son tour : la file est équitable, personne ne monopolise l’enceinte.
-        </p>
+        <p className="text-sm text-chalk-soft max-w-xs mb-6">Chacun son tour : la file est équitable, personne ne monopolise l’enceinte.</p>
         <Button onClick={onAdd} className="flex items-center gap-2">
           <IconPlus size={18} />
           Ajouter un morceau
@@ -56,7 +54,12 @@ export function NowTab({ onAdd }: { onAdd: () => void }) {
 
   return (
     <div className="flex flex-col items-center text-center">
-      <motion.div key={current.id} initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}>
+      <motion.div
+        key={current.id}
+        initial={{ scale: 0.92, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+      >
         <Vinyl cover={current.thumbnail} size={204} spinning={spinning} />
       </motion.div>
 
@@ -70,11 +73,15 @@ export function NowTab({ onAdd }: { onAdd: () => void }) {
         {adder && <Avatar pseudo={adder.pseudo} color={adder.color} size={26} photoUrl={adder.photoUrl} />}
         <div className="min-w-0 flex-1">
           <p className="text-xs text-chalk-soft truncate">
-            {mine ? (current.auto ? 'Ton morceau, repioché par le mode continu' : 'Ton morceau') : current.auto ? `Repioché · ajouté par ${adder?.pseudo ?? 'quelqu’un'}` : `Ajouté par ${adder?.pseudo ?? 'quelqu’un'}`}
+            {mine
+              ? current.auto
+                ? 'Ton morceau, repioché par le mode continu'
+                : 'Ton morceau'
+              : current.auto
+                ? `Repioché · ajouté par ${adder?.pseudo ?? 'quelqu’un'}`
+                : `Ajouté par ${adder?.pseudo ?? 'quelqu’un'}`}
           </p>
-          {current.dedication && (
-            <p className="text-sm text-chalk leading-snug line-clamp-2 [overflow-wrap:anywhere]">« {current.dedication} »</p>
-          )}
+          {current.dedication && <p className="text-sm text-chalk leading-snug line-clamp-2 [overflow-wrap:anywhere]">« {current.dedication} »</p>}
         </div>
       </div>
 
@@ -91,10 +98,15 @@ export function NowTab({ onAdd }: { onAdd: () => void }) {
               <p className="kicker text-2xs">{next.auto ? 'Ensuite · mode continu' : 'Ensuite'}</p>
               <p className="text-sm text-chalk truncate">{next.title}</p>
             </div>
-            {nextBy && <span className="text-2xs text-chalk-faint shrink-0 max-w-[30%] truncate">{next.addedById === myId ? 'toi' : nextBy.pseudo}</span>}
+            {nextBy && (
+              <span className="text-2xs text-chalk-faint shrink-0 max-w-[30%] truncate">{next.addedById === myId ? 'toi' : nextBy.pseudo}</span>
+            )}
           </>
         ) : (
-          <button onClick={onAdd} className="w-full flex items-center gap-3 rounded-card border border-dashed border-line-strong px-3 py-2.5 text-left">
+          <button
+            onClick={onAdd}
+            className="w-full flex items-center gap-3 rounded-card border border-dashed border-line-strong px-3 py-2.5 text-left"
+          >
             <IconPlus size={18} className="text-spark shrink-0" />
             <span className="text-sm text-chalk-soft">Rien ensuite pour l’instant — ajoute le prochain</span>
           </button>

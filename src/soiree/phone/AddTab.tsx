@@ -66,9 +66,12 @@ export function AddTab({ onAdded }: { onAdded: (trackId: string) => void }) {
     let cancelled = false
     const base: Candidate = { id: linkId, title: '', artist: '', thumbnail: source === 'youtube' ? youtubeThumb(linkId) : null, durationMs: null }
     setLink(base)
-    const load = source === 'youtube'
-      ? fetchYouTubeMeta(linkId).then((m) => (m ? { ...base, title: m.title, artist: m.artist } : base))
-      : fetchSpotifyTrack(linkId).then((t) => (t ? { ...base, title: t.title, artist: t.artist, thumbnail: t.thumbnail, durationMs: t.durationMs } : base))
+    const load =
+      source === 'youtube'
+        ? fetchYouTubeMeta(linkId).then((m) => (m ? { ...base, title: m.title, artist: m.artist } : base))
+        : fetchSpotifyTrack(linkId).then((t) =>
+            t ? { ...base, title: t.title, artist: t.artist, thumbnail: t.thumbnail, durationMs: t.durationMs } : base,
+          )
     void load.then((c) => {
       if (!cancelled) setLink({ ...c, title: c.title || (source === 'youtube' ? 'Vidéo YouTube' : 'Titre Spotify') })
     })
@@ -92,7 +95,13 @@ export function AddTab({ onAdded }: { onAdded: (trackId: string) => void }) {
       try {
         const list: Candidate[] =
           source === 'youtube'
-            ? (await searchYouTube(trimmed, ctrl.signal)).map((r) => ({ id: r.videoId, title: r.title, artist: r.artist, thumbnail: r.thumbnail, durationMs: r.durationMs }))
+            ? (await searchYouTube(trimmed, ctrl.signal)).map((r) => ({
+                id: r.videoId,
+                title: r.title,
+                artist: r.artist,
+                thumbnail: r.thumbnail,
+                durationMs: r.durationMs,
+              }))
             : (await searchSpotify(trimmed, ctrl.signal)).map((r) => ({
                 id: r.id,
                 title: r.title,
@@ -111,7 +120,9 @@ export function AddTab({ onAdded }: { onAdded: (trackId: string) => void }) {
         setErrorText(
           source === 'youtube'
             ? 'Recherche indisponible pour le moment. Colle un lien YouTube : ça marche toujours.'
-            : e instanceof Error ? e.message : 'Recherche Spotify indisponible pour le moment.',
+            : e instanceof Error
+              ? e.message
+              : 'Recherche Spotify indisponible pour le moment.',
         )
       }
     }, 380)
@@ -162,7 +173,16 @@ export function AddTab({ onAdded }: { onAdded: (trackId: string) => void }) {
     try {
       const tracks = c.kind === 'album' ? await fetchAlbumTracks(c.id) : await fetchArtistTracks(c.title)
       // Les titres d'un album arrivent sans pochette : on leur donne celle de l'album.
-      setExpandedTracks(tracks.map((t) => ({ id: t.id, title: t.title, artist: t.artist, thumbnail: t.thumbnail ?? c.thumbnail, durationMs: t.durationMs, kind: 'track' })))
+      setExpandedTracks(
+        tracks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          artist: t.artist,
+          thumbnail: t.thumbnail ?? c.thumbnail,
+          durationMs: t.durationMs,
+          kind: 'track',
+        })),
+      )
     } catch {
       setExpandedTracks([])
     }
@@ -203,7 +223,9 @@ export function AddTab({ onAdded }: { onAdded: (trackId: string) => void }) {
     <div>
       {/* Champ unique : une recherche OU un lien. */}
       <label className="relative block">
-        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-chalk-faint">{isLink ? <IconLink size={18} /> : <IconSearch size={18} />}</span>
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-chalk-faint">
+          {isLink ? <IconLink size={18} /> : <IconSearch size={18} />}
+        </span>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -270,15 +292,13 @@ export function AddTab({ onAdded }: { onAdded: (trackId: string) => void }) {
       </div>
 
       {full && (
-        <p className="text-xs text-chalk-soft mt-2">
-          Tu as {MAX_QUEUE_PER_PLAYER} morceaux en attente : laisse passer les autres, puis reviens.
-        </p>
+        <p className="text-xs text-chalk-soft mt-2">Tu as {MAX_QUEUE_PER_PLAYER} morceaux en attente : laisse passer les autres, puis reviens.</p>
       )}
 
       <div className="mt-3">
         {/* Lien collé. */}
-        {isLink && (
-          link ? (
+        {isLink &&
+          (link ? (
             <Surface className="!p-3 flex items-center gap-3">
               <TrackArt src={link.thumbnail} size={56} />
               <div className="min-w-0 flex-1">
@@ -293,8 +313,7 @@ export function AddTab({ onAdded }: { onAdded: (trackId: string) => void }) {
               <IconAlert size={15} className="text-blood" />
               {source === 'youtube' ? 'Ce lien n’est pas une vidéo YouTube.' : 'Ce lien n’est pas un titre Spotify.'}
             </p>
-          )
-        )}
+          ))}
 
         {/* Album / artiste Spotify ouvert. */}
         {!isLink && expanded && (
@@ -303,12 +322,21 @@ export function AddTab({ onAdded }: { onAdded: (trackId: string) => void }) {
               <IconArrowLeft size={15} />
               {expanded.title}
             </button>
-            {expandedTracks === null ? <Skeleton /> : expandedTracks.length ? rows(expandedTracks) : <p className="text-xs text-chalk-faint py-3">Aucun titre trouvé.</p>}
+            {expandedTracks === null ? (
+              <Skeleton />
+            ) : expandedTracks.length ? (
+              rows(expandedTracks)
+            ) : (
+              <p className="text-xs text-chalk-faint py-3">Aucun titre trouvé.</p>
+            )}
           </div>
         )}
 
         {!isLink && !expanded && phase === 'loading' && <Skeleton />}
-        {!isLink && !expanded && phase === 'done' && (results.length ? rows(results) : <p className="text-xs text-chalk-faint py-3">Aucun résultat pour « {trimmed} ».</p>)}
+        {!isLink &&
+          !expanded &&
+          phase === 'done' &&
+          (results.length ? rows(results) : <p className="text-xs text-chalk-faint py-3">Aucun résultat pour « {trimmed} ».</p>)}
         {!isLink && !expanded && phase === 'error' && (
           <Surface className="!p-3.5 flex items-start gap-2.5">
             <IconAlert size={17} className="text-blood shrink-0 mt-0.5" />
@@ -320,7 +348,11 @@ export function AddTab({ onAdded }: { onAdded: (trackId: string) => void }) {
             <p className="kicker text-2xs mb-2">Idées</p>
             <div className="flex flex-wrap gap-2">
               {IDEAS.map((idea) => (
-                <button key={idea} onClick={() => setQuery(idea)} className="h-9 px-3.5 rounded-chip bg-felt/80 border border-line text-xs text-chalk-muted active:bg-felt-raised">
+                <button
+                  key={idea}
+                  onClick={() => setQuery(idea)}
+                  className="h-9 px-3.5 rounded-chip bg-felt/80 border border-line text-xs text-chalk-muted active:bg-felt-raised"
+                >
                   {idea}
                 </button>
               ))}
@@ -338,7 +370,17 @@ export function AddTab({ onAdded }: { onAdded: (trackId: string) => void }) {
 }
 
 /** L'état d'un résultat : déjà en cours, déjà dans la file (le mien ou celui d'un autre), ou à ajouter. */
-function AddState({ state, busy, disabled, onAdd }: { state: 'playing' | 'mine' | 'queued' | 'free'; busy: boolean; disabled: boolean; onAdd: () => void }) {
+function AddState({
+  state,
+  busy,
+  disabled,
+  onAdd,
+}: {
+  state: 'playing' | 'mine' | 'queued' | 'free'
+  busy: boolean
+  disabled: boolean
+  onAdd: () => void
+}) {
   return (
     <AnimatePresence mode="wait" initial={false}>
       {state === 'free' ? (

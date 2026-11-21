@@ -128,7 +128,12 @@ export function FeedTicker({ idle, className }: { idle: string; className?: stri
  * La platine ne répond plus (ou n'a jamais été ouverte) : la musique ne sort nulle part. On le dit
  * franchement, avec la marche à suivre — et à l'hôte, les deux boutons qui règlent le problème.
  */
-export function PlatineAlert({ code, onOpenPlatine, onSoundOnTv, onSoundOnPlatine }: {
+export function PlatineAlert({
+  code,
+  onOpenPlatine,
+  onSoundOnTv,
+  onSoundOnPlatine,
+}: {
   code: string
   onOpenPlatine?: () => void
   onSoundOnTv?: () => void
@@ -151,8 +156,8 @@ export function PlatineAlert({ code, onOpenPlatine, onSoundOnTv, onSoundOnPlatin
           <>Sur l’écran partagé, touche « Démarrer le son ». La musique repart d’elle-même.</>
         ) : (
           <>
-            Sur l’appareil branché à l’enceinte, ouvre MindMatch, rubrique Platine, code{' '}
-            <b className="text-chalk tracking-widest">{code}</b>. La musique repart d’elle-même.
+            Sur l’appareil branché à l’enceinte, ouvre MindMatch, rubrique Platine, code <b className="text-chalk tracking-widest">{code}</b>. La
+            musique repart d’elle-même.
           </>
         )}
         {!isHost && ' Sinon, préviens l’hôte.'}

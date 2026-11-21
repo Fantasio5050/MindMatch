@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { usePartyStore } from '../store/usePartyStore'
 import { useAppStore } from '../store/useAppStore'
+import { anchorPosition } from '../lib/jukebox'
 import type { Member } from '../types'
 
 /** L'heure, rafraîchie à intervalle (estimations de passage, fraîcheur du fil). */
@@ -26,4 +27,15 @@ export function useIsMusicHost(): boolean {
   const group = usePartyStore((s) => s.group)
   if (!myId || !group) return false
   return group.party.hostMemberId === myId || group.music?.hostMemberId === myId
+}
+
+/** Position et durée du morceau en cours, extrapolées de l'ancre partagée et rafraîchies à
+ * intervalle (annonce du suivant, compte à rebours). Pour une barre fluide, voir `MusicProgress`. */
+export function useTrackClock(intervalMs = 500): { positionMs: number; durationMs: number | null; remainingMs: number | null } {
+  useNow(intervalMs)
+  const st = usePartyStore.getState()
+  const music = st.group?.music
+  const durationMs = music?.current?.durationMs ?? null
+  const positionMs = music?.current ? anchorPosition(music.anchor, st.serverNow(), durationMs) : 0
+  return { positionMs, durationMs, remainingMs: durationMs ? Math.max(0, durationMs - positionMs) : null }
 }

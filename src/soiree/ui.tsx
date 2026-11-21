@@ -213,9 +213,17 @@ export function Switch({
         <span className="block text-sm text-chalk">{label}</span>
         {hint && <span className="block text-2xs text-chalk-faint mt-0.5 leading-snug">{hint}</span>}
       </span>
-      <span className={clsx('mt-0.5 w-10 h-6 rounded-chip relative shrink-0 transition-colors', checked ? 'bg-spark' : 'bg-felt-sunken border border-line-strong')}>
+      <span
+        className={clsx(
+          'mt-0.5 w-10 h-6 rounded-chip relative shrink-0 transition-colors',
+          checked ? 'bg-spark' : 'bg-felt-sunken border border-line-strong',
+        )}
+      >
         <span
-          className={clsx('absolute top-[3px] left-[3px] w-[18px] h-[18px] rounded-chip bg-chalk transition-transform', checked ? 'translate-x-4' : 'translate-x-0')}
+          className={clsx(
+            'absolute top-[3px] left-[3px] w-[18px] h-[18px] rounded-chip bg-chalk transition-transform',
+            checked ? 'translate-x-4' : 'translate-x-0',
+          )}
         />
       </span>
     </button>

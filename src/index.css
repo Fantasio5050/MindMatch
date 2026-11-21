@@ -142,7 +142,10 @@ body {
   animation: eq-bounce ease-in-out infinite;
 }
 .eq-paused .eq-bar {
-  animation-play-state: paused;
+  /* À l'arrêt, les barres retombent au lieu de se figer en plein saut. */
+  animation: none;
+  transform: scaleY(0.08);
+  transition: transform 0.6s var(--ease-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -266,13 +266,14 @@ export function loadSpotifySdk(): Promise<SpotifyNamespace> {
   return sdkPromise
 }
 
-/** Démarre la lecture d'un morceau (par id) sur le device SDK de la platine, via l'API Web. */
-export async function playSpotifyTrack(deviceId: string, trackId: string): Promise<void> {
+/** Démarre la lecture d'un morceau (par id) sur le device SDK de la platine, via l'API Web —
+ * éventuellement en cours de route (platine rouverte en plein morceau). */
+export async function playSpotifyTrack(deviceId: string, trackId: string, positionMs = 0): Promise<void> {
   const token = await getSpotifyToken()
   if (!token) return
   await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
+    body: JSON.stringify({ uris: [`spotify:track:${trackId}`], position_ms: Math.max(0, Math.round(positionMs)) }),
   }).catch(() => {})
 }

@@ -223,12 +223,18 @@ function QueueRow({
           >
             <div className="flex gap-2 pt-2.5 pb-0.5">
               {isHost && (
-                <button onClick={onPlayNext} className="flex-1 h-10 rounded-control bg-felt-raised border border-line-strong text-xs text-chalk flex items-center justify-center gap-1.5">
+                <button
+                  onClick={onPlayNext}
+                  className="flex-1 h-10 rounded-control bg-felt-raised border border-line-strong text-xs text-chalk flex items-center justify-center gap-1.5"
+                >
                   {pinned ? <IconPin size={15} /> : <IconPlayNext size={15} />}
                   {pinned ? 'Remettre à son tour' : 'Jouer ensuite'}
                 </button>
               )}
-              <button onClick={onRemove} className="flex-1 h-10 rounded-control border border-blood/50 text-xs text-chalk flex items-center justify-center gap-1.5">
+              <button
+                onClick={onRemove}
+                className="flex-1 h-10 rounded-control border border-blood/50 text-xs text-chalk flex items-center justify-center gap-1.5"
+              >
                 <IconTrash size={15} className="text-blood" />
                 Retirer
               </button>

@@ -29,3 +29,20 @@ export function SoireeRecap() {
     </div>
   )
 }
+
+/** Fin de soirée, côté platine. */
+export function PlatineRecap({ code, onQuit }: { code: string; onQuit: () => void }) {
+  const recap = usePartyStore((s) => s.group?.music?.recap)
+  void code
+  if (!recap) return null
+  return (
+    <div className="min-h-svh flex flex-col items-center justify-center px-6 text-center gap-3">
+      <Vinyl cover={recap.topTracks[0]?.thumbnail} size={180} spinning={false} />
+      <p className="kicker text-2xs mt-4">Fin de soirée</p>
+      <h1 className="font-display text-2xl text-chalk">{recap.tracksPlayed} morceaux</h1>
+      <Button variant="ghost" onClick={onQuit}>
+        Quitter la platine
+      </Button>
+    </div>
+  )
+}
