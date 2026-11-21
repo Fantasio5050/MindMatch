@@ -78,6 +78,10 @@ function KickWatcher() {
 function MusicDirector() {
   const location = useLocation()
   const partyStatus = usePartyStore((s) => s.group?.party.status)
+  // Mode Soirée en cours : c'est la platine qui tient l'enceinte. La musique d'ambiance de l'appli se
+  // tait sur TOUS les écrans de la salle (salon, manettes, TV) tant que la soirée dure — sinon deux
+  // musiques se superposent. Elle reprend quand l'hôte referme la soirée.
+  const soireeOn = usePartyStore((s) => !!s.group?.music && !s.group.music.endedAt)
   const path = location.pathname
   const onGameRoute = path === '/play' || path.startsWith('/screen')
   const inGame = onGameRoute && partyStatus === 'playing'
@@ -86,8 +90,8 @@ function MusicDirector() {
   const silentRoute = path.startsWith('/quiz') || path.startsWith('/platine') || path.startsWith('/soiree')
 
   useEffect(() => {
-    setMusicSuppressed(silentRoute)
-  }, [silentRoute])
+    setMusicSuppressed(silentRoute || soireeOn)
+  }, [silentRoute, soireeOn])
 
   useEffect(() => {
     setMusicTrack(inGame ? 'game' : 'menu')

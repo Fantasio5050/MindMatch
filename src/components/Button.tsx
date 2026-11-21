@@ -23,6 +23,8 @@ interface ButtonProps {
   onClick?: MouseEventHandler<HTMLButtonElement>
   type?: 'button' | 'submit'
   'aria-label'?: string
+  /** Focus d'entrée — utile sur la TV, où l'on valide à la télécommande. */
+  autoFocus?: boolean
 }
 
 export function Button({ children, variant = 'primary', fullWidth, className, ...rest }: ButtonProps) {

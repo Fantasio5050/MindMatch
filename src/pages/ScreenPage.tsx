@@ -8,6 +8,12 @@ import { PartyGameShell } from '../party/PartyGameShell'
 import { EmoteOverlay } from '../components/EmoteLayer'
 import { useSound } from '../hooks/useSound'
 import { IconArrowLeft, IconScreen, IconFullscreen, IconFullscreenExit } from '../components/icons'
+import { TvViewport } from '../party/primitives/TvViewport'
+import { SoireeStage } from '../soiree/stage/SoireeStage'
+import { CoverBackdrop } from '../soiree/ui'
+import { ReactionRain } from '../soiree/reactions'
+import { TvPlatine } from '../soiree/TvPlatine'
+import { SoireeTvRecap } from '../soiree/Recap'
 
 /** Plein écran via l'API Fullscreen (avec fallback webkit pour les navigateurs de TV) : certains
  * navigateurs TV n'ont aucun bouton plein écran natif, on l'expose donc dans l'UI. */
@@ -54,6 +60,9 @@ export function ScreenPage() {
     }
   }, [])
   const memberCount = usePartyStore((s) => s.group?.members.length ?? null)
+  const roomCode = usePartyStore((s) => s.group?.code ?? null)
+  const music = usePartyStore((s) => s.group?.music ?? null)
+  const inGame = usePartyStore((s) => !!s.group?.party.currentGameId)
   const prevMemberCount = useRef<number | null>(null)
 
   // The TV chimes when someone joins the room — great feedback while people scan the QR code.
@@ -163,7 +172,19 @@ export function ScreenPage() {
           </button>
         )}
       </div>
-      <PartyGameShell mode="screen" />
+      {/* Hors partie, la soirée a la scène : ce qui tourne, la suite, de quoi rejoindre. Pendant une
+          partie, le jeu reprend tout l'écran (la musique, elle, continue). */}
+      {!inGame && music && roomCode ? (
+        <>
+          <CoverBackdrop cover={music.endedAt ? music.recap?.topTracks[0]?.thumbnail : music.current?.thumbnail} strength="stage" />
+          <TvViewport>{music.endedAt ? <SoireeTvRecap code={roomCode} /> : <SoireeStage code={roomCode} />}</TvViewport>
+          <ReactionRain size="stage" />
+        </>
+      ) : (
+        <PartyGameShell mode="screen" />
+      )}
+      {/* La TV joue le son : ses lecteurs restent montés, partie ou pas. */}
+      {music && !music.endedAt && music.source === 'youtube' && music.settings.output === 'tv' && <TvPlatine />}
       <EmoteOverlay big />
     </div>
   )

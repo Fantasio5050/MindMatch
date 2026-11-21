@@ -14,6 +14,7 @@ import { compressImage } from '../lib/compressImage'
 import { GAME_LIBRARY, type GameLibraryEntry } from '../data/gameLibrary'
 import { QUESTION_BANK_SIZE, QUIZ_LEVELS } from '../data/quizLevels'
 import { spotifyEnabled } from '../lib/spotify'
+import { SoireeBanner } from '../soiree/SoireeBanner'
 import type { Group, GameHistoryEntry } from '../types'
 
 type PackChoice = 'classic' | 'trash' | 'mixed'
@@ -84,10 +85,8 @@ export function LobbyPage() {
     }
   }, [partyGroup?.party.status, navigate, play])
 
-  // Mode Soirée lancé par l'hôte -> tout le monde bascule sur la platine partagée.
-  useEffect(() => {
-    if (partyGroup?.music) navigate('/soiree')
-  }, [partyGroup?.music, navigate])
+  // Mode Soirée : plus de bascule forcée vers la platine partagée. La soirée et les jeux vivent
+  // ensemble ; le salon affiche une bannière « Soirée en cours » qui y mène (voir SoireeBanner).
 
   // Little chime whenever someone new walks into the room.
   const memberCount = partyGroup?.members.length ?? null
@@ -221,6 +220,7 @@ export function LobbyPage() {
           onKick={handleKick}
         />
         {photoError && <p className="text-xs text-blood text-center mt-2">{photoError}</p>}
+        <SoireeBanner />
         <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoPick} />
 
         {partyError && (
@@ -279,8 +279,16 @@ export function LobbyPage() {
           </p>
         </Surface>
 
-        {/* ---- Mode Soirée : la platine musicale partagée ---- */}
-        <SoireeLaunchCard isHost={isHost} onLaunch={(source) => { play('start'); startMusic(source) }} />
+        {/* ---- Mode Soirée : la platine musicale partagée (lancement ; en cours, c'est la bannière) ---- */}
+        {(!group.music || !!group.music.endedAt) && (
+          <SoireeLaunchCard
+            isHost={isHost}
+            onLaunch={(source) => {
+              play('start')
+              void startMusic(source).then((ack) => ack.ok && navigate('/soiree'))
+            }}
+          />
+        )}
 
         {/* ---- Bibliothèque de jeux ---- */}
         <div className="flex items-baseline justify-between mb-3 px-1">
@@ -627,7 +635,8 @@ function SoireeLaunchCard({ isHost, onLaunch }: { isHost: boolean; onLaunch: (so
       <p className="text-xs text-chalk-soft mb-4">
         Fini le seul téléphone branché à l'enceinte : tout le monde ajoute des musiques dans une file{' '}
         <b className="text-chalk-muted">équitable</b> (chacun son tour), avec vote pour passer un morceau.
-        L'appareil branché à l'enceinte ouvre la platine.
+        L'appareil branché à l'enceinte ouvre la platine — ou la TV joue le son. La musique continue
+        pendant les jeux.
       </p>
 
       {!isHost ? (

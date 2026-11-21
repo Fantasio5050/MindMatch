@@ -97,11 +97,13 @@ export function attachRealtime(httpServer: HttpServer): { broadcastRoom: (groupI
     }
   }
 
-  /** Applique le résultat d'une opération du Mode Soirée : diffusion, réaction, platine délogée. */
-  function settleMusic(socket: PartySocket, groupId: string, result: MusicResult, ack: Ack): void {
+  /** Applique le résultat d'une opération du Mode Soirée : diffusion, réaction, platine délogée.
+   * `quiet` : un refus sans accusé de réception n'est PAS remonté comme erreur de page (une platine
+   * qui vient de perdre la main peut encore envoyer un battement : ce n'est pas un drame). */
+  function settleMusic(socket: PartySocket, groupId: string, result: MusicResult, ack: Ack, quiet = false): void {
     if (isApiError(result)) {
       if (typeof ack === 'function') ack({ ok: false, error: result.error })
-      else socket.emit('party:error', { error: result.error })
+      else if (!quiet) socket.emit('party:error', { error: result.error })
       return
     }
     if (result.displacedSocketId && result.displacedSocketId !== socket.id) {
@@ -148,7 +150,7 @@ export function attachRealtime(httpServer: HttpServer): { broadcastRoom: (groupI
         const result = type === 'claim'
           ? claimPlatine(group.id, socket.id, payload as { platineId?: unknown; key?: unknown; kind?: unknown })
           : platineEvent(group.id, socket.id, type, payload)
-        settleMusic(socket, group.id, result, ack)
+        settleMusic(socket, group.id, result, ack, type !== 'claim')
       }))
 
       // La platine qui tombe (onglet fermé, réseau coupé) libère sa place : tout le monde le voit, et

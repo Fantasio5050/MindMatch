@@ -7,6 +7,7 @@ import { PartyGameShell } from '../party/PartyGameShell'
 import { EmoteOverlay, EmoteBar } from '../components/EmoteLayer'
 import { useSound } from '../hooks/useSound'
 import { IconArrowLeft, IconCopy, IconCheck } from '../components/icons'
+import { SoireeMiniPlayer } from '../soiree/MiniPlayer'
 
 export function PlayPage() {
   const navigate = useNavigate()
@@ -15,6 +16,9 @@ export function PlayPage() {
   const isHost = usePartyStore((s) => s.isHost())
   const code = usePartyStore((s) => s.group?.code)
   const [copied, setCopied] = useState(false)
+  // Un seul volet ouvert à la fois sous la barre du haut : les réactions, ou la musique de la soirée.
+  const [panel, setPanel] = useState<'emotes' | 'music' | null>(null)
+  const soireeOn = usePartyStore((s) => !!s.group?.music && !s.group.music.endedAt)
   const { play } = useSound()
   const connected = usePartyStore((s) => s.connected)
   const error = usePartyStore((s) => s.error)
@@ -69,14 +73,16 @@ export function PlayPage() {
           {code && (
             <button
               onClick={copyCode}
-              className="flex items-center gap-1.5 rounded-chip bg-felt-raised border border-line px-3 h-9 text-chalk-soft text-xs font-semibold tracking-widest"
+              className={`flex items-center gap-1.5 rounded-chip bg-felt-raised border border-line h-9 text-chalk-soft text-xs font-semibold tracking-widest ${soireeOn ? 'px-2.5' : 'px-3'}`}
               aria-label="Copier le code de la salle"
             >
               {copied ? <IconCheck size={13} className="text-jade" /> : <IconCopy size={13} />}
-              {copied ? 'Copié' : code}
+              {/* Avec le mini-lecteur de la soirée, la barre est pleine : le code se replie en icône. */}
+              {copied ? 'Copié' : soireeOn ? null : code}
             </button>
           )}
-          <EmoteBar />
+          <EmoteBar open={panel === 'emotes'} onOpenChange={(o) => setPanel(o ? 'emotes' : null)} />
+          <SoireeMiniPlayer open={panel === 'music'} onOpenChange={(o) => setPanel(o ? 'music' : null)} />
         </div>
         <AnimatePresence>
           {(offline || error) && (

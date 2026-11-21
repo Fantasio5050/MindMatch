@@ -72,10 +72,17 @@ function FloatingEmote({ emoji, pseudo, big }: { emoji: string; pseudo: string; 
 /** Sélecteur de réactions de la manette : un bouton 😀 dans la barre du haut, qui déplie la rangée
  * de réactions vers le bas. Il vivait en bas à droite, par-dessus le bouton principal de la moitié
  * des écrans (« Retour au salon », « Manche suivante »…). */
-export function EmoteBar() {
+export function EmoteBar({ open: controlledOpen, onOpenChange }: { open?: boolean; onOpenChange?: (open: boolean) => void } = {}) {
   const sendEmote = usePartyStore((s) => s.sendEmote)
   const { play } = useSound()
-  const [open, setOpen] = useState(false)
+  const [localOpen, setLocalOpen] = useState(false)
+  // Contrôlable de l'extérieur : la barre du haut n'ouvre qu'un volet à la fois (réactions OU musique).
+  const open = controlledOpen ?? localOpen
+  const setOpen = (next: boolean | ((o: boolean) => boolean)) => {
+    const value = typeof next === 'function' ? next(open) : next
+    setLocalOpen(value)
+    onOpenChange?.(value)
+  }
 
   // Pas de `relative` ici : la rangée se cale sous le bord gauche de la barre du haut (son ancêtre
   // positionné), pas sous ce bouton, troisième de la barre — elle déborderait sur un petit écran.

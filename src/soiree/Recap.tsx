@@ -46,3 +46,16 @@ export function PlatineRecap({ code, onQuit }: { code: string; onQuit: () => voi
     </div>
   )
 }
+
+/** Fin de soirée, sur la TV (scène 1280 × 720). */
+export function SoireeTvRecap({ code }: { code: string }) {
+  const recap = usePartyStore((s) => s.group?.music?.recap)
+  void code
+  if (!recap) return null
+  return (
+    <div className="w-[1280px] h-[720px] flex flex-col items-center justify-center text-center">
+      <p className="kicker text-tv-xs">Fin de soirée</p>
+      <h1 className="font-stage text-tv-2xl text-chalk">{recap.tracksPlayed} morceaux</h1>
+    </div>
+  )
+}
